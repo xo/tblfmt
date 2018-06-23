@@ -278,7 +278,7 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 				// json encode
 				buf := new(bytes.Buffer)
 				enc := json.NewEncoder(buf)
-				enc.SetIndent(f.indent, f.prefix)
+				enc.SetIndent(f.prefix, f.indent)
 				enc.SetEscapeHTML(f.escapeHTML)
 				if err := enc.Encode(v); err != nil {
 					return nil, err
