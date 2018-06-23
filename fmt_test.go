@@ -76,7 +76,7 @@ func tabpositions(s string) ([][2]int, int) {
 	return tabs, runewidth.StringWidth(s[last:])
 }
 
-func TestEscape(t *testing.T) {
+func TestEscapeTabs(t *testing.T) {
 	tests := []escTest{
 		V("", 0),
 		V("\u8888\t\u8888", 4),
@@ -105,6 +105,20 @@ func TestEscape(t *testing.T) {
 				)
 			}
 		}
+	}
+}
+
+func TestComplexEscape(t *testing.T) {
+	s := `{
+  "2011": "Team Garmin - Cervelo",
+  "2012": "AA Drink - Leontien.nl",
+  "2013": "Boels-Dolmans Cycling Team",
+  "2015": "Boels-Dolmans"
+}`
+
+	v := escape([]byte(s), nil, 0)
+	if w := v.MaxWidth(0, 8); w != 39 {
+		t.Errorf("expected width of 39, got: %d", w)
 	}
 }
 

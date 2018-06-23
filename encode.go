@@ -286,8 +286,6 @@ func (enc *TableEncoder) divider(w io.Writer, r [4]rune) error {
 // row draws the a table row.
 func (enc *TableEncoder) row(w io.Writer, vals []*Value, recalc bool) error {
 	var err error
-
-	//spew.Dump(vals)
 	var l int
 	for {
 		// draw left border

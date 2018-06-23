@@ -266,7 +266,7 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 		case fmt.Stringer:
 			res[i] = f.escapeString(v.String())
 
-		case map[string]interface{}, []interface{}:
+		default:
 			// TODO: pool
 			if f.marshaler != nil {
 				buf, err := f.marshaler(v)
@@ -284,11 +284,8 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 					return nil, err
 				}
 
-				res[i] = f.escapeBytes(buf.Bytes())
+				res[i] = f.escapeBytes(bytes.TrimSpace(buf.Bytes()))
 			}
-
-		default:
-			res[i] = f.escapeString(fmt.Sprintf("%v", v))
 		}
 	}
 
@@ -433,12 +430,27 @@ type Value struct {
 	Align Align
 }
 
+// LineWidth returns the line width (in runes) of line l.
+func (v *Value) LineWidth(l, offset, tab int) int {
+	var width int
+	if l < len(v.Newlines) {
+		width += v.Newlines[l][1]
+	}
+	if len(v.Tabs[l]) != 0 {
+		width += tabwidth(v.Tabs[l], offset, tab)
+	}
+	if l == len(v.Newlines) {
+		width += v.Width
+	}
+	return width
+}
+
 // MaxWidth calculates the maximum width (in runes) of the longest line
 // contained in Buf, relative to starting offset and the tab width.
 func (v *Value) MaxWidth(offset, tab int) int {
-	width := v.Width
-	for i := 0; i < len(v.Tabs); i++ {
-		width = max(width, tabwidth(v.Tabs[i], offset, tab)+v.Width)
+	var width int
+	for l := 0; l < len(v.Tabs); l++ {
+		width = max(width, v.LineWidth(l, offset, tab))
 	}
 	return width
 }
