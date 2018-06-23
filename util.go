@@ -31,6 +31,9 @@ func (err Error) Error() string {
 const (
 	// ErrResultSetIsNil is the result set is nil error.
 	ErrResultSetIsNil Error = "result set is nil"
+
+	// ErrResultSetHasNoColumns is the result set has no columns error.
+	ErrResultSetHasNoColumns Error = "result set has no columns"
 )
 
 // DefaultTableSummary is the default table summary.

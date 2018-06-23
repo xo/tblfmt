@@ -18,5 +18,12 @@ type ResultSet interface {
 // EncodeAll encodes all result sets in rs to the writer using the encoder
 // settings.
 func (enc *TableEncoder) EncodeAll(w io.Writer) error {
-	return enc.Encode(w)
+	var err error
+
+	if err = enc.Encode(w); err != nil {
+		return err
+	}
+
+	_, err = w.Write(enc.newline)
+	return err
 }

@@ -90,6 +90,10 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 
 	clen := len(cols)
 
+	if clen == 0 {
+		return ErrResultSetHasNoColumns
+	}
+
 	// initialize
 	r := make([]interface{}, clen)
 	for i := 0; i < clen; i++ {
@@ -207,8 +211,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		}
 	}
 
-	_, err = w.Write(enc.newline)
-	return err
+	return nil
 }
 
 // scanAndFormat scans and formats values from the result set.

@@ -20,13 +20,23 @@ type ResultSet interface {
 // settings.
 func (enc *TableEncoder) EncodeAll(w io.Writer) error {
 	var err error
+
 	if err = enc.Encode(w); err != nil {
 		return err
 	}
+
+	if _, err = w.Write(enc.newline); err != nil {
+		return err
+	}
+
 	for enc.resultSet.NextResultSet() {
 		if err = enc.Encode(w); err != nil {
 			return err
 		}
+		if _, err = w.Write(enc.newline); err != nil {
+			return err
+		}
 	}
+
 	return nil
 }
