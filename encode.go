@@ -3,6 +3,8 @@ package tblfmt
 import (
 	"bytes"
 	"io"
+
+	"github.com/mattn/go-runewidth"
 )
 
 // TableEncoder is a buffered, lookahead table encoder for result sets.
@@ -39,17 +41,20 @@ type TableEncoder struct {
 	// summary is the summary map.
 	summary map[int]func(io.Writer, int) (int, error)
 
+	// title is the title value.
+	title *Value
+
 	// empty is the empty value.
 	empty *Value
-
-	// scanCount is the number of scanned results in the result set.
-	scanCount int
 
 	// offsets are the column offsets.
 	offsets []int
 
 	// widths are the column widths.
 	widths []int
+
+	// scanCount is the number of scanned results in the result set.
+	scanCount int
 }
 
 // NewTableEncoder creates a new table encoder using the provided
@@ -70,6 +75,22 @@ func NewTableEncoder(resultSet ResultSet, opts ...TableEncoderOption) *TableEnco
 	for _, o := range opts {
 		o(enc)
 	}
+
+	// check linestyle runes
+	for _, l := range [][4]rune{
+		enc.lineStyle.Top,
+		enc.lineStyle.Mid,
+		enc.lineStyle.Row,
+		enc.lineStyle.Wrap,
+		enc.lineStyle.End,
+	} {
+		for _, r := range l {
+			if runewidth.RuneWidth(r) != 1 {
+				panic("invalid line style")
+			}
+		}
+	}
+
 	return enc
 }
 
@@ -82,22 +103,22 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		return ErrResultSetIsNil
 	}
 
-	// get columns
+	// get and check columns
 	cols, err := enc.resultSet.Columns()
 	if err != nil {
 		return err
 	}
-
 	clen := len(cols)
-
 	if clen == 0 {
 		return ErrResultSetHasNoColumns
 	}
 
-	// initialize
-	r := make([]interface{}, clen)
-	for i := 0; i < clen; i++ {
-		r[i] = new(interface{})
+	// setup offsets, widths
+	enc.offsets = make([]int, clen)
+	if len(enc.widths) < clen {
+		w := enc.widths
+		enc.widths = make([]int, clen)
+		copy(enc.widths, w)
 	}
 
 	var v []*Value
@@ -109,6 +130,12 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		return err
 	}
 	vals = append(vals, v)
+
+	// set up storage for results
+	r := make([]interface{}, clen)
+	for i := 0; i < clen; i++ {
+		r[i] = new(interface{})
+	}
 
 	// buffer
 	if enc.count >= 0 {
@@ -130,8 +157,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		}
 	}
 
-	// calculate initial offsets and column widths
-	enc.offsets, enc.widths = make([]int, clen), make([]int, clen)
+	// calc offsets and widths
 	var offset int
 	if enc.border > 1 {
 		offset += 2
@@ -160,7 +186,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		offset += enc.widths[i] + 1
 	}
 
-	//fmt.Printf("offsets: %v, widths: %v\n", enc.offsets, enc.widths)
+	// fmt.Printf("offsets: %v, widths: %v\n", enc.offsets, enc.widths)
 
 	// draw top border
 	if enc.border >= 2 {
@@ -170,7 +196,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 	}
 
 	// write header
-	if err = enc.row(w, vals[0], false); err != nil {
+	if err = enc.row(w, vals[0]); err != nil {
 		return err
 	}
 
@@ -181,7 +207,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 
 	// marshal remaining buffered vals
 	for i := 1; i < len(vals); i++ {
-		if err = enc.row(w, vals[i], false); err != nil {
+		if err = enc.row(w, vals[i]); err != nil {
 			return err
 		}
 	}
@@ -192,7 +218,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		if err != nil {
 			return err
 		}
-		if err = enc.row(w, v, true); err != nil {
+		if err = enc.row(w, v); err != nil {
 			return err
 		}
 	}
@@ -287,7 +313,7 @@ func (enc *TableEncoder) divider(w io.Writer, r [4]rune) error {
 }
 
 // row draws the a table row.
-func (enc *TableEncoder) row(w io.Writer, vals []*Value, recalc bool) error {
+func (enc *TableEncoder) row(w io.Writer, vals []*Value) error {
 	var err error
 	var l int
 	for {
@@ -464,6 +490,17 @@ func WithSummary(summary map[int]func(io.Writer, int) (int, error)) TableEncoder
 	}
 }
 
+// WithTitle is a table encoder option to set the title value used.
+func WithTitle(title string) TableEncoderOption {
+	return func(enc *TableEncoder) {
+		v, err := enc.formatter.Header([]string{title})
+		if err != nil {
+			panic(err)
+		}
+		enc.empty = v[0]
+	}
+}
+
 // WithEmpty is a table encoder option to set the value used in empty (nil)
 // cells.
 func WithEmpty(empty string) TableEncoderOption {
@@ -474,5 +511,12 @@ func WithEmpty(empty string) TableEncoderOption {
 			panic(err)
 		}
 		enc.empty = v[0]
+	}
+}
+
+// WithWidths is a table encoder option to set (minimum) widths for a column.
+func WithWidths(widths []int) TableEncoderOption {
+	return func(enc *TableEncoder) {
+		enc.widths = widths
 	}
 }

@@ -61,7 +61,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = tblfmt.NewTableEncoder(result).Encode(os.Stdout)
+	err = tblfmt.NewTableEncoder(result, tblfmt.WithWidths([]int{20, 20})).Encode(os.Stdout)
 	if err != nil {
 		log.Fatal(err)
 	}

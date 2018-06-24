@@ -465,6 +465,19 @@ const (
 	AlignCenter
 )
 
+// String satisfies the fmt.Stringer interface.
+func (a Align) String() string {
+	switch a {
+	case AlignLeft:
+		return "Left"
+	case AlignRight:
+		return "Right"
+	case AlignCenter:
+		return "Center"
+	}
+	return fmt.Sprintf("Align(%d)", a)
+}
+
 // tabwidth returns the rune width of buf containing tabs from start position
 // in buf, a column offset, and given tab width.
 func tabwidth(tabs [][2]int, offset, tab int) int {
