@@ -82,11 +82,13 @@ func DefaultTableSummary() map[int]func(io.Writer, int) (int, error) {
 //               |                           |
 //
 type LineStyle struct {
-	Top  [4]rune
-	Mid  [4]rune
-	Row  [4]rune
-	Wrap [4]rune
-	End  [4]rune
+	Top          [4]rune
+	Mid          [4]rune
+	Row          [4]rune
+	Wrap         [4]rune
+	End          [4]rune
+	EmbedColumns bool
+	Compact      bool
 }
 
 // ASCIILineStyle is the ascii line style for tables.
@@ -156,6 +158,42 @@ func UnicodeLineStyle() LineStyle {
 	}
 }
 
+// UnicodeCompactLineStyle is the compact unicode line style for tables.
+//
+// Tables using this style will look like the following:
+//
+//    ┌─────────┬─────────────────────────┬─┐
+//    │author_id│          name           │z│
+//    ├─────────┼─────────────────────────┼─┤
+//    │       14│a       b       c       d│ │
+//    │       15│aoeu                     │ │
+//    │         │test                     │ │
+//    │         │                         │ │
+//    └─────────┴─────────────────────────┴─┘
+//
+func UnicodeCompactLineStyle() LineStyle {
+	s := UnicodeLineStyle()
+	s.Compact = true
+	return s
+}
+
+// ClickhouseLineStyle is the clickhouse unicode line style for tables.
+//
+// Tables using this style will look like the following:
+//
+//    ┌─author_id─┬─────────name──────────────┬─z─┐
+//    │        14 │ a       b       c       d │   │
+//    │        15 │ aoeu                     ↵│   │
+//    │           │ test                     ↵│   │
+//    │           │                           │   │
+//    └───────────┴───────────────────────────┴───┘
+//
+func ClickhouseLineStyle() LineStyle {
+	s := UnicodeLineStyle()
+	s.EmbedColumns = true
+	return s
+}
+
 // UnicodeDoubleLineStyle is the unicode double line style for tables.
 //
 // Tables using this style will look like the following:
@@ -178,6 +216,24 @@ func UnicodeDoubleLineStyle() LineStyle {
 		Wrap: [4]rune{'║', '↵', '║', '║'},
 		End:  [4]rune{'╚', '═', '╩', '╝'},
 	}
+}
+
+// styleFuncMap maps a style name with a line style constructor
+var styleFuncMap = map[string]LineStyle{
+	"ascii":          ASCIILineStyle(),
+	"oldascii":       OldASCIILineStyle(),
+	"unicode":        UnicodeLineStyle(),
+	"unicodedouble":  UnicodeDoubleLineStyle(),
+	"clickhouse":     ClickhouseLineStyle(),
+	"unicodecompact": UnicodeCompactLineStyle(),
+}
+
+// Style returns a line style constructor from an ascii string
+func Style(s string) LineStyle {
+	if f, ok := styleFuncMap[s]; ok {
+		return f
+	}
+	return ASCIILineStyle()
 }
 
 // max returns the max of a, b.
