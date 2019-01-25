@@ -66,10 +66,9 @@ func NewTableEncoder(resultSet ResultSet, opts ...TableEncoderOption) (*TableEnc
 	enc := &TableEncoder{
 		resultSet: resultSet,
 		newline:   newline,
-		border:    2,
-		inline:    false,
+		border:    1,
 		tab:       8,
-		lineStyle: OldASCIILineStyle(),
+		lineStyle: ASCIILineStyle(),
 		formatter: NewEscapeFormatter(),
 		summary:   DefaultTableSummary(),
 		empty: &Value{
