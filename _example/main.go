@@ -1,4 +1,4 @@
-// example/main.go
+// _example/main.go
 package main
 
 import (
@@ -23,8 +23,15 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = tblfmt.NewTableEncoder(result, tblfmt.WithWidths([]int{20, 20})).Encode(os.Stdout)
-	if err != nil {
+	enc, err := tblfmt.NewTableEncoder(result,
+		// use a named style
+		tblfmt.WithNamedStyle("double"),
+
+		// force minimum column widths
+		tblfmt.WithWidths([]int{20, 20}),
+	)
+
+	if err = enc.EncodeAll(os.Stdout); err != nil {
 		log.Fatal(err)
 	}
 }

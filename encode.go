@@ -3,8 +3,9 @@ package tblfmt
 import (
 	"bytes"
 	"io"
+	"strings"
 
-	"github.com/mattn/go-runewidth"
+	runewidth "github.com/mattn/go-runewidth"
 )
 
 // TableEncoder is a buffered, lookahead table encoder for result sets.
@@ -29,8 +30,8 @@ type TableEncoder struct {
 	// border is the display border size.
 	border int
 
-	// expanded toggles expanded mode.
-	//expanded bool
+	// inline toggles drawing the column header names inline with the top line.
+	inline bool
 
 	// lineStyle is the table line style.
 	lineStyle LineStyle
@@ -59,24 +60,32 @@ type TableEncoder struct {
 
 // NewTableEncoder creates a new table encoder using the provided
 // options.
-func NewTableEncoder(resultSet ResultSet, opts ...TableEncoderOption) *TableEncoder {
+func NewTableEncoder(resultSet ResultSet, opts ...TableEncoderOption) (*TableEncoder, error) {
+	var err error
+
 	enc := &TableEncoder{
 		resultSet: resultSet,
 		newline:   newline,
-		border:    1,
+		border:    2,
+		inline:    false,
 		tab:       8,
-		lineStyle: ASCIILineStyle(),
+		lineStyle: OldASCIILineStyle(),
 		formatter: NewEscapeFormatter(),
 		summary:   DefaultTableSummary(),
 		empty: &Value{
 			Tabs: make([][][2]int, 1),
 		},
 	}
+
+	// apply options
 	for _, o := range opts {
-		o(enc)
+		if err = o(enc); err != nil {
+			return nil, err
+		}
 	}
 
 	// check linestyle runes
+	// TODO: this check should be removed
 	for _, l := range [][4]rune{
 		enc.lineStyle.Top,
 		enc.lineStyle.Mid,
@@ -85,18 +94,21 @@ func NewTableEncoder(resultSet ResultSet, opts ...TableEncoderOption) *TableEnco
 		enc.lineStyle.End,
 	} {
 		for _, r := range l {
-			if runewidth.RuneWidth(r) != 1 {
-				panic("invalid line style")
+			if r != 0 && runewidth.RuneWidth(r) != 1 {
+				return nil, ErrInvalidLineStyle
 			}
 		}
 	}
 
-	return enc
+	return enc, nil
 }
 
 // Encode encodes a single result set to the writer using the formatting
 // options specified in the encoder.
 func (enc *TableEncoder) Encode(w io.Writer) error {
+	// reset scan count
+	enc.scanCount = 0
+
 	var err error
 
 	if enc.resultSet == nil {
@@ -459,64 +471,101 @@ func (enc *TableEncoder) summarize(w io.Writer) error {
 }
 
 // TableEncoderOption is a table encoder option.
-type TableEncoderOption func(*TableEncoder)
+type TableEncoderOption func(*TableEncoder) error
 
 // WithCount is a table encoder option to set the buffered line count.
 func WithCount(count int) TableEncoderOption {
-	return func(enc *TableEncoder) {
+	return func(enc *TableEncoder) error {
 		enc.count = count
+		return nil
 	}
 }
 
-// WithStyle is a table encoder option to set the table line style.
-func WithStyle(lineStyle LineStyle) TableEncoderOption {
-	return func(enc *TableEncoder) {
+// WithLineStyle is a table encoder option to set the table line style.
+func WithLineStyle(lineStyle LineStyle) TableEncoderOption {
+	return func(enc *TableEncoder) error {
 		enc.lineStyle = lineStyle
+		return nil
+	}
+}
+
+// WithNamedStyle is a table encoder option to set a predefined named table
+// style.
+//
+// Available styles:
+//
+// ASCII:
+func WithNamedStyle(name string) TableEncoderOption {
+	return func(enc *TableEncoder) error {
+		switch strings.ToLower(name) {
+		case "ascii":
+			enc.border, enc.lineStyle = 1, ASCIILineStyle()
+		case "old-ascii":
+			enc.border, enc.lineStyle = 1, OldASCIILineStyle()
+		case "unicode":
+			enc.border, enc.lineStyle = 2, UnicodeLineStyle()
+		case "double":
+			enc.border, enc.lineStyle = 2, UnicodeDoubleLineStyle()
+		case "compact":
+			enc.border, enc.lineStyle = 0, UnicodeLineStyle()
+			enc.lineStyle.Wrap[1] = 0
+		case "inline":
+			enc.border, enc.inline, enc.lineStyle = 0, true, UnicodeLineStyle()
+			enc.lineStyle.Wrap[1] = 0
+		default:
+			return ErrInvalidStyleName
+		}
+		return nil
 	}
 }
 
 // WithFormatter is a table encoder option to set a formatter for formatting
 // values.
 func WithFormatter(formatter Formatter) TableEncoderOption {
-	return func(enc *TableEncoder) {
+	return func(enc *TableEncoder) error {
 		enc.formatter = formatter
+		return nil
 	}
 }
 
 // WithSummary is a table encoder option to set a summary callback map.
 func WithSummary(summary map[int]func(io.Writer, int) (int, error)) TableEncoderOption {
-	return func(enc *TableEncoder) {
+	return func(enc *TableEncoder) error {
 		enc.summary = summary
+		return nil
 	}
 }
 
 // WithTitle is a table encoder option to set the title value used.
 func WithTitle(title string) TableEncoderOption {
-	return func(enc *TableEncoder) {
+	return func(enc *TableEncoder) error {
 		v, err := enc.formatter.Header([]string{title})
 		if err != nil {
-			panic(err)
+			return err
 		}
 		enc.empty = v[0]
+		return nil
 	}
 }
 
 // WithEmpty is a table encoder option to set the value used in empty (nil)
 // cells.
 func WithEmpty(empty string) TableEncoderOption {
-	return func(enc *TableEncoder) {
+	return func(enc *TableEncoder) error {
 		cell := interface{}(empty)
 		v, err := enc.formatter.Format([]interface{}{&cell})
 		if err != nil {
-			panic(err)
+			return err
 		}
 		enc.empty = v[0]
+		return nil
 	}
 }
 
 // WithWidths is a table encoder option to set (minimum) widths for a column.
 func WithWidths(widths []int) TableEncoderOption {
-	return func(enc *TableEncoder) {
+	return func(enc *TableEncoder) error {
 		enc.widths = widths
+		return nil
 	}
 }
