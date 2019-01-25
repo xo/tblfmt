@@ -2,6 +2,7 @@ package tblfmt
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"testing"
 )
@@ -55,6 +56,11 @@ func rsset(i int) [][]interface{} {
 		[]interface{}{i + 3, "袈\t袈\t\t袈", nil},
 		[]interface{}{i + 4, "a\tb\t\r\n\ta", "a\n"},
 		[]interface{}{i + 5, "袈\t袈\t\t袈\n", nil},
+		[]interface{}{i + 6, "javascript", map[string]interface{}{
+			fmt.Sprintf("test%d", i+7): "a value",
+			fmt.Sprintf("test%d", i+8): "foo\bbar",
+		}},
+		[]interface{}{i + 9, "slice", []string{"a", "b"}},
 	}
 }
 
