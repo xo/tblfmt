@@ -32,8 +32,6 @@ func EncodeTableAll(w io.Writer, rs ResultSet, opts ...TableEncoderOption) error
 	return enc.EncodeAll(w)
 }
 
-/*
-
 // EncodeJSON encodes the result set to the writer as JSON using the supplied
 // encoding options.
 func EncodeJSON(w io.Writer, rs ResultSet, opts ...JSONEncoderOption) error {
@@ -54,14 +52,16 @@ func EncodeJSONAll(w io.Writer, rs ResultSet, opts ...JSONEncoderOption) error {
 	return enc.Encode(w)
 }
 
-*/
-
 // EncoderFromMap creates an encoder based on the passed map options.
 func EncoderFromMap(rs ResultSet, opts map[string]string) (Encoder, error) {
-	var tableOpts []TableEncoderOption
-
 	switch opts["format"] {
-	case "aligned":
+	case "json":
+		var jsonOpts []JSONEncoderOption
+		return NewJSONEncoder(rs, jsonOpts...)
+
+	default:
+		var tableOpts []TableEncoderOption
+
 		if s, ok := opts["border"]; ok {
 			border, _ := strconv.Atoi(s)
 			tableOpts = append(tableOpts, WithBorder(border))
@@ -81,9 +81,8 @@ func EncoderFromMap(rs ResultSet, opts map[string]string) (Encoder, error) {
 				}
 			}
 		}
+		return NewTableEncoder(rs, tableOpts...)
 	}
-
-	return NewTableEncoder(rs, tableOpts...)
 }
 
 // Encode encodes the result set to the writer using the supplied map options.

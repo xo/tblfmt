@@ -58,8 +58,7 @@ type TableEncoder struct {
 	scanCount int
 }
 
-// NewTableEncoder creates a new table encoder using the provided
-// options.
+// NewTableEncoder creates a new table encoder using the provided options.
 func NewTableEncoder(resultSet ResultSet, opts ...TableEncoderOption) (*TableEncoder, error) {
 	var err error
 
@@ -584,3 +583,126 @@ func WithBorder(border int) TableEncoderOption {
 		return nil
 	}
 }
+
+// JSONEncoder is an unbuffered JSON encoder for result sets.
+type JSONEncoder struct {
+	resultSet ResultSet
+
+	// newline is the newline to use.
+	newline []byte
+
+	// formatter handles formatting values prior to output.
+	formatter Formatter
+}
+
+// NewTableEncoder creates a new JSON encoder using the provided options.
+func NewJSONEncoder(resultSet ResultSet, opts ...JSONEncoderOption) (*JSONEncoder, error) {
+	return &JSONEncoder{
+		resultSet: resultSet,
+		formatter: NewEscapeFormatter(),
+	}, nil
+}
+
+// Encode encodes a single result set to the writer using the formatting
+// options specified in the encoder.
+func (enc *JSONEncoder) Encode(w io.Writer) error {
+	if enc.resultSet == nil {
+		return ErrResultSetIsNil
+	}
+
+	//var b = [7]byte{'[', '{', '"', ',', '"', '}', ']'}
+	//a, o, s, m, z := b[:1], b[1:3], b[2:5], b[4:6], b[6:]
+
+	var i int
+	var err error
+
+	var (
+		start = []byte{'['}
+		end   = []byte{']'}
+		cls   = append([]byte(","), enc.newline...)
+		null  = []byte("null")
+	)
+
+	// get and check columns
+	cols, err := enc.resultSet.Columns()
+	if err != nil {
+		return err
+	}
+	clen := len(cols)
+	if clen == 0 {
+		return ErrResultSetHasNoColumns
+	}
+	cv, err := enc.formatter.Header(cols)
+	if err != nil {
+		return err
+	}
+
+	cb := make([][]byte, clen)
+
+	// first record
+	cb[0] = make([]byte, len(cols[0])+3)
+	copy(cb[0][0:], []byte(`"`))
+	copy(cb[0][1:], []byte(cv[0].Buf))
+	copy(cb[0][len(cv[0].Buf)+1:], []byte(`":`))
+
+	for i = 1; i < clen; i++ {
+		l := len(enc.newline) + len(cols[i]) + 4
+		cb[i] = make([]byte, l)
+		copy(cb[i][0:], append(cls, '"'))
+		copy(cb[i][len(cls)+1:], []byte(cv[i].Buf))
+		copy(cb[i][l-2:], []byte(`":`))
+	}
+
+	if _, err = w.Write(start); err != nil {
+		return err
+	}
+
+	// set up storage for results
+	r := make([]interface{}, clen)
+	for i := 0; i < clen; i++ {
+		r[i] = new(interface{})
+	}
+
+	var v []*Value
+	for enc.resultSet.Next() {
+		v, err = enc.scanAndFormat(r)
+		if err != nil {
+			return err
+		}
+
+		for i = 0; i < clen; i++ {
+			if _, err = w.Write(cb[i]); err != nil {
+				return err
+			}
+			if v[i] != nil {
+				if _, err = w.Write(v[i].Buf); err != nil {
+					return err
+				}
+			} else {
+				if _, err = w.Write(null); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if _, err = w.Write(end); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// scanAndFormat scans and formats values from the result set.
+func (enc *JSONEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
+	var err error
+	if err = enc.resultSet.Err(); err != nil {
+		return nil, err
+	}
+	if err = enc.resultSet.Scan(vals...); err != nil {
+		return nil, err
+	}
+	return enc.formatter.Format(vals)
+}
+
+// JSONEncoderOption is a JSON encoder option.
+type JSONEncoderOption func(*JSONEncoder)
