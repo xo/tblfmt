@@ -568,3 +568,19 @@ func WithWidths(widths []int) TableEncoderOption {
 		return nil
 	}
 }
+
+// WithNewline is a table encoder option to set the newline.
+func WithNewline(newline string) TableEncoderOption {
+	return func(enc *TableEncoder) error {
+		enc.newline = []byte(newline)
+		return nil
+	}
+}
+
+// WithBorder is a table encoder option to set the border size.
+func WithBorder(border int) TableEncoderOption {
+	return func(enc *TableEncoder) error {
+		enc.border = border
+		return nil
+	}
+}
