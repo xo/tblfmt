@@ -1,6 +1,7 @@
 package tblfmt
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"runtime"
@@ -35,12 +36,39 @@ const (
 	// ErrResultSetHasNoColumns is the result set has no columns error.
 	ErrResultSetHasNoColumns Error = "result set has no columns"
 
+	// ErrInvalidFormat is the invalid format error.
+	ErrInvalidFormat Error = "invalid format"
+
 	// ErrInvalidLineStyle is the invalid line style error.
 	ErrInvalidLineStyle Error = "invalid line style"
-
-	// ErrInvalidStyleName is the invalid style name error.
-	ErrInvalidStyleName Error = "invalid style name"
 )
+
+// errEncoder provides a no-op encoder that always returns the wrapped error.
+type errEncoder struct {
+	err error
+}
+
+// Encode satisfies the Encoder interface.
+func (err errEncoder) Encode(io.Writer) error {
+	return err.err
+}
+
+// EncodeAll satisfies the Encoder interface.
+func (err errEncoder) EncodeAll(io.Writer) error {
+	return err.err
+}
+
+// newErrEncoder creates a no-op error encoder.
+func newErrEncoder(_ ResultSet, opts ...Option) (Encoder, error) {
+	var err error
+	enc := &errEncoder{}
+	for _, o := range opts {
+		if err = o(enc); err != nil {
+			return nil, err
+		}
+	}
+	return enc, enc.err
+}
 
 // DefaultTableSummary is the default table summary.
 func DefaultTableSummary() map[int]func(io.Writer, int) (int, error) {
@@ -60,4 +88,19 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// condWrite conditionally writes runes to w.
+func condWrite(w io.Writer, repeat int, runes ...rune) error {
+	var buf []byte
+	for _, r := range runes {
+		if r != 0 {
+			buf = append(buf, []byte(string(r))...)
+		}
+	}
+	if repeat > 1 {
+		buf = bytes.Repeat(buf, repeat)
+	}
+	_, err := w.Write(buf)
+	return err
 }

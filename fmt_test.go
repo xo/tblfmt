@@ -10,7 +10,7 @@ import (
 	runewidth "github.com/mattn/go-runewidth"
 )
 
-func TestTabwidth(t *testing.T) {
+func TestTabwidthCalc(t *testing.T) {
 	tests := []struct {
 		s      string
 		offset int
@@ -76,14 +76,14 @@ func tabpositions(s string) ([][2]int, int) {
 	return tabs, runewidth.StringWidth(s[last:])
 }
 
-func TestEscapeTabs(t *testing.T) {
+func TestFormatBytesTabs(t *testing.T) {
 	tests := []escTest{
-		V("", 0),
-		V("\u8888\t\u8888", 4),
-		V(" \u8888 \t \u8888 ", 8),
+		v("", 0),
+		v("\u8888\t\u8888", 4),
+		v(" \u8888 \t \u8888 ", 8),
 	}
 	for i, test := range tests {
-		v := escape([]byte(test.s), nil, 0)
+		v := FormatBytes([]byte(test.s), nil, 0, false)
 		if !reflect.DeepEqual(v, test.exp) {
 			t.Errorf(
 				"test %d %q expected %v, got: %v",
@@ -108,7 +108,7 @@ func TestEscapeTabs(t *testing.T) {
 	}
 }
 
-func TestComplexEscape(t *testing.T) {
+func TestFormatBytesComplex(t *testing.T) {
 	s := `{
   "2011": "Team Garmin - Cervelo",
   "2012": "AA Drink - Leontien.nl",
@@ -116,7 +116,7 @@ func TestComplexEscape(t *testing.T) {
   "2015": "Boels-Dolmans"
 }`
 
-	v := escape([]byte(s), nil, 0)
+	v := FormatBytes([]byte(s), nil, 0, false)
 	if w := v.MaxWidth(0, 8); w != 39 {
 		t.Errorf("expected width of 39, got: %d", w)
 	}
@@ -136,7 +136,7 @@ func quote(s string) string {
 	return s
 }
 
-func V(s string, check int) escTest {
+func v(s string, check int) escTest {
 	c := quote(s)
 	tabs, width := tabpositions(c)
 	var buf []byte

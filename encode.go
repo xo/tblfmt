@@ -2,8 +2,9 @@ package tblfmt
 
 import (
 	"bytes"
+	"encoding/csv"
+	"encoding/json"
 	"io"
-	"strings"
 
 	runewidth "github.com/mattn/go-runewidth"
 )
@@ -59,7 +60,7 @@ type TableEncoder struct {
 }
 
 // NewTableEncoder creates a new table encoder using the provided options.
-func NewTableEncoder(resultSet ResultSet, opts ...TableEncoderOption) (*TableEncoder, error) {
+func NewTableEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	var err error
 
 	enc := &TableEncoder{
@@ -431,21 +432,6 @@ func (enc *TableEncoder) row(w io.Writer, vals []*Value) error {
 	return nil
 }
 
-// condWrite conditionally writes runes to w.
-func condWrite(w io.Writer, repeat int, runes ...rune) error {
-	var buf []byte
-	for _, r := range runes {
-		if r != 0 {
-			buf = append(buf, []byte(string(r))...)
-		}
-	}
-	if repeat > 1 {
-		buf = bytes.Repeat(buf, repeat)
-	}
-	_, err := w.Write(buf)
-	return err
-}
-
 // summarize writes the table scan count summary.
 func (enc *TableEncoder) summarize(w io.Writer) error {
 	// do summary
@@ -468,122 +454,6 @@ func (enc *TableEncoder) summarize(w io.Writer) error {
 	return nil
 }
 
-// TableEncoderOption is a table encoder option.
-type TableEncoderOption func(*TableEncoder) error
-
-// WithCount is a table encoder option to set the buffered line count.
-func WithCount(count int) TableEncoderOption {
-	return func(enc *TableEncoder) error {
-		enc.count = count
-		return nil
-	}
-}
-
-// WithLineStyle is a table encoder option to set the table line style.
-func WithLineStyle(lineStyle LineStyle) TableEncoderOption {
-	return func(enc *TableEncoder) error {
-		enc.lineStyle = lineStyle
-		return nil
-	}
-}
-
-// WithNamedStyle is a table encoder option to set a predefined named table
-// style.
-//
-// Available styles:
-//
-// ASCII:
-func WithNamedStyle(name string) TableEncoderOption {
-	return func(enc *TableEncoder) error {
-		switch strings.ToLower(name) {
-		case "ascii":
-			enc.border, enc.lineStyle = 1, ASCIILineStyle()
-		case "old-ascii":
-			enc.border, enc.lineStyle = 1, OldASCIILineStyle()
-		case "unicode":
-			enc.border, enc.lineStyle = 2, UnicodeLineStyle()
-		case "double":
-			enc.border, enc.lineStyle = 2, UnicodeDoubleLineStyle()
-		case "compact":
-			enc.border, enc.lineStyle = 0, UnicodeLineStyle()
-			enc.lineStyle.Wrap[1] = 0
-		case "inline":
-			enc.border, enc.inline, enc.lineStyle = 0, true, UnicodeLineStyle()
-			enc.lineStyle.Wrap[1] = 0
-		default:
-			return ErrInvalidStyleName
-		}
-		return nil
-	}
-}
-
-// WithFormatter is a table encoder option to set a formatter for formatting
-// values.
-func WithFormatter(formatter Formatter) TableEncoderOption {
-	return func(enc *TableEncoder) error {
-		enc.formatter = formatter
-		return nil
-	}
-}
-
-// WithSummary is a table encoder option to set a summary callback map.
-func WithSummary(summary map[int]func(io.Writer, int) (int, error)) TableEncoderOption {
-	return func(enc *TableEncoder) error {
-		enc.summary = summary
-		return nil
-	}
-}
-
-// WithTitle is a table encoder option to set the title value used.
-func WithTitle(title string) TableEncoderOption {
-	return func(enc *TableEncoder) error {
-		v, err := enc.formatter.Header([]string{title})
-		if err != nil {
-			return err
-		}
-		enc.empty = v[0]
-		return nil
-	}
-}
-
-// WithEmpty is a table encoder option to set the value used in empty (nil)
-// cells.
-func WithEmpty(empty string) TableEncoderOption {
-	return func(enc *TableEncoder) error {
-		cell := interface{}(empty)
-		v, err := enc.formatter.Format([]interface{}{&cell})
-		if err != nil {
-			return err
-		}
-		enc.empty = v[0]
-		return nil
-	}
-}
-
-// WithWidths is a table encoder option to set (minimum) widths for a column.
-func WithWidths(widths []int) TableEncoderOption {
-	return func(enc *TableEncoder) error {
-		enc.widths = widths
-		return nil
-	}
-}
-
-// WithNewline is a table encoder option to set the newline.
-func WithNewline(newline string) TableEncoderOption {
-	return func(enc *TableEncoder) error {
-		enc.newline = []byte(newline)
-		return nil
-	}
-}
-
-// WithBorder is a table encoder option to set the border size.
-func WithBorder(border int) TableEncoderOption {
-	return func(enc *TableEncoder) error {
-		enc.border = border
-		return nil
-	}
-}
-
 // JSONEncoder is an unbuffered JSON encoder for result sets.
 type JSONEncoder struct {
 	resultSet ResultSet
@@ -593,14 +463,33 @@ type JSONEncoder struct {
 
 	// formatter handles formatting values prior to output.
 	formatter Formatter
+
+	// title is the title value.
+	title *Value
+
+	// empty is the empty value.
+	empty *Value
 }
 
-// NewTableEncoder creates a new JSON encoder using the provided options.
-func NewJSONEncoder(resultSet ResultSet, opts ...JSONEncoderOption) (*JSONEncoder, error) {
-	return &JSONEncoder{
+// NewJSONEncoder creates a new JSON encoder using the provided options.
+func NewJSONEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
+	var err error
+	enc := &JSONEncoder{
 		resultSet: resultSet,
-		formatter: NewEscapeFormatter(),
-	}, nil
+		newline:   newline,
+		formatter: NewEscapeFormatter(WithEscapeJSON(true)),
+		empty: &Value{
+			Buf:  []byte("null"),
+			Tabs: make([][][2]int, 1),
+			Raw:  true,
+		},
+	}
+	for _, o := range opts {
+		if err = o(enc); err != nil {
+			return nil, err
+		}
+	}
+	return enc, nil
 }
 
 // Encode encodes a single result set to the writer using the formatting
@@ -610,17 +499,16 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		return ErrResultSetIsNil
 	}
 
-	//var b = [7]byte{'[', '{', '"', ',', '"', '}', ']'}
-	//a, o, s, m, z := b[:1], b[1:3], b[2:5], b[4:6], b[6:]
-
 	var i int
 	var err error
 
 	var (
 		start = []byte{'['}
 		end   = []byte{']'}
-		cls   = append([]byte(","), enc.newline...)
-		null  = []byte("null")
+		open  = []byte{'{'}
+		cls   = []byte{'}'}
+		q     = []byte{'"'}
+		cma   = []byte{','}
 	)
 
 	// get and check columns
@@ -632,29 +520,12 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 	if clen == 0 {
 		return ErrResultSetHasNoColumns
 	}
-	cv, err := enc.formatter.Header(cols)
-	if err != nil {
-		return err
-	}
-
 	cb := make([][]byte, clen)
-
-	// first record
-	cb[0] = make([]byte, len(cols[0])+3)
-	copy(cb[0][0:], []byte(`"`))
-	copy(cb[0][1:], []byte(cv[0].Buf))
-	copy(cb[0][len(cv[0].Buf)+1:], []byte(`":`))
-
-	for i = 1; i < clen; i++ {
-		l := len(enc.newline) + len(cols[i]) + 4
-		cb[i] = make([]byte, l)
-		copy(cb[i][0:], append(cls, '"'))
-		copy(cb[i][len(cls)+1:], []byte(cv[i].Buf))
-		copy(cb[i][l-2:], []byte(`":`))
-	}
-
-	if _, err = w.Write(start); err != nil {
-		return err
+	for i = 0; i < clen; i++ {
+		if cb[i], err = json.Marshal(cols[i]); err != nil {
+			return err
+		}
+		cb[i] = append(cb[i], ':')
 	}
 
 	// set up storage for results
@@ -663,33 +534,74 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		r[i] = new(interface{})
 	}
 
-	var v []*Value
+	// start
+	if _, err = w.Write(start); err != nil {
+		return err
+	}
+
+	// process
+	var v *Value
+	var vals []*Value
+	var count int
 	for enc.resultSet.Next() {
-		v, err = enc.scanAndFormat(r)
+		if count != 0 {
+			if _, err = w.Write(cma); err != nil {
+				return err
+			}
+		}
+		count++
+		vals, err = enc.scanAndFormat(r)
 		if err != nil {
 			return err
 		}
 
+		if _, err = w.Write(open); err != nil {
+			return err
+		}
+
 		for i = 0; i < clen; i++ {
+			v = vals[i]
+			if v == nil {
+				v = enc.empty
+			}
+
+			// write "column":
 			if _, err = w.Write(cb[i]); err != nil {
 				return err
 			}
-			if v[i] != nil {
-				if _, err = w.Write(v[i].Buf); err != nil {
+
+			// if raw, write the exact value
+			if v.Raw {
+				if _, err = w.Write(v.Buf); err != nil {
 					return err
 				}
 			} else {
-				if _, err = w.Write(null); err != nil {
+				if _, err = w.Write(q); err != nil {
+					return err
+				}
+				if _, err = w.Write(v.Buf); err != nil {
+					return err
+				}
+				if _, err = w.Write(q); err != nil {
+					return err
+				}
+			}
+
+			if i != clen-1 {
+				if _, err = w.Write(cma); err != nil {
 					return err
 				}
 			}
 		}
-	}
-	if _, err = w.Write(end); err != nil {
-		return err
+
+		if _, err = w.Write(cls); err != nil {
+			return err
+		}
 	}
 
-	return nil
+	// end
+	_, err = w.Write(end)
+	return err
 }
 
 // scanAndFormat scans and formats values from the result set.
@@ -704,5 +616,178 @@ func (enc *JSONEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
 	return enc.formatter.Format(vals)
 }
 
-// JSONEncoderOption is a JSON encoder option.
-type JSONEncoderOption func(*JSONEncoder)
+// CSVEncoder is an unbuffered CSV encoder for result sets.
+type CSVEncoder struct {
+	// ResultSet is the result set to encode.
+	resultSet ResultSet
+
+	// fieldsep is the field separator to use.
+	fieldsep rune
+
+	// newline is the newline to use.
+	newline []byte
+
+	// formatter handles formatting values prior to output.
+	formatter Formatter
+
+	// title is the title value.
+	title *Value
+
+	// empty is the empty value.
+	empty *Value
+}
+
+// NewCSVEncoder creates a new CSV encoder using the provided options.
+func NewCSVEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
+	var err error
+	enc := &CSVEncoder{
+		resultSet: resultSet,
+		newline:   newline,
+		formatter: NewEscapeFormatter(),
+		empty: &Value{
+			Tabs: make([][][2]int, 1),
+		},
+	}
+	for _, o := range opts {
+		if err = o(enc); err != nil {
+			return nil, err
+		}
+	}
+	return enc, nil
+}
+
+// Encode encodes a single result set to the writer using the formatting
+// options specified in the encoder.
+func (enc *CSVEncoder) Encode(w io.Writer) error {
+	if enc.resultSet == nil {
+		return ErrResultSetIsNil
+	}
+
+	var i int
+	var err error
+
+	c := csv.NewWriter(w)
+	if enc.fieldsep != 0 {
+		c.Comma = enc.fieldsep
+	}
+
+	// get and check columns
+	cols, err := enc.resultSet.Columns()
+	if err != nil {
+		return err
+	}
+	clen := len(cols)
+	if clen == 0 {
+		return ErrResultSetHasNoColumns
+	}
+
+	if err = c.Write(cols); err != nil {
+		return err
+	}
+
+	// set up storage for results
+	r := make([]interface{}, clen)
+	for i := 0; i < clen; i++ {
+		r[i] = new(interface{})
+	}
+
+	// process
+	var v *Value
+	var vals []*Value
+	z := make([]string, clen)
+	for enc.resultSet.Next() {
+		c.Flush()
+		if err = c.Error(); err != nil {
+			return err
+		}
+		vals, err = enc.scanAndFormat(r)
+		if err != nil {
+			return err
+		}
+
+		for i = 0; i < clen; i++ {
+			v = vals[i]
+			if v == nil {
+				v = enc.empty
+			}
+			z[i] = string(v.Buf)
+		}
+		if err = c.Write(z); err != nil {
+			return err
+		}
+	}
+
+	// flush
+	c.Flush()
+	return c.Error()
+}
+
+// scanAndFormat scans and formats values from the result set.
+func (enc *CSVEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
+	var err error
+	if err = enc.resultSet.Err(); err != nil {
+		return nil, err
+	}
+	if err = enc.resultSet.Scan(vals...); err != nil {
+		return nil, err
+	}
+	return enc.formatter.Format(vals)
+}
+
+// TemplateEncoder is an unbuffered template encoder for result sets.
+type TemplateEncoder struct {
+	// ResultSet is the result set to encode.
+	resultSet ResultSet
+
+	// newline is the newline to use.
+	newline []byte
+
+	// formatter handles formatting values prior to output.
+	formatter Formatter
+
+	// title is the title value.
+	title *Value
+
+	// empty is the empty value.
+	empty *Value
+}
+
+// NewTemplateEncoder creates a new template encoder using the provided options.
+func NewTemplateEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
+	var err error
+	enc := &TemplateEncoder{
+		resultSet: resultSet,
+		newline:   newline,
+		formatter: NewEscapeFormatter(),
+		empty: &Value{
+			Tabs: make([][][2]int, 1),
+		},
+	}
+	for _, o := range opts {
+		if err = o(enc); err != nil {
+			return nil, err
+		}
+	}
+	return enc, nil
+}
+
+// Encode encodes a single result set to the writer using the formatting
+// options specified in the encoder.
+func (enc *TemplateEncoder) Encode(w io.Writer) error {
+	if enc.resultSet == nil {
+		return ErrResultSetIsNil
+	}
+	return nil
+}
+
+// scanAndFormat scans and formats values from the result set.
+func (enc *TemplateEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
+	var err error
+	if err = enc.resultSet.Err(); err != nil {
+		return nil, err
+	}
+	if err = enc.resultSet.Scan(vals...); err != nil {
+		return nil, err
+	}
+	return enc.formatter.Format(vals)
+}
