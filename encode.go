@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"io"
+	"strings"
 
 	runewidth "github.com/mattn/go-runewidth"
 )
@@ -162,15 +163,11 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 
 		// calc offsets and widths for this batch of rows
 		var offset int
-		if enc.border > 1 {
-			offset += 2
-		}
+		b, hasIndicator := enc.getBorders(enc.lineStyle.Row)
+		offset += runewidth.StringWidth(string(b[0]))
 		for i := 0; i < clen; i++ {
-			if i == 0 && enc.border == 1 {
-				offset++
-			}
-			if i != 0 && enc.border > 0 {
-				offset += 2
+			if i != 0 {
+				offset += runewidth.StringWidth(string(b[1]))
 			}
 
 			// store offset
@@ -189,7 +186,10 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 			}
 
 			// add column width, and one space for newline indicator
-			offset += enc.maxWidths[i] + 1
+			offset += enc.maxWidths[i]
+			if hasIndicator {
+				offset++
+			}
 		}
 
 		// print header if not already done
@@ -197,26 +197,36 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 			wroteHeader = true
 
 			// draw top border
-			if enc.border >= 2 {
+			if enc.border >= 2 && !enc.inline {
 				if err = enc.divider(w, enc.lineStyle.Top); err != nil {
 					return err
 				}
 			}
 
+			// draw the header row with top border style
+			if enc.inline {
+				b, _ = enc.getBorders(enc.lineStyle.Top)
+			}
+
 			// write header
-			if err = enc.row(w, h); err != nil {
+			if err = enc.row(w, h, b, hasIndicator); err != nil {
 				return err
 			}
 
-			// draw mid divider
-			if err = enc.divider(w, enc.lineStyle.Mid); err != nil {
-				return err
+			if enc.inline {
+				// revert to row's regular borders
+				b, _ = enc.getBorders(enc.lineStyle.Row)
+			} else {
+				// draw mid divider
+				if err = enc.divider(w, enc.lineStyle.Mid); err != nil {
+					return err
+				}
 			}
 		}
 
 		// print buffered vals
 		for i := start; i < len(vals); i++ {
-			if err = enc.row(w, vals[i]); err != nil {
+			if err = enc.row(w, vals[i], b, hasIndicator); err != nil {
 				return err
 			}
 		}
@@ -269,6 +279,33 @@ func (enc *TableEncoder) nextResults() ([][]*Value, error) {
 	return vals, nil
 }
 
+// getBorders returns the left, right and midle borders
+func (enc TableEncoder) getBorders(r [4]rune) ([4][]byte, bool) {
+	var left, right, middle, spacer, filler string
+	spacer = strings.Repeat(string(r[1]), runewidth.RuneWidth(enc.lineStyle.Row[1]))
+	filler = string(r[1])
+
+	// compact output, r[1] is set to \0
+	if r[1] == 0 {
+		filler = " "
+	}
+
+	// outside borders
+	if enc.border > 1 {
+		left = string(r[0])
+		right = string(r[3])
+	}
+	left += spacer
+
+	middle = " "
+	if enc.border >= 1 { // inside border
+		middle = string(r[2]) + spacer
+	}
+
+	return [4][]byte{[]byte(left), []byte(middle), []byte(right + string(enc.newline)),
+		[]byte(filler)}, runewidth.RuneWidth(enc.lineStyle.Row[1]) > 0
+}
+
 // scanAndFormat scans and formats values from the result set.
 func (enc *TableEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
 	var err error
@@ -284,91 +321,63 @@ func (enc *TableEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
 
 // divider draws a divider.
 //
-// Mid:  [4]rune{'├', '─', '┼', '┤'},
-//
 // TODO: optimize / avoid multiple calls to w.Write.
 func (enc *TableEncoder) divider(w io.Writer, r [4]rune) error {
 	var err error
 
 	// last column
-	end := ' '
-	if enc.border > 0 {
-		end = r[1]
-	}
+	b, hasIndicator := enc.getBorders(r)
 
 	// left
-	if enc.border > 1 {
-		if err = condWrite(w, 1, r[0], r[1]); err != nil {
-			return err
-		}
+	if _, err = w.Write([]byte(b[0])); err != nil {
+		return err
 	}
 
 	for i, width := range enc.maxWidths {
-		if i == 0 && enc.border == 1 {
-			if err = condWrite(w, 1, r[1]); err != nil {
-				return err
-			}
-		}
-
-		// left (column)
-		if i != 0 {
-			if enc.border > 0 {
-				if err = condWrite(w, 1, r[2], r[1]); err != nil {
-					return err
-				}
-			}
-		}
-
 		// column
 		if err = condWrite(w, width, r[1]); err != nil {
 			return err
 		}
 
-		// end
-		if err = condWrite(w, 1, end); err != nil {
-			return err
+		// line feed indicator
+		if hasIndicator {
+			if _, err = w.Write([]byte(string(r[1]))); err != nil {
+				return err
+			}
+		}
+
+		// middle separator
+		if i != len(enc.maxWidths)-1 {
+			if _, err = w.Write([]byte(b[1])); err != nil {
+				return err
+			}
 		}
 	}
 
 	// right
-	if enc.border > 1 {
-		if err = condWrite(w, 1, r[3]); err != nil {
-			return err
-		}
+	if _, err = w.Write([]byte(b[2])); err != nil {
+		return err
 	}
 
-	_, err = w.Write(enc.newline)
 	return err
 }
 
 // row draws the a table row.
-func (enc *TableEncoder) row(w io.Writer, vals []*Value) error {
+func (enc *TableEncoder) row(w io.Writer, vals []*Value,
+	borders [4][]byte, hasIndicator bool) error {
+
 	var err error
 	var l int
 	for {
-		// draw left border
-		if enc.border > 1 {
-			if err = condWrite(w, 1, enc.lineStyle.Row[0], enc.lineStyle.Row[1]); err != nil {
-				return err
-			}
+		// left
+		if _, err = w.Write(borders[0]); err != nil {
+			return err
 		}
 
 		var remaining bool
 		for i, v := range vals {
 			if v == nil {
 				v = enc.empty
-			}
-
-			// draw column separator
-			if i == 0 && enc.border == 1 {
-				if err = condWrite(w, 1, ' '); err != nil {
-					return err
-				}
-			}
-			if i != 0 && enc.border > 0 {
-				if err = condWrite(w, 1, enc.lineStyle.Row[2], enc.lineStyle.Row[1]); err != nil {
-					return err
-				}
 			}
 
 			// write value
@@ -394,7 +403,7 @@ func (enc *TableEncoder) row(w io.Writer, vals []*Value) error {
 
 				// add padding left
 				if v.Align == AlignRight && padding > 0 {
-					_, err = w.Write(bytes.Repeat([]byte{' '}, padding))
+					_, err = w.Write(bytes.Repeat(borders[3], padding))
 					if err != nil {
 						return err
 					}
@@ -407,36 +416,38 @@ func (enc *TableEncoder) row(w io.Writer, vals []*Value) error {
 
 				// add padding right
 				if v.Align == AlignLeft && padding > 0 {
-					_, err = w.Write(bytes.Repeat([]byte{' '}, padding))
+					_, err = w.Write(bytes.Repeat(borders[3], padding))
 					if err != nil {
 						return err
 					}
 				}
-			} else if _, err = w.Write(bytes.Repeat([]byte{' '}, enc.maxWidths[i])); err != nil {
+			} else if _, err = w.Write(bytes.Repeat(borders[3], enc.maxWidths[i])); err != nil {
 				return err
 			}
 
 			// write newline wrap value
-			if l < len(v.Newlines) {
-				if err = condWrite(w, 1, enc.lineStyle.Wrap[1]); err != nil {
+			if hasIndicator {
+				if l < len(v.Newlines) {
+					if err = condWrite(w, 1, enc.lineStyle.Wrap[1]); err != nil {
+						return err
+					}
+				} else if _, err = w.Write(borders[3]); err != nil {
 					return err
 				}
-			} else if err = condWrite(w, 1, ' '); err != nil {
-				return err
 			}
 
 			remaining = remaining || l < len(v.Newlines)
-		}
 
-		// draw right border
-		if enc.border > 1 {
-			if err = condWrite(w, 1, enc.lineStyle.Row[3]); err != nil {
-				return err
+			// middle separator
+			if i != len(enc.maxWidths)-1 {
+				if _, err = w.Write(borders[1]); err != nil {
+					return err
+				}
 			}
 		}
 
-		_, err = w.Write(enc.newline)
-		if err != nil {
+		// right
+		if _, err = w.Write(borders[2]); err != nil {
 			return err
 		}
 

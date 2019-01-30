@@ -54,6 +54,11 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 				case "double":
 					tableOpts = append(tableOpts, WithLineStyle(UnicodeDoubleLineStyle()))
 				}
+			case "unicode-compact":
+				tableOpts = append(tableOpts, WithLineStyle(UnicodeCompactLineStyle()))
+			case "unicode-inline":
+				tableOpts = append(tableOpts, WithLineStyle(UnicodeLineStyle()))
+				tableOpts = append(tableOpts, WithInline(true))
 			}
 		}
 		return NewTableEncoder, tableOpts

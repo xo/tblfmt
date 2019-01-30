@@ -131,3 +131,27 @@ func UnicodeDoubleLineStyle() LineStyle {
 		End:  [4]rune{'╚', '═', '╩', '╝'},
 	}
 }
+
+// UnicodeCompactLineStyle is the Unicode compact line style for tables.
+//
+// Tables using this style will look like the following:
+//
+//    ┌─────────┬──────────────────────┬─┐
+//    │author_id│name                  │z│
+//    ├─────────┼──────────────────────┼─┤
+//    │       14│a    b       c       d│x│
+//    │       15│aoeu                  │ │
+//    │         │test                  │ │
+//    │         │                      │ │
+//    └─────────┴──────────────────────┴─┘
+//
+func UnicodeCompactLineStyle() LineStyle {
+	return LineStyle{
+		// left char sep right
+		Top:  [4]rune{'┌', '─', '┬', '┐'},
+		Mid:  [4]rune{'├', '─', '┼', '┤'},
+		Row:  [4]rune{'│', 0, '│', '│'},
+		Wrap: [4]rune{'│', '↵', '│', '│'},
+		End:  [4]rune{'└', '─', '┴', '┘'},
+	}
+}
