@@ -52,8 +52,12 @@ type TableEncoder struct {
 	// offsets are the column offsets.
 	offsets []int
 
-	// widths are the column widths.
+	// widths are the user-supplied column widths.
 	widths []int
+
+	// maxWidths are calculated max column widths.
+	// They are at least as wide as user-supplied widths
+	maxWidths []int
 
 	// scanCount is the number of scanned results in the result set.
 	scanCount int
@@ -126,111 +130,95 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 
 	// setup offsets, widths
 	enc.offsets = make([]int, clen)
-	if len(enc.widths) < clen {
-		w := enc.widths
-		enc.widths = make([]int, clen)
-		copy(enc.widths, w)
+	var wroteHeader bool
+
+	// default to user-supplied widths
+	if len(enc.widths) == clen {
+		enc.maxWidths = enc.widths
+	} else {
+		enc.maxWidths = make([]int, clen)
 	}
 
-	var v []*Value
-	var vals [][]*Value
-
-	// format column names
-	v, err = enc.formatter.Header(cols)
+	// header
+	h, err := enc.formatter.Header(cols)
 	if err != nil {
 		return err
 	}
-	vals = append(vals, v)
 
-	// set up storage for results
-	r := make([]interface{}, clen)
-	for i := 0; i < clen; i++ {
-		r[i] = new(interface{})
-	}
+	for {
+		var vals [][]*Value
+		var start int
 
-	// buffer
-	if enc.count >= 0 {
-		if enc.count != 0 {
-			vals = make([][]*Value, 0, enc.count)
-		}
-
-		// read to count (or all)
-		var i int
-		for enc.resultSet.Next() {
-			v, err = enc.scanAndFormat(r)
-			if err != nil {
-				return err
-			}
-			vals, i = append(vals, v), i+1
-			if enc.count != 0 && i >= enc.count {
-				break
-			}
-		}
-	}
-
-	// calc offsets and widths
-	var offset int
-	if enc.border > 1 {
-		offset += 2
-	}
-	for i := 0; i < clen; i++ {
-		if i == 0 && enc.border == 1 {
-			offset++
-		}
-		if i != 0 && enc.border > 0 {
-			offset += 2
-		}
-
-		// store offset
-		enc.offsets[i] = offset
-
-		// from top to bottom, find max column width
-		for j := 0; j < len(vals); j++ {
-			cell := vals[j][i]
-			if cell == nil {
-				cell = enc.empty
-			}
-			enc.widths[i] = max(enc.widths[i], cell.MaxWidth(offset, enc.tab))
-		}
-
-		// add column width, and one space for newline indicator
-		offset += enc.widths[i] + 1
-	}
-
-	// fmt.Printf("offsets: %v, widths: %v\n", enc.offsets, enc.widths)
-
-	// draw top border
-	if enc.border >= 2 {
-		if err = enc.divider(w, enc.lineStyle.Top); err != nil {
-			return err
-		}
-	}
-
-	// write header
-	if err = enc.row(w, vals[0]); err != nil {
-		return err
-	}
-
-	// draw mid divider
-	if err = enc.divider(w, enc.lineStyle.Mid); err != nil {
-		return err
-	}
-
-	// marshal remaining buffered vals
-	for i := 1; i < len(vals); i++ {
-		if err = enc.row(w, vals[i]); err != nil {
-			return err
-		}
-	}
-
-	// marshal remaining
-	for enc.resultSet.Next() {
-		v, err = enc.scanAndFormat(r)
+		// buffer
+		vals, err = enc.nextResults()
 		if err != nil {
 			return err
 		}
-		if err = enc.row(w, v); err != nil {
-			return err
+
+		// no more values
+		if len(vals) == 0 {
+			break
+		}
+
+		// calc offsets and widths for this batch of rows
+		var offset int
+		if enc.border > 1 {
+			offset += 2
+		}
+		for i := 0; i < clen; i++ {
+			if i == 0 && enc.border == 1 {
+				offset++
+			}
+			if i != 0 && enc.border > 0 {
+				offset += 2
+			}
+
+			// store offset
+			enc.offsets[i] = offset
+
+			// header's widths are the minimum
+			enc.maxWidths[i] = max(enc.maxWidths[i], h[i].MaxWidth(offset, enc.tab))
+
+			// from top to bottom, find max column width
+			for j := 0; j < len(vals); j++ {
+				cell := vals[j][i]
+				if cell == nil {
+					cell = enc.empty
+				}
+				enc.maxWidths[i] = max(enc.maxWidths[i], cell.MaxWidth(offset, enc.tab))
+			}
+
+			// add column width, and one space for newline indicator
+			offset += enc.maxWidths[i] + 1
+		}
+
+		// print header if not already done
+		if !wroteHeader {
+			wroteHeader = true
+
+			// draw top border
+			if enc.border >= 2 {
+				if err = enc.divider(w, enc.lineStyle.Top); err != nil {
+					return err
+				}
+			}
+
+			// write header
+			if err = enc.row(w, h); err != nil {
+				return err
+			}
+
+			// draw mid divider
+			if err = enc.divider(w, enc.lineStyle.Mid); err != nil {
+				return err
+			}
+		}
+
+		// print buffered vals
+		for i := start; i < len(vals); i++ {
+			if err = enc.row(w, vals[i]); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -249,6 +237,36 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 	}
 
 	return nil
+}
+
+// nexBatch reads the next enc.count values,
+// or all values if enc.count = 0
+func (enc *TableEncoder) nextResults() ([][]*Value, error) {
+	var vals [][]*Value
+	if enc.count != 0 {
+		vals = make([][]*Value, 0, enc.count)
+	}
+	// set up storage for results
+	r := make([]interface{}, len(enc.maxWidths))
+	for i := 0; i < len(enc.maxWidths); i++ {
+		r[i] = new(interface{})
+	}
+
+	// read to count (or all)
+	var i int
+	for enc.resultSet.Next() {
+		v, err := enc.scanAndFormat(r)
+		if err != nil {
+			return vals, err
+		}
+		vals, i = append(vals, v), i+1
+
+		// read by batches of enc.count rows
+		if enc.count != 0 && i%enc.count == 0 {
+			break
+		}
+	}
+	return vals, nil
 }
 
 // scanAndFormat scans and formats values from the result set.
@@ -285,7 +303,7 @@ func (enc *TableEncoder) divider(w io.Writer, r [4]rune) error {
 		}
 	}
 
-	for i, width := range enc.widths {
+	for i, width := range enc.maxWidths {
 		if i == 0 && enc.border == 1 {
 			if err = condWrite(w, 1, r[1]); err != nil {
 				return err
@@ -372,7 +390,7 @@ func (enc *TableEncoder) row(w io.Writer, vals []*Value) error {
 				}
 
 				// calc padding
-				padding := enc.widths[i] - width
+				padding := enc.maxWidths[i] - width
 
 				// add padding left
 				if v.Align == AlignRight && padding > 0 {
@@ -394,7 +412,7 @@ func (enc *TableEncoder) row(w io.Writer, vals []*Value) error {
 						return err
 					}
 				}
-			} else if _, err = w.Write(bytes.Repeat([]byte{' '}, enc.widths[i])); err != nil {
+			} else if _, err = w.Write(bytes.Repeat([]byte{' '}, enc.maxWidths[i])); err != nil {
 				return err
 			}
 
