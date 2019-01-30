@@ -329,7 +329,7 @@ func (enc *TableEncoder) divider(w io.Writer, r [4]rune) error {
 	b, hasIndicator := enc.getBorders(r)
 
 	// left
-	if _, err = w.Write([]byte(b[0])); err != nil {
+	if _, err = w.Write(b[0]); err != nil {
 		return err
 	}
 
@@ -348,14 +348,14 @@ func (enc *TableEncoder) divider(w io.Writer, r [4]rune) error {
 
 		// middle separator
 		if i != len(enc.maxWidths)-1 {
-			if _, err = w.Write([]byte(b[1])); err != nil {
+			if _, err = w.Write(b[1]); err != nil {
 				return err
 			}
 		}
 	}
 
 	// right
-	if _, err = w.Write([]byte(b[2])); err != nil {
+	if _, err = w.Write(b[2]); err != nil {
 		return err
 	}
 
