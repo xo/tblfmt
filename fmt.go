@@ -196,6 +196,7 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 			res[i] = FormatBytes([]byte(strconv.FormatUint(v, 10)), f.invalid, f.invalidWidth, f.escapeJSON)
 			res[i].Align = AlignRight
 			res[i].Raw = true
+
 		case *uint:
 			if v != nil {
 				res[i] = FormatBytes([]byte(strconv.FormatUint(uint64(*v), 10)), f.invalid, f.invalidWidth, f.escapeJSON)
@@ -235,9 +236,10 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 			res[i].Align = AlignRight
 			res[i].Raw = true
 		case float64:
-			res[i] = FormatBytes([]byte(strconv.FormatFloat(float64(v), 'g', -1, 64)), f.invalid, f.invalidWidth, f.escapeJSON)
+			res[i] = FormatBytes([]byte(strconv.FormatFloat(v, 'g', -1, 64)), f.invalid, f.invalidWidth, f.escapeJSON)
 			res[i].Align = AlignRight
 			res[i].Raw = true
+
 		case *float32:
 			if v != nil {
 				res[i] = FormatBytes([]byte(strconv.FormatFloat(float64(*v), 'g', -1, 32)), f.invalid, f.invalidWidth, f.escapeJSON)
@@ -246,7 +248,7 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 			}
 		case *float64:
 			if v != nil {
-				res[i] = FormatBytes([]byte(strconv.FormatFloat(float64(*v), 'g', -1, 64)), f.invalid, f.invalidWidth, f.escapeJSON)
+				res[i] = FormatBytes([]byte(strconv.FormatFloat(*v, 'g', -1, 64)), f.invalid, f.invalidWidth, f.escapeJSON)
 				res[i].Align = AlignRight
 				res[i].Raw = true
 			}
@@ -257,6 +259,7 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 		case complex128:
 			res[i] = FormatBytes([]byte(fmt.Sprintf("%g", v)), f.invalid, f.invalidWidth, f.escapeJSON)
 			res[i].Align = AlignRight
+
 		case *complex64:
 			if v != nil {
 				res[i] = FormatBytes([]byte(fmt.Sprintf("%g", *v)), f.invalid, f.invalidWidth, f.escapeJSON)

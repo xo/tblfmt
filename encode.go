@@ -548,7 +548,7 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 
 	// set up storage for results
 	r := make([]interface{}, clen)
-	for i := 0; i < clen; i++ {
+	for i = 0; i < clen; i++ {
 		r[i] = new(interface{})
 	}
 
@@ -705,7 +705,7 @@ func (enc *CSVEncoder) Encode(w io.Writer) error {
 
 	// set up storage for results
 	r := make([]interface{}, clen)
-	for i := 0; i < clen; i++ {
+	for i = 0; i < clen; i++ {
 		r[i] = new(interface{})
 	}
 

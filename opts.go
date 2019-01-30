@@ -25,12 +25,6 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 		if s, ok := opts["fieldsep"]; ok {
 			sep, _ := utf8.DecodeRuneInString(s)
 			csvOpts = append(csvOpts, WithFieldSeparator(sep))
-			if sep == 0 {
-
-			}
-		}
-		if s, ok := opts["fieldsep_zero"]; ok {
-			s = s
 		}
 		return NewCSVEncoder, csvOpts
 
@@ -210,9 +204,8 @@ func WithBorder(border int) Option {
 // WithTemplate is a encoder option to set the raw template used.
 func WithTemplate(template string) Option {
 	return func(v interface{}) error {
-		switch enc := v.(type) {
+		switch v.(type) {
 		case *TemplateEncoder:
-			enc = enc
 		}
 		return nil
 	}
@@ -221,9 +214,8 @@ func WithTemplate(template string) Option {
 // WithNamedTemplate is a encoder option to set the template used.
 func WithNamedTemplate(name string) Option {
 	return func(v interface{}) error {
-		switch enc := v.(type) {
+		switch v.(type) {
 		case *TemplateEncoder:
-			enc = enc
 		}
 		return nil
 	}
