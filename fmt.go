@@ -105,175 +105,117 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 	// TODO: change time to v.AppendFormat() + pool
 	// TODO: use strconv.Format* for numeric times
 	// TODO: use pool
-	// TODO: don't use FormatBytes() for everything
 	// TODO: allow configurable runes that can be escaped
+	// TODO: handler driver.Valuer
 
 	for i := 0; i < n; i++ {
 		switch v := (*(vals[i].(*interface{}))).(type) {
 		case nil:
 
 		case bool:
-			res[i] = FormatBytes([]byte(strconv.FormatBool(v)), f.invalid, f.invalidWidth, f.escapeJSON)
-
+			res[i] = newValue(strconv.FormatBool(v), AlignLeft, false)
 		case *bool:
 			if v != nil {
-				res[i] = FormatBytes([]byte(strconv.FormatBool(*v)), f.invalid, f.invalidWidth, f.escapeJSON)
+				res[i] = newValue(strconv.FormatBool(*v), AlignLeft, false)
 			}
 
-		// SPECIAL CASE -- should be a single character!
 		case uint8:
-			res[i] = FormatBytes([]byte(string(rune(v))), f.invalid, f.invalidWidth, f.escapeJSON)
+			res[i] = &Value{Buf: []byte(string(rune(v))), Width: 1, Align: AlignRight, Raw: true}
 		case *uint8:
 			if v != nil {
-				res[i] = FormatBytes([]byte(string(rune(*v))), f.invalid, f.invalidWidth, f.escapeJSON)
+				res[i] = &Value{Buf: []byte(string(rune(*v))), Width: 1, Align: AlignRight, Raw: true}
 			}
-
 		case int:
-			res[i] = FormatBytes([]byte(strconv.FormatInt(int64(v), 10)), f.invalid, f.invalidWidth, f.escapeJSON)
-			res[i].Align = AlignRight
-			res[i].Raw = true
+			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
 		case int8:
-			res[i] = FormatBytes([]byte(strconv.FormatInt(int64(v), 10)), f.invalid, f.invalidWidth, f.escapeJSON)
-			res[i].Align = AlignRight
-			res[i].Raw = true
+			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
 		case int16:
-			res[i] = FormatBytes([]byte(strconv.FormatInt(int64(v), 10)), f.invalid, f.invalidWidth, f.escapeJSON)
-			res[i].Align = AlignRight
-			res[i].Raw = true
+			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
 		case int32:
-			res[i] = FormatBytes([]byte(strconv.FormatInt(int64(v), 10)), f.invalid, f.invalidWidth, f.escapeJSON)
-			res[i].Align = AlignRight
-			res[i].Raw = true
+			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
 		case int64:
-			res[i] = FormatBytes([]byte(strconv.FormatInt(v, 10)), f.invalid, f.invalidWidth, f.escapeJSON)
-			res[i].Align = AlignRight
-			res[i].Raw = true
-
+			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
 		case *int:
 			if v != nil {
-				res[i] = FormatBytes([]byte(strconv.FormatInt(int64(*v), 10)), f.invalid, f.invalidWidth, f.escapeJSON)
-				res[i].Align = AlignRight
-				res[i].Raw = true
+				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
 			}
 		case *int8:
 			if v != nil {
-				res[i] = FormatBytes([]byte(strconv.FormatInt(int64(*v), 10)), f.invalid, f.invalidWidth, f.escapeJSON)
-				res[i].Align = AlignRight
-				res[i].Raw = true
+				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
 			}
 		case *int16:
 			if v != nil {
-				res[i] = FormatBytes([]byte(strconv.FormatInt(int64(*v), 10)), f.invalid, f.invalidWidth, f.escapeJSON)
-				res[i].Align = AlignRight
-				res[i].Raw = true
+				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
 			}
 		case *int32:
 			if v != nil {
-				res[i] = FormatBytes([]byte(strconv.FormatInt(int64(*v), 10)), f.invalid, f.invalidWidth, f.escapeJSON)
-				res[i].Align = AlignRight
-				res[i].Raw = true
+				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
 			}
 		case *int64:
 			if v != nil {
-				res[i] = FormatBytes([]byte(strconv.FormatInt(*v, 10)), f.invalid, f.invalidWidth, f.escapeJSON)
-				res[i].Align = AlignRight
-				res[i].Raw = true
+				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
 			}
-
 		case uint:
-			res[i] = FormatBytes([]byte(strconv.FormatUint(uint64(v), 10)), f.invalid, f.invalidWidth, f.escapeJSON)
-			res[i].Align = AlignRight
-			res[i].Raw = true
+			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
 		case uint16:
-			res[i] = FormatBytes([]byte(strconv.FormatUint(uint64(v), 10)), f.invalid, f.invalidWidth, f.escapeJSON)
-			res[i].Align = AlignRight
-			res[i].Raw = true
+			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
 		case uint32:
-			res[i] = FormatBytes([]byte(strconv.FormatUint(uint64(v), 10)), f.invalid, f.invalidWidth, f.escapeJSON)
-			res[i].Align = AlignRight
-			res[i].Raw = true
+			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
 		case uint64:
-			res[i] = FormatBytes([]byte(strconv.FormatUint(v, 10)), f.invalid, f.invalidWidth, f.escapeJSON)
-			res[i].Align = AlignRight
-			res[i].Raw = true
-
+			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
 		case *uint:
 			if v != nil {
-				res[i] = FormatBytes([]byte(strconv.FormatUint(uint64(*v), 10)), f.invalid, f.invalidWidth, f.escapeJSON)
-				res[i].Align = AlignRight
-				res[i].Raw = true
+				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
 			}
 		case *uint16:
 			if v != nil {
-				res[i] = FormatBytes([]byte(strconv.FormatUint(uint64(*v), 10)), f.invalid, f.invalidWidth, f.escapeJSON)
-				res[i].Align = AlignRight
-				res[i].Raw = true
+				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
 			}
 		case *uint32:
 			if v != nil {
-				res[i] = FormatBytes([]byte(strconv.FormatUint(uint64(*v), 10)), f.invalid, f.invalidWidth, f.escapeJSON)
-				res[i].Align = AlignRight
-				res[i].Raw = true
+				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
 			}
 		case *uint64:
 			if v != nil {
-				res[i] = FormatBytes([]byte(strconv.FormatUint(*v, 10)), f.invalid, f.invalidWidth, f.escapeJSON)
-				res[i].Align = AlignRight
-				res[i].Raw = true
+				// int64 cannot hold uint64's max value
+				res[i] = newValue(strconv.FormatUint(uint64(*v), 10), AlignRight, true)
 			}
 
 		case uintptr:
-			res[i] = FormatBytes([]byte(fmt.Sprintf("(0x%x)", v)), f.invalid, f.invalidWidth, f.escapeJSON)
-			res[i].Align = AlignRight
+			res[i] = newValue(fmt.Sprintf("(0x%x)", v), AlignRight, true)
 		case *uintptr:
 			if v != nil {
-				res[i] = FormatBytes([]byte(fmt.Sprintf("(0x%x)", *v)), f.invalid, f.invalidWidth, f.escapeJSON)
-				res[i].Align = AlignRight
+				res[i] = newValue(fmt.Sprintf("(0x%x)", v), AlignRight, true)
 			}
 
 		case float32:
-			res[i] = FormatBytes([]byte(strconv.FormatFloat(float64(v), 'g', -1, 32)), f.invalid, f.invalidWidth, f.escapeJSON)
-			res[i].Align = AlignRight
-			res[i].Raw = true
+			res[i] = newValue(strconv.FormatFloat(float64(v), 'g', -1, 32), AlignRight, true)
 		case float64:
-			res[i] = FormatBytes([]byte(strconv.FormatFloat(v, 'g', -1, 64)), f.invalid, f.invalidWidth, f.escapeJSON)
-			res[i].Align = AlignRight
-			res[i].Raw = true
-
+			res[i] = newValue(strconv.FormatFloat(v, 'g', -1, 64), AlignRight, true)
 		case *float32:
 			if v != nil {
-				res[i] = FormatBytes([]byte(strconv.FormatFloat(float64(*v), 'g', -1, 32)), f.invalid, f.invalidWidth, f.escapeJSON)
-				res[i].Align = AlignRight
-				res[i].Raw = true
+				res[i] = newValue(strconv.FormatFloat(float64(*v), 'g', -1, 32), AlignRight, true)
 			}
 		case *float64:
 			if v != nil {
-				res[i] = FormatBytes([]byte(strconv.FormatFloat(*v, 'g', -1, 64)), f.invalid, f.invalidWidth, f.escapeJSON)
-				res[i].Align = AlignRight
-				res[i].Raw = true
+				res[i] = newValue(strconv.FormatFloat(*v, 'g', -1, 64), AlignRight, true)
 			}
 
 		case complex64:
-			res[i] = FormatBytes([]byte(fmt.Sprintf("%g", v)), f.invalid, f.invalidWidth, f.escapeJSON)
-			res[i].Align = AlignRight
+			res[i] = newValue(fmt.Sprintf("%g", v), AlignRight, false)
 		case complex128:
-			res[i] = FormatBytes([]byte(fmt.Sprintf("%g", v)), f.invalid, f.invalidWidth, f.escapeJSON)
-			res[i].Align = AlignRight
-
+			res[i] = newValue(fmt.Sprintf("%g", v), AlignRight, false)
 		case *complex64:
 			if v != nil {
-				res[i] = FormatBytes([]byte(fmt.Sprintf("%g", *v)), f.invalid, f.invalidWidth, f.escapeJSON)
-				res[i].Align = AlignRight
+				res[i] = newValue(fmt.Sprintf("%g", *v), AlignRight, false)
 			}
 		case *complex128:
 			if v != nil {
-				res[i] = FormatBytes([]byte(fmt.Sprintf("%g", *v)), f.invalid, f.invalidWidth, f.escapeJSON)
-				res[i].Align = AlignRight
+				res[i] = newValue(fmt.Sprintf("%g", *v), AlignRight, false)
 			}
 
 		case []byte:
 			res[i] = FormatBytes(v, f.invalid, f.invalidWidth, f.escapeJSON)
-
 		case *[]byte:
 			if v != nil {
 				res[i] = FormatBytes(*v, f.invalid, f.invalidWidth, f.escapeJSON)
@@ -281,18 +223,16 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 
 		case string:
 			res[i] = FormatBytes([]byte(v), f.invalid, f.invalidWidth, f.escapeJSON)
-
 		case *string:
 			if v != nil {
 				res[i] = FormatBytes([]byte(*v), f.invalid, f.invalidWidth, f.escapeJSON)
 			}
 
 		case time.Time:
-			res[i] = FormatBytes([]byte(v.Format(f.timeFormat)), f.invalid, f.invalidWidth, f.escapeJSON)
-
+			res[i] = newValue(v.Format(f.timeFormat), AlignLeft, false)
 		case *time.Time:
 			if v != nil {
-				res[i] = FormatBytes([]byte(v.Format(f.timeFormat)), f.invalid, f.invalidWidth, f.escapeJSON)
+				res[i] = newValue(v.Format(f.timeFormat), AlignLeft, false)
 			}
 
 		case fmt.Stringer:
@@ -332,6 +272,14 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 	}
 
 	return res, nil
+}
+
+// valueFromBuffer returns a value from a buffer known not to contain
+// characters to escape.
+func newValue(str string, align Align, raw bool) *Value {
+	v := &Value{Buf: []byte(str), Align: align, Raw: raw}
+	v.Width = len(v.Buf)
+	return v
 }
 
 // FormatBytes parses src, saving escaped (encoded) and unescaped runes to a Value,
