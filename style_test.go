@@ -3,6 +3,7 @@ package tblfmt
 import (
 	"bytes"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -11,7 +12,9 @@ var newlineRE = regexp.MustCompile(`(?ms)^`)
 func TestFormats(t *testing.T) {
 	for _, n := range []string{
 		"unaligned",
-		"aligned",
+		"aligned,border 0",
+		"aligned,border 1",
+		"aligned,border 2",
 		//"wrapped",
 		//"html",
 		//"asciidoc",
@@ -21,10 +24,22 @@ func TestFormats(t *testing.T) {
 		"json",
 		"csv",
 	} {
+		// build params
+		params := map[string]string{
+			"format": n,
+		}
+		if i := strings.Index(n, ","); i != -1 {
+			for _, p := range strings.Split(n, ",")[1:] {
+				v := strings.SplitN(p, " ", 2)
+				params[v[0]] = v[1]
+			}
+			params["format"] = n[:i]
+		}
+
 		if n != "json" && n != "csv" {
 			t.Run("psql-"+n, func(t *testing.T) {
 				buf := new(bytes.Buffer)
-				if err := psqlEncodeAll(buf, rs(), n); err != nil {
+				if err := psqlEncodeAll(buf, rs(), params); err != nil {
 					if err == errPsqlConnNotDefined {
 						t.Skipf("PSQL_CONN not defined, skipping psql query")
 					}
@@ -36,9 +51,7 @@ func TestFormats(t *testing.T) {
 
 		t.Run(n, func(t *testing.T) {
 			buf := new(bytes.Buffer)
-			if err := EncodeAll(buf, rs(), map[string]string{
-				"format": n,
-			}); err != nil {
+			if err := EncodeAll(buf, rs(), params); err != nil {
 				t.Fatalf("expected no error when encoding format %q, got: %v", n, err)
 			}
 			t.Log("\n", newlineRE.ReplaceAllString(buf.String(), "\t"))

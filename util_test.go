@@ -98,7 +98,7 @@ var errPsqlConnNotDefined = errors.New("PSQL_CONN not defined")
 
 // psqlEncodeAll does a values query for each of the values in the result set,
 // writing captured output to the writer.
-func psqlEncodeAll(w io.Writer, resultSet ResultSet, format string) error {
+func psqlEncodeAll(w io.Writer, resultSet ResultSet, params map[string]string) error {
 	dsn := os.Getenv("PSQL_CONN")
 	if len(dsn) == 0 {
 		return errPsqlConnNotDefined
@@ -106,7 +106,7 @@ func psqlEncodeAll(w io.Writer, resultSet ResultSet, format string) error {
 
 	var err error
 
-	if err = psqlEncode(w, resultSet, format, dsn); err != nil {
+	if err = psqlEncode(w, resultSet, params, dsn); err != nil {
 		return err
 	}
 
@@ -115,7 +115,7 @@ func psqlEncodeAll(w io.Writer, resultSet ResultSet, format string) error {
 			return err
 		}
 
-		if err = psqlEncode(w, resultSet, format, dsn); err != nil {
+		if err = psqlEncode(w, resultSet, params, dsn); err != nil {
 			return err
 		}
 	}
@@ -136,7 +136,7 @@ SELECT * FROM (
 
 // psqlEncode does a single value query using psql, writing the catpured output
 // to the writer.
-func psqlEncode(w io.Writer, resultSet ResultSet, format, dsn string) error {
+func psqlEncode(w io.Writer, resultSet ResultSet, params map[string]string, dsn string) error {
 	var err error
 
 	// read values
@@ -154,16 +154,21 @@ func psqlEncode(w io.Writer, resultSet ResultSet, format, dsn string) error {
 
 		n := name.(string)
 		vals += fmt.Sprintf("%s\n    (%v,E'%s', %s)", extra, id, psqlEsc(n), psqlEnc(n, z))
-
 		i++
 	}
 	if err = resultSet.Err(); err != nil {
 		return err
 	}
 
+	// build pset
+	var pset string
+	for k, v := range params {
+		pset += fmt.Sprintf("\n\\pset %s %s", k, v)
+	}
+
 	// exec
 	stdout := new(bytes.Buffer)
-	q := fmt.Sprintf(psqlValuesQuery, `\pset format `+format, vals)
+	q := fmt.Sprintf(psqlValuesQuery, pset, vals)
 	cmd := exec.Command("psql", dsn, "-q")
 	cmd.Stdin, cmd.Stdout = bytes.NewReader([]byte(q)), stdout
 	if err = cmd.Run(); err != nil {
