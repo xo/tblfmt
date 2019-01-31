@@ -38,6 +38,7 @@ func TestFormats(t *testing.T) {
 
 		if n != "json" && n != "csv" {
 			t.Run("psql-"+n, func(t *testing.T) {
+				t.Parallel()
 				buf := new(bytes.Buffer)
 				if err := psqlEncodeAll(buf, rs(), params); err != nil {
 					if err == errPsqlConnNotDefined {
@@ -50,6 +51,7 @@ func TestFormats(t *testing.T) {
 		}
 
 		t.Run(n, func(t *testing.T) {
+			t.Parallel()
 			buf := new(bytes.Buffer)
 			if err := EncodeAll(buf, rs(), params); err != nil {
 				t.Fatalf("expected no error when encoding format %q, got: %v", n, err)
