@@ -6,7 +6,6 @@ import (
 	"os"
 
 	_ "github.com/lib/pq"
-
 	"github.com/xo/dburl"
 	"github.com/xo/tblfmt"
 )
@@ -22,11 +21,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer result.Close()
 
 	enc, err := tblfmt.NewTableEncoder(result,
-		// use a named style
-		tblfmt.WithNamedStyle("double"),
-
 		// force minimum column widths
 		tblfmt.WithWidths([]int{20, 20}),
 	)

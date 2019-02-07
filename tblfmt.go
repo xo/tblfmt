@@ -1,4 +1,5 @@
-// Package tblfmt provides encoders for streaming / writing rows of data.
+// Package tblfmt provides streaming table encoders for result sets (ie, from a
+// database).
 package tblfmt
 
 import (

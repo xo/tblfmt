@@ -5,8 +5,8 @@
 [godoc-link]: https://godoc.org/github.com/xo/tblfmt
 [travis-ci-link]: https://travis-ci.org/xo/tblfmt
 
-`tblfmt` provides a streaming, bufferred table encoder for result sets (ie,
-from a database), creating tables like the following:
+`tblfmt` provides a streaming table encoders for result sets (ie, from a
+database), creating tables like the following:
 
 ```text
  author_id | name                  | z
@@ -60,7 +60,6 @@ import (
 	"os"
 
 	_ "github.com/lib/pq"
-
 	"github.com/xo/dburl"
 	"github.com/xo/tblfmt"
 )
@@ -76,11 +75,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer result.Close()
 
 	enc, err := tblfmt.NewTableEncoder(result,
-		// use a named style
-		tblfmt.WithNamedStyle("double"),
-
 		// force minimum column widths
 		tblfmt.WithWidths([]int{20, 20}),
 	)
