@@ -2,14 +2,17 @@ package tblfmt
 
 import (
 	"bytes"
+	"crypto/md5"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -32,7 +35,75 @@ func rs() *rset {
 	return r
 }
 
-// a set of records for rs.
+type p struct {
+	name string
+	dob  time.Time
+	f    float64
+	hash []byte
+}
+
+// newp creates a new p using the rand source.
+func newp(src *rand.Rand) p {
+	hash := md5.Sum([]byte(randstr(src)))
+	return p{
+		name: randstr(src),
+		dob:  randtime(src),
+		f:    src.Float64(),
+		hash: []byte(fmt.Sprintf("%x", hash[:])),
+	}
+}
+
+var randval int64
+
+func init() {
+	if d := os.Getenv("DETERMINISTIC"); d != "" {
+		randval = 1549508725559526476
+	} else {
+		randval = time.Now().UnixNano()
+	}
+}
+
+func randsrc() *rand.Rand {
+	return rand.New(rand.NewSource(randval))
+}
+
+var glyphs = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _'\"\t\b\n\rゼ一二三四五六七八九十〇")
+
+func randstr(src *rand.Rand) string {
+	l := 6 + src.Intn(32)
+	r := make([]rune, l)
+	for i := 0; i < l; i++ {
+		r[i] = glyphs[src.Intn(len(glyphs))]
+	}
+	return string(r)
+}
+
+func randtime(src *rand.Rand) time.Time {
+	min := time.Date(1970, 1, 0, 0, 0, 0, 0, time.UTC).Unix()
+	max := time.Date(2070, 1, 0, 0, 0, 0, 0, time.UTC).Unix()
+	delta := max - min
+	return time.Unix(src.Int63n(delta)+min, 0)
+}
+
+// rsbig creates a large result set for testing / benchmarking purposes.
+func rsbig() *rset {
+	src := randsrc()
+	count := src.Intn(1000)
+
+	// generate rows
+	vals := make([][]interface{}, count)
+	for i := 0; i < count; i++ {
+		p := newp(src)
+		vals[i] = []interface{}{i + 1, p.name, p.dob, p.hash, p.f}
+	}
+
+	return &rset{
+		cols: []string{"id", "name", "dob", "float", "hash"},
+		vals: [][][]interface{}{vals},
+	}
+}
+
+// rsset returns a predefined set of records for rs.
 func rsset(i int) [][]interface{} {
 	return [][]interface{}{
 		[]interface{}{float64(i), "a\tb\tc\td", "x"},
@@ -92,6 +163,10 @@ func (r *rset) Scan(vals ...interface{}) error {
 func (r *rset) NextResultSet() bool {
 	r.rs, r.pos = r.rs+1, 0
 	return r.rs < len(r.vals)
+}
+
+func (r *rset) Reset() {
+	r.pos, r.rs = 0, 0
 }
 
 var errPsqlConnNotDefined = errors.New("PSQL_CONN not defined")
@@ -204,4 +279,11 @@ func psqlEnc(n string, v interface{}) string {
 	}
 	s := strconv.QuoteToASCII(string(buf))
 	return "E'" + s[1:len(s)-1] + "'"
+}
+
+type noopWriter struct {
+}
+
+func (*noopWriter) Write(buf []byte) (int, error) {
+	return len(buf), nil
 }

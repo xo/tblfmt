@@ -9,7 +9,7 @@ import (
 
 var newlineRE = regexp.MustCompile(`(?ms)^`)
 
-func TestFormats(t *testing.T) {
+func TestEncodeFormats(t *testing.T) {
 	for _, n := range []string{
 		"unaligned",
 		"aligned,border 0",
@@ -60,6 +60,44 @@ func TestFormats(t *testing.T) {
 				t.Fatalf("expected no error when encoding format %q, got: %v", n, err)
 			}
 			t.Log("\n", newlineRE.ReplaceAllString(buf.String(), "\t"))
+		})
+	}
+}
+
+func TestBigAligned(t *testing.T) {
+	resultSet := rsbig()
+	buf := new(bytes.Buffer)
+	if err := EncodeTableAll(buf, resultSet); err != nil {
+		t.Fatalf("expected no error when encoding, got: %v", err)
+	}
+	t.Log("\n", newlineRE.ReplaceAllString(buf.String(), "\t"))
+}
+
+func BenchmarkEncodeFormats(b *testing.B) {
+	encoders := []struct {
+		name string
+		f    Builder
+		opts []Option
+	}{
+		{"aligned", NewTableEncoder, nil},
+		{"json", NewJSONEncoder, nil},
+		{"csv", NewCSVEncoder, nil},
+	}
+
+	for _, enc := range encoders {
+		b.Run(enc.name, func(b *testing.B) {
+			resultSet, w := rsbig(), &noopWriter{}
+			for i := 0; i < b.N; i++ {
+				enc, err := enc.f(resultSet, enc.opts...)
+				if err != nil {
+					b.Fatalf("expected no error, got: %v", err)
+				}
+
+				if err = enc.Encode(w); err != nil {
+					b.Errorf("expected no error, got: %v", err)
+				}
+				resultSet.Reset()
+			}
 		})
 	}
 }
