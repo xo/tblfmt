@@ -40,16 +40,22 @@ type p struct {
 	dob  time.Time
 	f    float64
 	hash []byte
+	char []byte
 }
 
 // newp creates a new p using the rand source.
 func newp(src *rand.Rand) p {
 	hash := md5.Sum([]byte(randstr(src)))
+	var char []byte
+	if src.Intn(2) == 1 {
+		char = []byte{byte(int('a') + src.Intn(26))}
+	}
 	return p{
 		name: randstr(src),
 		dob:  randtime(src),
 		f:    src.Float64(),
 		hash: []byte(fmt.Sprintf("%x", hash[:])),
+		char: char,
 	}
 }
 
@@ -94,11 +100,11 @@ func rsbig() *rset {
 	vals := make([][]interface{}, count)
 	for i := 0; i < count; i++ {
 		p := newp(src)
-		vals[i] = []interface{}{i + 1, p.name, p.dob, p.hash, p.f}
+		vals[i] = []interface{}{i + 1, p.name, p.dob, p.f, p.hash, p.char}
 	}
 
 	return &rset{
-		cols: []string{"id", "name", "dob", "float", "hash"},
+		cols: []string{"id", "name", "dob", "float", "hash", ""},
 		vals: [][][]interface{}{vals},
 	}
 }
