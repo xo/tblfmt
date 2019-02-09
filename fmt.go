@@ -450,9 +450,14 @@ func (v *Value) LineWidth(l, offset, tab int) int {
 // contained in Buf, relative to starting offset and the tab width.
 func (v *Value) MaxWidth(offset, tab int) int {
 	var width int
+
+	// simple values do not have tabulations
+	width = v.Width
+
 	for l := 0; l < len(v.Tabs); l++ {
 		width = max(width, v.LineWidth(l, offset, tab))
 	}
+
 	return width
 }
 
