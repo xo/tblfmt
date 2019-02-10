@@ -289,7 +289,7 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, esc bool) *Value 
 		Tabs: make([][][2]int, 1),
 	}
 
-	var tmp [utf8.MaxRune]byte
+	var tmp [4]byte
 
 	var r rune
 	var l, w int
