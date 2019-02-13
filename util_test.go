@@ -41,6 +41,7 @@ type p struct {
 	f    float64
 	hash []byte
 	char []byte
+	z    interface{}
 }
 
 // newp creates a new p using the rand source.
@@ -50,12 +51,36 @@ func newp(src *rand.Rand) p {
 	if src.Intn(2) == 1 {
 		char = []byte{byte(int('a') + src.Intn(26))}
 	}
+
+	var z interface{}
+	switch src.Intn(4) {
+	case 0, 1:
+
+	case 2:
+		c := 1 + src.Intn(5)
+		m := make(map[string]interface{}, c)
+		for i := 0; i < c; i++ {
+			r := []rune(randstr(src))
+			m[string(r[0:3])] = string(r[3:])
+		}
+		z = m
+
+	case 3:
+		y := make([]interface{}, 1+src.Intn(5))
+		for i := range y {
+			r := []rune(randstr(src))
+			y[i] = string(r[0 : 1+src.Intn(6)])
+		}
+		z = y
+	}
+
 	return p{
 		name: randstr(src),
 		dob:  randtime(src),
 		f:    src.Float64(),
 		hash: []byte(fmt.Sprintf("%x", hash[:])),
 		char: char,
+		z:    z,
 	}
 }
 
@@ -100,11 +125,11 @@ func rsbig() *rset {
 	vals := make([][]interface{}, count)
 	for i := 0; i < count; i++ {
 		p := newp(src)
-		vals[i] = []interface{}{i + 1, p.name, p.dob, p.f, p.hash, p.char}
+		vals[i] = []interface{}{i + 1, p.name, p.dob, p.f, p.hash, p.char, p.z}
 	}
 
 	return &rset{
-		cols: []string{"id", "name", "dob", "float", "hash", ""},
+		cols: []string{"id", "name", "dob", "float", "hash", "", "z"},
 		vals: [][][]interface{}{vals},
 	}
 }
