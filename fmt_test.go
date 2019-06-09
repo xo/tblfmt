@@ -37,18 +37,18 @@ func TestTabwidthCalc(t *testing.T) {
 		{" \t ", 1, 4, 4},
 		{"\u8888\t\u8888\t", 1, 4, 7},
 
-		{"\u8888\t\t\u8888\t", 3, 2, 9}, // 18
 		/*
 		   ---xxxxxxxxx (width == 9)
 		  |   袈   袈  |
 		*/
+		{"\u8888\t\t\u8888\t", 3, 2, 9}, // 18
 
-		{"\u8888\t\u8888\t\t\u8888", 14, 8, 28}, // 19
 		/*
 		   --------------xxxxxxxxxxxxxxxxxxxxxxxxxxxx (width == 28)
-		  |              袈        袈              袈
+		  |              袈        袈              袈|
 		*/
-		{"袈	袈		袈", 14, 8, 28}, // 19
+		{"\u8888\t\u8888\t\t\u8888", 14, 8, 28}, // 19
+		{"袈	袈		袈", 14, 8, 28},
 	}
 
 	for i, test := range tests {

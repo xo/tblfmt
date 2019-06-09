@@ -240,7 +240,7 @@ SELECT * FROM (
 ) AS t (author_id, name, z);`
 )
 
-// psqlEncode does a single value query using psql, writing the catpured output
+// psqlEncode does a single value query using psql, writing the captured output
 // to the writer.
 func psqlEncode(w io.Writer, resultSet ResultSet, params map[string]string, dsn string) error {
 	var err error
