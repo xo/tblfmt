@@ -246,6 +246,31 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 	return enc.w.Flush()
 }
 
+// EncodeAll encodes all result sets to the writer using the encoder settings.
+func (enc *TableEncoder) EncodeAll(w io.Writer) error {
+	var err error
+
+	if err = enc.Encode(w); err != nil {
+		return err
+	}
+
+	for enc.resultSet.NextResultSet() {
+		if _, err = w.Write(enc.newline); err != nil {
+			return err
+		}
+
+		if err = enc.Encode(w); err != nil {
+			return err
+		}
+	}
+
+	if _, err = w.Write(enc.newline); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // nextResults reads the next enc.count values,
 // or all values if enc.count = 0
 func (enc *TableEncoder) nextResults() ([][]*Value, error) {
@@ -311,12 +336,14 @@ func (enc TableEncoder) rowStyle(r [4]rune) rowStyle {
 		middle = string(r[2]) + spacer
 	}
 
-	return rowStyle{left: []byte(left),
+	return rowStyle{
+		left:        []byte(left),
 		wrapper:     []byte(string(enc.lineStyle.Wrap[1])),
 		middle:      []byte(middle),
 		right:       []byte(right + string(enc.newline)),
 		filler:      []byte(filler),
-		hasWrapping: runewidth.RuneWidth(enc.lineStyle.Row[1]) > 0}
+		hasWrapping: runewidth.RuneWidth(enc.lineStyle.Row[1]) > 0,
+	}
 }
 
 // scanAndFormat scans and formats values from the result set.
@@ -601,6 +628,35 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 	return err
 }
 
+// EncodeAll encodes all result sets to the writer using the encoder settings.
+func (enc *JSONEncoder) EncodeAll(w io.Writer) error {
+	var err error
+
+	if err = enc.Encode(w); err != nil {
+		return err
+	}
+
+	for enc.resultSet.NextResultSet() {
+		if _, err = w.Write([]byte{','}); err != nil {
+			return err
+		}
+
+		if _, err = w.Write(enc.newline); err != nil {
+			return err
+		}
+
+		if err = enc.Encode(w); err != nil {
+			return err
+		}
+	}
+
+	if _, err = w.Write(enc.newline); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // scanAndFormat scans and formats values from the result set.
 func (enc *JSONEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
 	var err error
@@ -719,6 +775,31 @@ func (enc *CSVEncoder) Encode(w io.Writer) error {
 	return c.Error()
 }
 
+// EncodeAll encodes all result sets to the writer using the encoder settings.
+func (enc *CSVEncoder) EncodeAll(w io.Writer) error {
+	var err error
+
+	if err = enc.Encode(w); err != nil {
+		return err
+	}
+
+	for enc.resultSet.NextResultSet() {
+		if _, err = w.Write(enc.newline); err != nil {
+			return err
+		}
+
+		if err = enc.Encode(w); err != nil {
+			return err
+		}
+	}
+
+	if _, err = w.Write(enc.newline); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // scanAndFormat scans and formats values from the result set.
 func (enc *CSVEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
 	var err error
@@ -774,6 +855,30 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 	if enc.resultSet == nil {
 		return ErrResultSetIsNil
 	}
+	return nil
+}
+
+// EncodeAll encodes all result sets to the writer using the encoder settings.
+func (enc *TemplateEncoder) EncodeAll(w io.Writer) error {
+	var err error
+
+	if err = enc.Encode(w); err != nil {
+		return err
+	}
+
+	for enc.resultSet.NextResultSet() {
+		if _, err = w.Write(enc.newline); err != nil {
+			return err
+		}
+		if err = enc.Encode(w); err != nil {
+			return err
+		}
+	}
+
+	if _, err = w.Write(enc.newline); err != nil {
+		return err
+	}
+
 	return nil
 }
 

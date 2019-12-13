@@ -12,6 +12,16 @@ type Encoder interface {
 	EncodeAll(io.Writer) error
 }
 
+// ResultSet is the shared interface for a result set.
+type ResultSet interface {
+	Next() bool
+	Scan(...interface{}) error
+	Columns() ([]string, error)
+	Close() error
+	Err() error
+	NextResultSet() bool
+}
+
 // Encode encodes the result set to the writer using the supplied map options.
 func Encode(w io.Writer, resultSet ResultSet, options map[string]string) error {
 	f, opts := FromMap(options)
