@@ -63,6 +63,26 @@ func EncodeTableAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.EncodeAll(w)
 }
 
+// EncodeExpanded encodes result set to the writer as a table using the supplied
+// encoding options.
+func EncodeExpanded(w io.Writer, resultSet ResultSet, opts ...Option) error {
+	enc, err := NewExpandedEncoder(resultSet, opts...)
+	if err != nil {
+		return err
+	}
+	return enc.Encode(w)
+}
+
+// EncodeExpandedAll encodes all result sets to the writer as a table using the
+// supplied encoding options.
+func EncodeExpandedAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
+	enc, err := NewExpandedEncoder(resultSet, opts...)
+	if err != nil {
+		return err
+	}
+	return enc.EncodeAll(w)
+}
+
 // EncodeJSON encodes the result set to the writer as JSON using the supplied
 // encoding options.
 func EncodeJSON(w io.Writer, resultSet ResultSet, opts ...Option) error {

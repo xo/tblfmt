@@ -62,7 +62,16 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 				}
 			}
 		}
-		return NewTableEncoder, tableOpts
+		builder := NewTableEncoder
+		if e, ok := opts["expanded"]; ok {
+			switch e {
+			case "auto":
+				fallthrough
+			case "on":
+				builder = NewExpandedEncoder
+			}
+		}
+		return builder, tableOpts
 
 	default:
 		return newErrEncoder, []Option{withError(ErrInvalidFormat)}
@@ -75,6 +84,8 @@ func WithCount(count int) Option {
 		switch enc := v.(type) {
 		case *TableEncoder:
 			enc.count = count
+		case *ExpandedEncoder:
+			enc.count = count
 		}
 		return nil
 	}
@@ -86,6 +97,8 @@ func WithLineStyle(lineStyle LineStyle) Option {
 		switch enc := v.(type) {
 		case *TableEncoder:
 			enc.lineStyle = lineStyle
+		case *ExpandedEncoder:
+			enc.lineStyle = lineStyle
 		}
 		return nil
 	}
@@ -96,6 +109,8 @@ func WithFormatter(formatter Formatter) Option {
 	return func(v interface{}) error {
 		switch enc := v.(type) {
 		case *TableEncoder:
+			enc.formatter = formatter
+		case *ExpandedEncoder:
 			enc.formatter = formatter
 		}
 		return nil
@@ -152,6 +167,13 @@ func WithEmpty(empty string) Option {
 				return err
 			}
 			enc.empty = v[0]
+		case *ExpandedEncoder:
+			cell := interface{}(empty)
+			v, err := enc.formatter.Format([]interface{}{&cell})
+			if err != nil {
+				return err
+			}
+			enc.empty = v[0]
 		}
 		return nil
 	}
@@ -163,6 +185,8 @@ func WithWidths(widths []int) Option {
 		switch enc := v.(type) {
 		case *TableEncoder:
 			enc.widths = widths
+		case *ExpandedEncoder:
+			enc.widths = widths
 		}
 		return nil
 	}
@@ -173,6 +197,8 @@ func WithNewline(newline string) Option {
 	return func(v interface{}) error {
 		switch enc := v.(type) {
 		case *TableEncoder:
+			enc.newline = []byte(newline)
+		case *ExpandedEncoder:
 			enc.newline = []byte(newline)
 		case *JSONEncoder:
 			enc.newline = []byte(newline)
@@ -201,6 +227,8 @@ func WithBorder(border int) Option {
 	return func(v interface{}) error {
 		switch enc := v.(type) {
 		case *TableEncoder:
+			enc.border = border
+		case *ExpandedEncoder:
 			enc.border = border
 		}
 		return nil

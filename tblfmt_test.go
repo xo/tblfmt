@@ -19,6 +19,9 @@ func TestEncodeFormats(t *testing.T) {
 		"aligned,border 1,title 'test title'",
 		"aligned,border 2,title 'test title'",
 		"aligned,footer off",
+		"aligned,border 0,expanded on",
+		"aligned,border 1,expanded on",
+		"aligned,border 2,expanded on",
 		//"wrapped",
 		//"html",
 		//"asciidoc",
@@ -63,6 +66,20 @@ func TestEncodeFormats(t *testing.T) {
 			t.Log("\n", newlineRE.ReplaceAllString(buf.String(), "\t"))
 		})
 	}
+}
+
+func TestTinyAligned(t *testing.T) {
+	resultSet := rstiny()
+	buf := new(bytes.Buffer)
+	params := map[string]string{
+		"format":   "aligned",
+		"expanded": "on",
+		"border":   "2",
+	}
+	if err := EncodeAll(buf, resultSet, params); err != nil {
+		t.Fatalf("expected no error when encoding, got: %v", err)
+	}
+	t.Log("\n", newlineRE.ReplaceAllString(buf.String(), "\t"))
 }
 
 func TestBigAligned(t *testing.T) {
