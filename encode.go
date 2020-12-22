@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
+	"fmt"
 	"io"
 	"strings"
 
@@ -50,6 +51,9 @@ type TableEncoder struct {
 
 	// empty is the empty value.
 	empty *Value
+
+	// headers contains formatted column names.
+	headers []*Value
 
 	// offsets are the column offsets.
 	offsets []int
@@ -145,8 +149,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		enc.maxWidths = make([]int, clen)
 	}
 
-	// header
-	h, err := enc.formatter.Header(cols)
+	enc.headers, err = enc.formatter.Header(cols)
 	if err != nil {
 		return err
 	}
@@ -165,63 +168,16 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 			break
 		}
 
-		// calc offsets and widths for this batch of rows
-		var offset int
-		rs := enc.rowStyle(enc.lineStyle.Row)
-		offset += runewidth.StringWidth(string(rs.left))
-		for i := 0; i < clen; i++ {
-			if i != 0 {
-				offset += runewidth.StringWidth(string(rs.middle))
-			}
-
-			// store offset
-			enc.offsets[i] = offset
-
-			// header's widths are the minimum
-			enc.maxWidths[i] = max(enc.maxWidths[i], h[i].MaxWidth(offset, enc.tab))
-
-			// from top to bottom, find max column width
-			for j := 0; j < len(vals); j++ {
-				cell := vals[j][i]
-				if cell == nil {
-					cell = enc.empty
-				}
-				enc.maxWidths[i] = max(enc.maxWidths[i], cell.MaxWidth(offset, enc.tab))
-			}
-
-			// add column width, and one space for newline indicator
-			offset += enc.maxWidths[i]
-			if rs.hasWrapping && enc.border != 0 {
-				offset++
-			}
-		}
+		enc.calcWidth(vals)
 
 		// print header if not already done
 		if !wroteHeader {
 			wroteHeader = true
 
-			// draw top border
-			if enc.border >= 2 && !enc.inline {
-				enc.divider(enc.rowStyle(enc.lineStyle.Top))
-			}
-
-			// draw the header row with top border style
-			if enc.inline {
-				rs = enc.rowStyle(enc.lineStyle.Top)
-			}
-
-			// write header
-			enc.row(h, rs)
-
-			if enc.inline {
-				// revert to row's regular borders
-				rs = enc.rowStyle(enc.lineStyle.Row)
-			} else {
-				// draw mid divider
-				enc.divider(enc.rowStyle(enc.lineStyle.Mid))
-			}
+			enc.header()
 		}
 
+		rs := enc.rowStyle(enc.lineStyle.Row)
 		// print buffered vals
 		for i := 0; i < len(vals); i++ {
 			enc.row(vals[i], rs)
@@ -279,8 +235,8 @@ func (enc *TableEncoder) nextResults() ([][]*Value, error) {
 		vals = make([][]*Value, 0, enc.count)
 	}
 	// set up storage for results
-	r := make([]interface{}, len(enc.maxWidths))
-	for i := 0; i < len(enc.maxWidths); i++ {
+	r := make([]interface{}, len(enc.headers))
+	for i := 0; i < len(enc.headers); i++ {
 		r[i] = new(interface{})
 	}
 
@@ -299,6 +255,60 @@ func (enc *TableEncoder) nextResults() ([][]*Value, error) {
 		}
 	}
 	return vals, nil
+}
+
+func (enc *TableEncoder) calcWidth(vals [][]*Value) {
+	// calc offsets and widths for this batch of rows
+	var offset int
+	rs := enc.rowStyle(enc.lineStyle.Row)
+	offset += runewidth.StringWidth(string(rs.left))
+	for i, h := range enc.headers {
+		if i != 0 {
+			offset += runewidth.StringWidth(string(rs.middle))
+		}
+
+		// store offset
+		enc.offsets[i] = offset
+
+		// header's widths are the minimum
+		enc.maxWidths[i] = max(enc.maxWidths[i], h.MaxWidth(offset, enc.tab))
+
+		// from top to bottom, find max column width
+		for j := 0; j < len(vals); j++ {
+			cell := vals[j][i]
+			if cell == nil {
+				cell = enc.empty
+			}
+			enc.maxWidths[i] = max(enc.maxWidths[i], cell.MaxWidth(offset, enc.tab))
+		}
+
+		// add column width, and one space for newline indicator
+		offset += enc.maxWidths[i]
+		if rs.hasWrapping && enc.border != 0 {
+			offset++
+		}
+	}
+}
+
+func (enc *TableEncoder) header() {
+	// draw top border
+	if enc.border >= 2 && !enc.inline {
+		enc.divider(enc.rowStyle(enc.lineStyle.Top))
+	}
+
+	rs := enc.rowStyle(enc.lineStyle.Row)
+	// draw the header row with top border style
+	if enc.inline {
+		rs = enc.rowStyle(enc.lineStyle.Top)
+	}
+
+	// write header
+	enc.row(enc.headers, rs)
+
+	if !enc.inline {
+		// draw mid divider
+		enc.divider(enc.rowStyle(enc.lineStyle.Mid))
+	}
 }
 
 // the style for the current row, as arrays of bytes to print
@@ -476,6 +486,189 @@ func (enc *TableEncoder) summarize(w io.Writer) {
 		f(enc.w, enc.scanCount)
 		enc.w.Write(enc.newline)
 	}
+}
+
+// ExpandedEncoder is a buffered, lookahead expanded table encoder for result sets.
+type ExpandedEncoder struct {
+	TableEncoder
+}
+
+// NewExpandedEncoder creates a new table encoder using the provided options.
+func NewExpandedEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
+	tableEnc, err := NewTableEncoder(resultSet, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	enc := &ExpandedEncoder{
+		TableEncoder: *tableEnc.(*TableEncoder),
+	}
+
+	return enc, nil
+}
+
+// Encode encodes a single result set to the writer using the formatting
+// options specified in the encoder.
+func (enc *ExpandedEncoder) Encode(w io.Writer) error {
+	// reset scan count
+	enc.scanCount = 0
+	enc.w = bufio.NewWriterSize(w, 2048)
+
+	var err error
+
+	if enc.resultSet == nil {
+		return ErrResultSetIsNil
+	}
+
+	// get and check columns
+	cols, err := enc.resultSet.Columns()
+	if err != nil {
+		return err
+	}
+	clen := len(cols)
+	if clen == 0 {
+		return ErrResultSetHasNoColumns
+	}
+
+	// setup offsets, widths
+	enc.offsets = make([]int, 2)
+	enc.maxWidths = make([]int, 2)
+
+	enc.headers, err = enc.formatter.Header(cols)
+	if err != nil {
+		return err
+	}
+
+	for {
+		var vals [][]*Value
+
+		// buffer
+		vals, err = enc.nextResults()
+		if err != nil {
+			return err
+		}
+
+		// no more values
+		if len(vals) == 0 {
+			break
+		}
+
+		enc.calcWidth(vals)
+
+		rs := enc.rowStyle(enc.lineStyle.Row)
+		// print buffered vals
+		for i := 0; i < len(vals); i++ {
+			enc.record(i, vals[i], rs)
+			if i+1%1000 == 0 {
+				// check error every 1k rows
+				if err := enc.w.Flush(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	// draw end border
+	if enc.border >= 2 {
+		enc.divider(enc.rowStyle(enc.lineStyle.End))
+	}
+
+	// flush will return the error code
+	return enc.w.Flush()
+}
+
+// EncodeAll encodes all result sets to the writer using the encoder settings.
+func (enc *ExpandedEncoder) EncodeAll(w io.Writer) error {
+	var err error
+
+	if err = enc.Encode(w); err != nil {
+		return err
+	}
+
+	for enc.resultSet.NextResultSet() {
+		if _, err = w.Write(enc.newline); err != nil {
+			return err
+		}
+
+		if err = enc.Encode(w); err != nil {
+			return err
+		}
+	}
+
+	if _, err = w.Write(enc.newline); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (enc *ExpandedEncoder) calcWidth(vals [][]*Value) {
+	rs := enc.rowStyle(enc.lineStyle.Row)
+
+	offset := runewidth.StringWidth(string(rs.left))
+
+	enc.offsets[0] = offset
+
+	// first column is always the column name
+	for _, h := range enc.headers {
+		enc.maxWidths[0] = max(enc.maxWidths[0], h.MaxWidth(offset, enc.tab))
+	}
+
+	offset += enc.maxWidths[0]
+	if rs.hasWrapping && enc.border != 0 {
+		offset++
+	}
+
+    mw := runewidth.StringWidth(string(rs.middle))
+	offset += mw
+
+	enc.offsets[1] = offset
+
+	// second column is any value from any row but no less than the record header
+	enc.maxWidths[1] = max(0, len(enc.recordHeader(len(vals)-1)) - enc.maxWidths[0] - mw - 1)
+	for _, row := range vals {
+		for _, cell := range row {
+			if cell == nil {
+				cell = enc.empty
+			}
+			enc.maxWidths[1] = max(enc.maxWidths[1], cell.MaxWidth(offset, enc.tab))
+		}
+	}
+}
+
+func (enc *ExpandedEncoder) record(i int, vals []*Value, rs rowStyle) {
+	// write record header as a single record
+	headerRS := rs
+	header := enc.recordHeader(i)
+	if enc.border != 0 {
+		headerRS = enc.rowStyle(enc.lineStyle.Top)
+	}
+
+	enc.w.Write(headerRS.left)
+	enc.w.WriteString(header)
+	padding := enc.maxWidths[0] + enc.maxWidths[1] + runewidth.StringWidth(string(headerRS.middle))*(len(enc.headers)-1) - len(header) - 1
+	if padding > 0 {
+		enc.w.Write(bytes.Repeat(headerRS.filler, padding))
+	}
+	// write newline wrap value
+	enc.w.Write(headerRS.filler)
+	enc.w.Write(headerRS.right)
+
+	// write each value with column name in first col
+	for j, v := range vals {
+		if v != nil {
+			v.Align = AlignLeft
+		}
+		enc.row([]*Value{enc.headers[j], v}, rs)
+	}
+}
+
+func (enc *ExpandedEncoder) recordHeader(i int) string {
+	header := fmt.Sprintf("* Record %d", i+1)
+	if enc.border != 0 {
+		header = fmt.Sprintf("[ RECORD %d ]", i+1)
+	}
+    return header
 }
 
 // JSONEncoder is an unbuffered JSON encoder for result sets.

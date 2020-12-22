@@ -134,6 +134,17 @@ func rsbig() *rset {
 	}
 }
 
+func rstiny() *rset {
+	return &rset{
+		cols: []string{"z"},
+		vals: [][][]interface{}{
+			{
+				{"x"},
+			},
+		},
+	}
+}
+
 // rsset returns a predefined set of records for rs.
 func rsset(i int) [][]interface{} {
 	return [][]interface{}{
@@ -275,7 +286,7 @@ func psqlEncode(w io.Writer, resultSet ResultSet, params map[string]string, dsn 
 	// exec
 	stdout := new(bytes.Buffer)
 	q := fmt.Sprintf(psqlValuesQuery, pset, vals)
-	cmd := exec.Command("psql", dsn, "-q")
+	cmd := exec.Command("psql", dsn, "-qX")
 	cmd.Stdin, cmd.Stdout = bytes.NewReader([]byte(q)), stdout
 	if err = cmd.Run(); err != nil {
 		return err
