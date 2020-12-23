@@ -18,6 +18,7 @@ func TestEncodeFormats(t *testing.T) {
 		"aligned,border 0,title 'test title'",
 		"aligned,border 1,title 'test title'",
 		"aligned,border 2,title 'test title'",
+		"aligned,footer off",
 		//"wrapped",
 		//"html",
 		//"asciidoc",
