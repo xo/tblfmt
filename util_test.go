@@ -280,7 +280,7 @@ func psqlEncode(w io.Writer, resultSet ResultSet, params map[string]string, dsn 
 	// build pset
 	var pset string
 	for k, v := range params {
-		pset += fmt.Sprintf("\n\\pset %s %s", k, v)
+		pset += fmt.Sprintf("\n\\pset %s '%s'", k, v)
 	}
 
 	// exec

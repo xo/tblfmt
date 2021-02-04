@@ -82,7 +82,7 @@ func NewTableEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 		border:    1,
 		tab:       8,
 		lineStyle: ASCIILineStyle(),
-		formatter: NewEscapeFormatter(),
+		formatter: NewEscapeFormatter(WithHeaderAlign(AlignCenter)),
 		summary:   DefaultTableSummary(),
 		empty: &Value{
 			Tabs: make([][][2]int, 1),
@@ -291,12 +291,18 @@ func (enc *TableEncoder) calcWidth(vals [][]*Value) {
 }
 
 func (enc *TableEncoder) header() {
+	rs := enc.rowStyle(enc.lineStyle.Row)
+
+	if enc.title != nil {
+		maxWidth := ((enc.tableWidth() - enc.title.Width) / 2) + enc.title.Width
+		enc.writeAligned(enc.title.Buf, rs.filler, AlignRight, enc.title.Width, maxWidth)
+		enc.w.Write(enc.newline)
+	}
 	// draw top border
 	if enc.border >= 2 && !enc.inline {
 		enc.divider(enc.rowStyle(enc.lineStyle.Top))
 	}
 
-	rs := enc.rowStyle(enc.lineStyle.Row)
 	// draw the header row with top border style
 	if enc.inline {
 		rs = enc.rowStyle(enc.lineStyle.Top)
@@ -393,6 +399,26 @@ func (enc *TableEncoder) divider(rs rowStyle) {
 	enc.w.Write(rs.right)
 }
 
+// tableWidth calculates total table width.
+func (enc *TableEncoder) tableWidth() int {
+	rs := enc.rowStyle(enc.lineStyle.Mid)
+	width := runewidth.StringWidth(string(rs.left)) + runewidth.StringWidth(string(rs.right))
+
+	for i, w := range enc.maxWidths {
+		width += w
+
+		if rs.hasWrapping && enc.border >= 1 {
+			width += 1
+		}
+
+		if i != len(enc.maxWidths)-1 {
+			width += runewidth.StringWidth(string(rs.middle))
+		}
+	}
+
+	return width
+}
+
 // row draws the a table row.
 func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 	var l int
@@ -424,21 +450,7 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 					width += v.Width
 				}
 
-				// calc padding
-				padding := enc.maxWidths[i] - width
-
-				// add padding left
-				if v.Align == AlignRight && padding > 0 {
-					enc.w.Write(bytes.Repeat(rs.filler, padding))
-				}
-
-				// write
-				enc.w.Write(v.Buf[start:end])
-
-				// add padding right
-				if v.Align == AlignLeft && padding > 0 {
-					enc.w.Write(bytes.Repeat(rs.filler, padding))
-				}
+				enc.writeAligned(v.Buf[start:end], rs.filler, v.Align, width, enc.maxWidths[i])
 			} else {
 				enc.w.Write(bytes.Repeat(rs.filler, enc.maxWidths[i]))
 			}
@@ -472,6 +484,37 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 	}
 }
 
+func (enc *TableEncoder) writeAligned(b, filler []byte, a Align, width, max int) {
+	// calc padding
+	padding := max - width
+	paddingLeft := 0
+	paddingRight := 0
+	switch a {
+	case AlignRight:
+		paddingLeft = padding
+		paddingRight = 0
+	case AlignCenter:
+		paddingLeft = padding / 2
+		paddingRight = padding/2 + padding%2
+	case AlignLeft:
+		paddingLeft = 0
+		paddingRight = padding
+	}
+
+	// add padding left
+	if paddingLeft > 0 {
+		enc.w.Write(bytes.Repeat(filler, paddingLeft))
+	}
+
+	// write
+	enc.w.Write(b)
+
+	// add padding right
+	if paddingRight > 0 {
+		enc.w.Write(bytes.Repeat(filler, paddingRight))
+	}
+}
+
 // summarize writes the table scan count summary.
 func (enc *TableEncoder) summarize(w io.Writer) {
 	// do summary
@@ -499,9 +542,11 @@ func NewExpandedEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	if err != nil {
 		return nil, err
 	}
+	t := tableEnc.(*TableEncoder)
+	t.formatter = NewEscapeFormatter()
 
 	enc := &ExpandedEncoder{
-		TableEncoder: *tableEnc.(*TableEncoder),
+		TableEncoder: *t,
 	}
 
 	return enc, nil
@@ -539,6 +584,7 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 		return err
 	}
 
+	var wroteTitle bool
 	for {
 		var vals [][]*Value
 
@@ -556,6 +602,15 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 		enc.calcWidth(vals)
 
 		rs := enc.rowStyle(enc.lineStyle.Row)
+
+		// print title if not already done
+		if !wroteTitle && enc.title != nil {
+			wroteTitle = true
+
+			enc.w.Write(enc.title.Buf)
+			enc.w.Write(enc.newline)
+		}
+
 		// print buffered vals
 		for i := 0; i < len(vals); i++ {
 			enc.record(i, vals[i], rs)
@@ -569,7 +624,7 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 	}
 
 	// draw end border
-	if enc.border >= 2 {
+	if enc.border >= 2 && enc.scanCount != 0 {
 		enc.divider(enc.rowStyle(enc.lineStyle.End))
 	}
 
@@ -619,13 +674,13 @@ func (enc *ExpandedEncoder) calcWidth(vals [][]*Value) {
 		offset++
 	}
 
-    mw := runewidth.StringWidth(string(rs.middle))
+	mw := runewidth.StringWidth(string(rs.middle))
 	offset += mw
 
 	enc.offsets[1] = offset
 
 	// second column is any value from any row but no less than the record header
-	enc.maxWidths[1] = max(0, len(enc.recordHeader(len(vals)-1)) - enc.maxWidths[0] - mw - 1)
+	enc.maxWidths[1] = max(0, len(enc.recordHeader(len(vals)-1))-enc.maxWidths[0]-mw-1)
 	for _, row := range vals {
 		for _, cell := range row {
 			if cell == nil {
@@ -642,11 +697,14 @@ func (enc *ExpandedEncoder) record(i int, vals []*Value, rs rowStyle) {
 	header := enc.recordHeader(i)
 	if enc.border != 0 {
 		headerRS = enc.rowStyle(enc.lineStyle.Top)
+		if i != 0 {
+			headerRS = enc.rowStyle(enc.lineStyle.Mid)
+		}
 	}
 
 	enc.w.Write(headerRS.left)
 	enc.w.WriteString(header)
-	padding := enc.maxWidths[0] + enc.maxWidths[1] + runewidth.StringWidth(string(headerRS.middle))*(len(enc.headers)-1) - len(header) - 1
+	padding := enc.maxWidths[0] + enc.maxWidths[1] + runewidth.StringWidth(string(headerRS.middle))*2 - len(header) - 1
 	if padding > 0 {
 		enc.w.Write(bytes.Repeat(headerRS.filler, padding))
 	}
@@ -668,7 +726,7 @@ func (enc *ExpandedEncoder) recordHeader(i int) string {
 	if enc.border != 0 {
 		header = fmt.Sprintf("[ RECORD %d ]", i+1)
 	}
-    return header
+	return header
 }
 
 // JSONEncoder is an unbuffered JSON encoder for result sets.
