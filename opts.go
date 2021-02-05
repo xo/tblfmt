@@ -4,6 +4,8 @@ import (
 	"io"
 	"strconv"
 	"unicode/utf8"
+
+	"github.com/nathan-fiscaletti/consolesize-go"
 )
 
 // Builder is the shared builder interface.
@@ -69,7 +71,8 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 		if e, ok := opts["expanded"]; ok {
 			switch e {
 			case "auto":
-				fallthrough
+				cols, _ := consolesize.GetConsoleSize()
+				tableOpts = append(tableOpts, WithMaxWidth(cols))
 			case "on":
 				builder = NewExpandedEncoder
 			}
@@ -126,6 +129,7 @@ func WithSummary(summary map[int]func(io.Writer, int) (int, error)) Option {
 		switch enc := v.(type) {
 		case *TableEncoder:
 			enc.summary = summary
+			enc.isCustomSummary = true
 		}
 		return nil
 	}
@@ -190,6 +194,19 @@ func WithWidths(widths []int) Option {
 			enc.widths = widths
 		case *ExpandedEncoder:
 			enc.widths = widths
+		}
+		return nil
+	}
+}
+
+// WithMaxWidth is a encoder option to set maximum width before switching to expanded format.
+func WithMaxWidth(w int) Option {
+	return func(v interface{}) error {
+		switch enc := v.(type) {
+		case *TableEncoder:
+			enc.maxWidth = w
+		case *ExpandedEncoder:
+			enc.maxWidth = w
 		}
 		return nil
 	}
