@@ -435,6 +435,10 @@ type Value struct {
 	Raw bool
 }
 
+func (v Value) String() string {
+	return string(v.Buf)
+}
+
 // LineWidth returns the line width (in runes) of line l.
 func (v *Value) LineWidth(l, offset, tab int) int {
 	var width int

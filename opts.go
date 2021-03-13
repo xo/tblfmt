@@ -1,8 +1,10 @@
 package tblfmt
 
 import (
+	html "html/template"
 	"io"
 	"strconv"
+	txt "text/template"
 	"unicode/utf8"
 
 	"github.com/nathan-fiscaletti/consolesize-go"
@@ -31,8 +33,11 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 		return NewCSVEncoder, csvOpts
 
 	case "html", "asciidoc", "latex", "latex-longtable", "troff-ms":
-		//return newErrEncoder, []Option{withError(fmt.Errorf("%q format not implemented", opts["format"]))}
-		return NewTemplateEncoder, []Option{WithNamedTemplate(opts["format"])}
+		return NewTemplateEncoder, []Option{
+			WithNamedTemplate(opts["format"]),
+			WithTableAttributes(opts["tableattr"]),
+			WithTitle(opts["title"]),
+		}
 
 	case "unaligned":
 		fallthrough
@@ -150,13 +155,33 @@ func WithInline(inline bool) Option {
 // WithTitle is a encoder option to set the title value used.
 func WithTitle(title string) Option {
 	return func(v interface{}) error {
+		var formatter Formatter
+		var val *Value
 		switch enc := v.(type) {
 		case *TableEncoder:
-			vals, err := enc.formatter.Header([]string{title})
+			formatter = enc.formatter
+			val = enc.empty
+		case *ExpandedEncoder:
+			formatter = enc.formatter
+			val = enc.empty
+		case *TemplateEncoder:
+			formatter = enc.formatter
+			val = enc.empty
+		}
+		if title != "" {
+			vals, err := formatter.Header([]string{title})
 			if err != nil {
 				return err
 			}
-			enc.title = vals[0]
+			val = vals[0]
+		}
+		switch enc := v.(type) {
+		case *TableEncoder:
+			enc.title = val
+		case *ExpandedEncoder:
+			enc.title = val
+		case *TemplateEncoder:
+			enc.title = val
 		}
 		return nil
 	}
@@ -255,11 +280,31 @@ func WithBorder(border int) Option {
 	}
 }
 
-// WithTemplate is a encoder option to set the raw template used.
-func WithTemplate(template string) Option {
+// WithTextTemplate is a encoder option to set the raw text template used.
+func WithTextTemplate(t string) Option {
 	return func(v interface{}) error {
-		switch v.(type) {
+		switch enc := v.(type) {
 		case *TemplateEncoder:
+			var err error
+			enc.template, err = txt.New("main").Parse(t)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
+// WithHtmlTemplate is a encoder option to set the raw html template used.
+func WithHtmlTemplate(t string) Option {
+	return func(v interface{}) error {
+		switch enc := v.(type) {
+		case *TemplateEncoder:
+			var err error
+			enc.template, err = html.New("main").Funcs(htmlFuncMap).Parse(t)
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	}
@@ -268,8 +313,32 @@ func WithTemplate(template string) Option {
 // WithNamedTemplate is a encoder option to set the template used.
 func WithNamedTemplate(name string) Option {
 	return func(v interface{}) error {
-		switch v.(type) {
+		template, ok := templates[name]
+		if !ok {
+			return ErrUnknownTemplate
+		}
+		switch enc := v.(type) {
 		case *TemplateEncoder:
+			var err error
+			if name == "html" {
+				enc.template, err = html.New(name).Funcs(htmlFuncMap).Parse(template)
+			} else {
+				enc.template, err = txt.New(name).Parse(template)
+			}
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
+// WithTableAttributes is a encoder option to set the table attributes.
+func WithTableAttributes(a string) Option {
+	return func(v interface{}) error {
+		switch enc := v.(type) {
+		case *TemplateEncoder:
+			enc.attributes = a
 		}
 		return nil
 	}

@@ -32,3 +32,35 @@ func TestJSONEncoder(t *testing.T) {
 		i++
 	}
 }
+
+func TestTemplateEncoder(t *testing.T) {
+	expected := `
+Row 0:
+  author_id = "15"
+  name = "aoeu
+test
+"
+  z = ""
+
+Row 1:
+  author_id = "15"
+  name = "aoeu
+test
+"
+  z = ""
+
+`
+	template := `
+{{ range $i, $r := .Rows }}Row {{ $i }}:
+{{ range . }}  {{ .Name }} = "{{ .Value }}"
+{{ end }}
+{{ end }}`
+	buf := new(bytes.Buffer)
+	if err := EncodeTemplateAll(buf, rs(), WithTextTemplate(template)); err != nil {
+		t.Fatalf("expected no error when Template encoding, got: %v", err)
+	}
+	actual := buf.String()
+	if actual != expected {
+		t.Fatalf("expected encoder to return:\n-- expected --\n%v\n-- end --\n\nbut got:\n-- encoded --\n%s\n-- end --", expected, actual)
+	}
+}
