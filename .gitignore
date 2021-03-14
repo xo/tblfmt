@@ -2,3 +2,4 @@
 /_example/_example.exe
 /coverage.out
 /notes.txt
+/testdata/*.actual.txt

@@ -87,10 +87,15 @@ func newp(src *rand.Rand) p {
 var randval int64
 
 func init() {
-	if d := os.Getenv("DETERMINISTIC"); d != "" {
+	d := strings.ToLower(os.Getenv("DETERMINISTIC"))
+	if d == "" || d == "n" || d == "no" || d == "f" || d == "false" || d == "0" || d == "off" {
 		randval = 1549508725559526476
 	} else {
-		randval = time.Now().UnixNano()
+		if r, err := strconv.ParseInt(d, 10, 64); err == nil {
+			randval = r
+		} else {
+			randval = time.Now().UnixNano()
+		}
 	}
 }
 
@@ -113,7 +118,7 @@ func randtime(src *rand.Rand) time.Time {
 	min := time.Date(1970, 1, 0, 0, 0, 0, 0, time.UTC).Unix()
 	max := time.Date(2070, 1, 0, 0, 0, 0, 0, time.UTC).Unix()
 	delta := max - min
-	return time.Unix(src.Int63n(delta)+min, 0)
+	return time.Unix(src.Int63n(delta)+min, 0).UTC()
 }
 
 // rsbig creates a large result set for testing / benchmarking purposes.
@@ -280,7 +285,7 @@ func psqlEncode(w io.Writer, resultSet ResultSet, params map[string]string, dsn 
 	// build pset
 	var pset string
 	for k, v := range params {
-		pset += fmt.Sprintf("\n\\pset %s %s", k, v)
+		pset += fmt.Sprintf("\n\\pset %s '%s'", k, v)
 	}
 
 	// exec

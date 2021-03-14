@@ -61,6 +61,9 @@ type EscapeFormatter struct {
 
 	// invalidWidth is the rune width of the invalid value
 	invalidWidth int
+
+	// headerAlign is the default header values alignment
+	headerAlign Align
 }
 
 // NewEscapeFormatter creates a escape formatter to handle basic Go values,
@@ -93,6 +96,7 @@ func (f *EscapeFormatter) Header(headers []string) ([]*Value, error) {
 			s = f.mask
 		}
 		res[i] = FormatBytes([]byte(s), f.invalid, f.invalidWidth, f.escapeJSON)
+		res[i].Align = f.headerAlign
 	}
 	return res, nil
 }
@@ -546,5 +550,12 @@ func WithInvalid(invalid string) EscapeFormatterOption {
 	return func(f *EscapeFormatter) {
 		f.invalid = []byte(invalid)
 		f.invalidWidth = runewidth.StringWidth(invalid)
+	}
+}
+
+// WithHeaderAlign sets the alignment of header values.
+func WithHeaderAlign(a Align) EscapeFormatterOption {
+	return func(f *EscapeFormatter) {
+		f.headerAlign = a
 	}
 }

@@ -41,6 +41,9 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			border, _ := strconv.Atoi(s)
 			tableOpts = append(tableOpts, WithBorder(border))
 		}
+		if s, ok := opts["title"]; ok {
+			tableOpts = append(tableOpts, WithTitle(s))
+		}
 		if s, ok := opts["footer"]; ok {
 			if s == "off" {
 				// use an empty summary map to skip drawing the footer
