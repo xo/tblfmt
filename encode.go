@@ -784,9 +784,6 @@ type JSONEncoder struct {
 	// formatter handles formatting values prior to output.
 	formatter Formatter
 
-	// title is the title value.
-	title *Value
-
 	// empty is the empty value.
 	empty *Value
 }
@@ -979,9 +976,6 @@ type CSVEncoder struct {
 	// formatter handles formatting values prior to output.
 	formatter Formatter
 
-	// title is the title value.
-	title *Value
-
 	// empty is the empty value.
 	empty *Value
 }
@@ -1124,6 +1118,16 @@ type TemplateEncoder struct {
 
 	// empty is the empty value.
 	empty *Value
+
+	// template is the parsed template
+	template Executor
+
+	// attributes are extra table attributes
+	attributes string
+}
+
+type Executor interface {
+	Execute(io.Writer, interface{}) error
 }
 
 // NewTemplateEncoder creates a new template encoder using the provided options.
@@ -1134,7 +1138,7 @@ func NewTemplateEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 		newline:   newline,
 		formatter: NewEscapeFormatter(),
 		empty: &Value{
-			Tabs: make([][][2]int, 1),
+			Buf: []byte(""),
 		},
 	}
 	for _, o := range opts {
@@ -1151,7 +1155,73 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 	if enc.resultSet == nil {
 		return ErrResultSetIsNil
 	}
-	return nil
+
+	// get and check columns
+	cols, err := enc.resultSet.Columns()
+	if err != nil {
+		return err
+	}
+	clen := len(cols)
+	if clen == 0 {
+		return ErrResultSetHasNoColumns
+	}
+
+	headers, err := enc.formatter.Header(cols)
+	if err != nil {
+		return err
+	}
+
+	title := enc.title
+	if title == nil {
+		title = enc.empty
+	}
+
+	stop := make(chan struct{})
+	data := struct {
+		Title      *Value
+		Attributes string
+		Headers    []*Value
+		Rows       <-chan []cell
+	}{
+		Title:      title,
+		Attributes: enc.attributes,
+		Headers:    headers,
+		Rows:       enc.rows(headers, stop),
+	}
+	err = enc.template.Execute(w, data)
+	close(stop)
+	return err
+}
+
+type cell struct {
+	Name  string
+	Value *Value
+}
+
+func (enc *TemplateEncoder) rows(headers []*Value, stop <-chan struct{}) chan []cell {
+	// set up storage for results
+	r := make([]interface{}, len(headers))
+	for i := range headers {
+		r[i] = new(interface{})
+	}
+	result := make(chan []cell)
+	go func() {
+		defer close(result)
+		for enc.resultSet.Next() {
+			row := make([]cell, len(headers))
+			err := enc.scanAndFormat(headers, r, row)
+			if err != nil {
+				return
+			}
+			select {
+			case result <- row:
+				// sent successfully
+			case <-stop:
+				return
+			}
+		}
+	}()
+	return result
 }
 
 // EncodeAll encodes all result sets to the writer using the encoder settings.
@@ -1179,13 +1249,25 @@ func (enc *TemplateEncoder) EncodeAll(w io.Writer) error {
 }
 
 // scanAndFormat scans and formats values from the result set.
-func (enc *TemplateEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
+// vals and result are passed as args to avoid allocation
+func (enc *TemplateEncoder) scanAndFormat(headers []*Value, buf []interface{}, row []cell) error {
 	var err error
 	if err = enc.resultSet.Err(); err != nil {
-		return nil, err
+		return err
 	}
-	if err = enc.resultSet.Scan(vals...); err != nil {
-		return nil, err
+	if err = enc.resultSet.Scan(buf...); err != nil {
+		return err
 	}
-	return enc.formatter.Format(vals)
+	vals, err := enc.formatter.Format(buf)
+	if err != nil {
+		return err
+	}
+	for i, h := range headers {
+		v := vals[i]
+		if v == nil {
+			v = enc.empty
+		}
+		row[i] = cell{Name: string(h.Buf), Value: v}
+	}
+	return nil
 }

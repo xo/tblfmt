@@ -41,6 +41,9 @@ const (
 
 	// ErrInvalidLineStyle is the invalid line style error.
 	ErrInvalidLineStyle Error = "invalid line style"
+
+	// ErrUnknownTemplate is the unknown template error.
+	ErrUnknownTemplate Error = "unknown template"
 )
 
 // errEncoder provides a no-op encoder that always returns the wrapped error.
