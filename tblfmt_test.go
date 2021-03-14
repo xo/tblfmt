@@ -235,6 +235,20 @@ func TestTinyAligned(t *testing.T) {
 	}
 }
 
+func TestWideExpanded(t *testing.T) {
+	resultSet := rswide()
+	buf := new(bytes.Buffer)
+	params := map[string]string{
+		"format":   "aligned",
+		"expanded": "auto",
+		"border":   "2",
+	}
+	if err := EncodeAll(buf, resultSet, params); err != nil {
+		t.Fatalf("expected no error when encoding, got: %v", err)
+	}
+	t.Log("\n", newlineRE.ReplaceAllString(buf.String(), "\t"))
+}
+
 func TestBigAligned(t *testing.T) {
 	resultSet := rsbig()
 

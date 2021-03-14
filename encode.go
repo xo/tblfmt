@@ -46,6 +46,9 @@ type TableEncoder struct {
 	// summary is the summary map.
 	summary map[int]func(io.Writer, int) (int, error)
 
+	// isCustomSummary when summary has been set via options
+	isCustomSummary bool
+
 	// title is the title value.
 	title *Value
 
@@ -64,6 +67,10 @@ type TableEncoder struct {
 	// maxWidths are calculated max column widths.
 	// They are at least as wide as user-supplied widths
 	maxWidths []int
+
+	// maxWidth of whole table, before switching to the ExpandedEncoder,
+	// zero disables switching
+	maxWidth int
 
 	// scanCount is the number of scanned results in the result set.
 	scanCount int
@@ -170,29 +177,36 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 
 		enc.calcWidth(vals)
 
+		if enc.maxWidth != 0 && enc.tableWidth() > enc.maxWidth {
+			t := *enc
+			t.formatter = NewEscapeFormatter()
+			exp := ExpandedEncoder{
+				TableEncoder: t,
+			}
+			exp.offsets = make([]int, 2)
+			exp.maxWidths = make([]int, 2)
+			exp.calcWidth(vals)
+
+			if err := exp.encodeVals(vals); err != nil {
+				return nil
+			}
+			continue
+		}
+
 		// print header if not already done
 		if !wroteHeader {
 			wroteHeader = true
-
 			enc.header()
 		}
 
-		rs := enc.rowStyle(enc.lineStyle.Row)
-		// print buffered vals
-		for i := 0; i < len(vals); i++ {
-			enc.row(vals[i], rs)
-			if i+1%1000 == 0 {
-				// check error every 1k rows
-				if err := enc.w.Flush(); err != nil {
-					return err
-				}
-			}
+		if err := enc.encodeVals(vals); err != nil {
+			return err
 		}
-	}
 
-	// draw end border
-	if enc.border >= 2 {
-		enc.divider(enc.rowStyle(enc.lineStyle.End))
+		// draw end border
+		if enc.border >= 2 {
+			enc.divider(enc.rowStyle(enc.lineStyle.End))
+		}
 	}
 
 	// add summary
@@ -200,6 +214,22 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 
 	// flush will return the error code
 	return enc.w.Flush()
+}
+
+func (enc *TableEncoder) encodeVals(vals [][]*Value) error {
+	rs := enc.rowStyle(enc.lineStyle.Row)
+	// print buffered vals
+	for i := 0; i < len(vals); i++ {
+		enc.row(vals[i], rs)
+		if i+1%1000 == 0 {
+			// check error every 1k rows
+			if err := enc.w.Flush(); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // EncodeAll encodes all result sets to the writer using the encoder settings.
@@ -518,6 +548,9 @@ func (enc *TableEncoder) writeAligned(b, filler []byte, a Align, width, max int)
 // summarize writes the table scan count summary.
 func (enc *TableEncoder) summarize(w io.Writer) {
 	// do summary
+	if enc.summary == nil {
+		return
+	}
 	var f func(io.Writer, int) (int, error)
 	if z, ok := enc.summary[-1]; ok {
 		f = z
@@ -544,6 +577,9 @@ func NewExpandedEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	}
 	t := tableEnc.(*TableEncoder)
 	t.formatter = NewEscapeFormatter()
+	if !t.isCustomSummary {
+		t.summary = nil
+	}
 
 	enc := &ExpandedEncoder{
 		TableEncoder: *t,
@@ -601,8 +637,6 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 
 		enc.calcWidth(vals)
 
-		rs := enc.rowStyle(enc.lineStyle.Row)
-
 		// print title if not already done
 		if !wroteTitle && enc.title != nil {
 			wroteTitle = true
@@ -611,14 +645,27 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 			enc.w.Write(enc.newline)
 		}
 
-		// print buffered vals
-		for i := 0; i < len(vals); i++ {
-			enc.record(i, vals[i], rs)
-			if i+1%1000 == 0 {
-				// check error every 1k rows
-				if err := enc.w.Flush(); err != nil {
-					return err
-				}
+		if err := enc.encodeVals(vals); err != nil {
+			return err
+		}
+	}
+
+	// add summary
+	enc.summarize(w)
+
+	// flush will return the error code
+	return enc.w.Flush()
+}
+
+func (enc *ExpandedEncoder) encodeVals(vals [][]*Value) error {
+	rs := enc.rowStyle(enc.lineStyle.Row)
+	// print buffered vals
+	for i := 0; i < len(vals); i++ {
+		enc.record(i, vals[i], rs)
+		if i+1%1000 == 0 {
+			// check error every 1k rows
+			if err := enc.w.Flush(); err != nil {
+				return err
 			}
 		}
 	}
@@ -627,9 +674,7 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 	if enc.border >= 2 && enc.scanCount != 0 {
 		enc.divider(enc.rowStyle(enc.lineStyle.End))
 	}
-
-	// flush will return the error code
-	return enc.w.Flush()
+	return nil
 }
 
 // EncodeAll encodes all result sets to the writer using the encoder settings.

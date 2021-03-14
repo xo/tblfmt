@@ -150,6 +150,28 @@ func rstiny() *rset {
 	}
 }
 
+func rswide() *rset {
+	return &rset{
+		cols: []string{
+			"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+			"cccccccccccccccccccccccccccccc",
+			"dddddddddddddddddddddddddddddd",
+			"eeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+			"ffffffffffffffffffffffffffffff",
+			"gggggggggggggggggggggggggggggg",
+			"hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+			"iiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+			"jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj",
+		},
+		vals: [][][]interface{}{
+			{
+				{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+			},
+		},
+	}
+}
+
 // rsset returns a predefined set of records for rs.
 func rsset(i int) [][]interface{} {
 	return [][]interface{}{
