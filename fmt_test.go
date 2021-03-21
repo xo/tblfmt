@@ -82,8 +82,9 @@ func TestFormatBytesTabs(t *testing.T) {
 		v("\u8888\t\u8888", 4),
 		v(" \u8888 \t \u8888 ", 8),
 	}
+	vp := newValuesPool()
 	for i, test := range tests {
-		v := FormatBytes([]byte(test.s), nil, 0, false)
+		v := vp.formatBytes([]byte(test.s), nil, 0, false)
 		if !reflect.DeepEqual(v, test.exp) {
 			t.Errorf(
 				"test %d %q expected %v, got: %v",
@@ -116,7 +117,8 @@ func TestFormatBytesComplex(t *testing.T) {
   "2015": "Boels-Dolmans"
 }`
 
-	v := FormatBytes([]byte(s), nil, 0, false)
+	vp := newValuesPool()
+	v := vp.formatBytes([]byte(s), nil, 0, false)
 	if w := v.MaxWidth(0, 8); w != 39 {
 		t.Errorf("expected width of 39, got: %d", w)
 	}
