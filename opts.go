@@ -76,7 +76,15 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 		if e, ok := opts["expanded"]; ok {
 			switch e {
 			case "auto":
-				cols, _ := consolesize.GetConsoleSize()
+				cols := 0
+				if cstr, ok := opts["columns"]; ok && cstr != "" {
+					if c, err := strconv.ParseUint(cstr, 10, 32); err == nil {
+						cols = int(c)
+					}
+				}
+				if cols == 0 {
+					cols, _ = consolesize.GetConsoleSize()
+				}
 				tableOpts = append(tableOpts, WithMaxWidth(cols))
 			case "on":
 				builder = NewExpandedEncoder
