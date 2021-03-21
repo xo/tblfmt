@@ -349,7 +349,7 @@ func (enc *TableEncoder) header() {
 	rs := enc.rowStyle(enc.lineStyle.Row)
 	if enc.title != nil && enc.title.Width != 0 {
 		maxWidth := ((enc.tableWidth() - enc.title.Width) / 2) + enc.title.Width
-		enc.writeAligned(enc.title.Buf, rs.filler, AlignRight, maxWidth-enc.title.Width)
+		enc.writeAligned(enc.title.Buf, &rs, AlignRight, maxWidth-enc.title.Width)
 		enc.w.Write(enc.newline)
 	}
 	// draw top border
@@ -397,7 +397,7 @@ func (enc TableEncoder) rowStyle(r [4]rune) rowStyle {
 		wrapper:     []byte(string(enc.lineStyle.Wrap[1])),
 		middle:      []byte(middle),
 		right:       []byte(right + string(enc.newline)),
-		filler:      []byte(filler),
+		filler:      bytes.Repeat([]byte(filler), 8),
 		hasWrapping: runewidth.RuneWidth(enc.lineStyle.Row[1]) > 0,
 	}
 }
@@ -420,10 +420,10 @@ func (enc *TableEncoder) divider(rs rowStyle) {
 	enc.w.Write(rs.left)
 	for i, width := range enc.maxWidths {
 		// column
-		repeat(enc.w, rs.filler, width)
+		rs.filler = repeat(enc.w, rs.filler, width)
 		// line feed indicator
 		if rs.hasWrapping && enc.border >= 1 {
-			enc.w.Write(rs.filler)
+			enc.w.Write(rs.filler[:1])
 		}
 		// middle separator
 		if i != len(enc.maxWidths)-1 {
@@ -522,11 +522,10 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 				if enc.border <= 1 && i == len(vals)-1 && (!rs.hasWrapping || l >= len(v.Newlines)) {
 					padding = 0
 				}
-				enc.writeAligned(v.Buf[start:end], rs.filler, v.Align, padding)
+				enc.writeAligned(v.Buf[start:end], &rs, v.Align, padding)
 			} else {
 				if enc.border > 1 || i != len(vals)-1 {
-					enc.w.Write(bytes.Repeat(rs.filler, enc.maxWidths[i]))
-					repeat(enc.w, rs.filler, enc.maxWidths[i])
+					rs.filler = repeat(enc.w, rs.filler, enc.maxWidths[i])
 				}
 			}
 			// write newline wrap value
@@ -534,7 +533,7 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 				if l < len(v.Newlines) {
 					enc.w.Write(rs.wrapper)
 				} else {
-					enc.w.Write(rs.filler)
+					enc.w.Write(rs.filler[:1])
 				}
 			}
 			remaining = remaining || l < len(v.Newlines)
@@ -553,7 +552,7 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 	}
 }
 
-func (enc *TableEncoder) writeAligned(b, filler []byte, a Align, padding int) {
+func (enc *TableEncoder) writeAligned(b []byte, rs *rowStyle, a Align, padding int) {
 	// calc padding
 	paddingLeft := 0
 	paddingRight := 0
@@ -570,13 +569,13 @@ func (enc *TableEncoder) writeAligned(b, filler []byte, a Align, padding int) {
 	}
 	// add padding left
 	if paddingLeft > 0 {
-		repeat(enc.w, filler, paddingLeft)
+		rs.filler = repeat(enc.w, rs.filler, paddingLeft)
 	}
 	// write
 	enc.w.Write(b)
 	// add padding right
 	if paddingRight > 0 {
-		repeat(enc.w, filler, paddingRight)
+		rs.filler = repeat(enc.w, rs.filler, paddingRight)
 	}
 }
 
@@ -819,10 +818,10 @@ func (enc *ExpandedEncoder) record(i int, vals []*Value, rs rowStyle) {
 		enc.w.WriteString(header)
 		padding := enc.maxWidths[0] + enc.maxWidths[1] + runewidth.StringWidth(string(headerRS.middle))*2 - len(header) - 1
 		if padding > 0 {
-			repeat(enc.w, headerRS.filler, padding)
+			headerRS.filler = repeat(enc.w, headerRS.filler, padding)
 		}
 		// write newline wrap value
-		enc.w.Write(headerRS.filler)
+		enc.w.Write(headerRS.filler[:1])
 		enc.w.Write(headerRS.right)
 	}
 	// write each value with column name in first col

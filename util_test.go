@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"testing"
 	"time"
 	"unicode"
 )
@@ -337,4 +338,21 @@ type noopWriter struct{}
 
 func (*noopWriter) Write(buf []byte) (int, error) {
 	return len(buf), nil
+}
+
+func TestRepeat(t *testing.T) {
+	buf := new(bytes.Buffer)
+	filler := []byte("x")
+	filler = repeat(buf, filler, 10)
+	filler = repeat(buf, filler, 10)
+	if cap(filler) != 16 {
+		t.Errorf("Expected filler to have cap of 16, got %d", cap(filler))
+	}
+	if len(filler) != 1 {
+		t.Errorf("Expected filler to have len of 1, got %d", len(filler))
+	}
+	actual := buf.String()
+	if actual != "xxxxxxxxxxxxxxxxxxxx" {
+		t.Errorf("Expected buf to be 20 x's, got %s", actual)
+	}
 }

@@ -109,8 +109,15 @@ func condWrite(w io.Writer, repeat int, runes ...rune) error {
 }
 */
 
-func repeat(w io.Writer, b []byte, c int) {
-	for i := 0; i < c; i++ {
-		w.Write(b)
+// repeat b c times and write it to w, returning b with increased capacity
+func repeat(w io.Writer, b []byte, c int) []byte {
+	if len(b) >= c {
+		w.Write(b[:c])
+		return b
 	}
+	for len(b) < c {
+		b = append(b, b...)
+	}
+	w.Write(b[:c])
+	return b
 }
