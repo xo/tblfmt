@@ -36,11 +36,9 @@ func TestJSONEncoder(t *testing.T) {
 func TestTemplateEncoder(t *testing.T) {
 	expected := `
 Row 0:
-  author_id = "15"
-  name = "aoeu
-test
-"
-  z = ""
+  author_id = "14"
+  name = "a	b	c	d"
+  z = "x"
 
 Row 1:
   author_id = "15"

@@ -323,7 +323,7 @@ func (enc *TableEncoder) calcWidth(vals [][]*Value) {
 func (enc *TableEncoder) header() {
 	rs := enc.rowStyle(enc.lineStyle.Row)
 
-	if enc.title != nil {
+	if enc.title != nil && enc.title.Width != 0 {
 		maxWidth := ((enc.tableWidth() - enc.title.Width) / 2) + enc.title.Width
 		enc.writeAligned(enc.title.Buf, rs.filler, AlignRight, enc.title.Width, maxWidth)
 		enc.w.Write(enc.newline)
@@ -638,11 +638,13 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 		enc.calcWidth(vals)
 
 		// print title if not already done
-		if !wroteTitle && enc.title != nil {
+		if !wroteTitle {
 			wroteTitle = true
 
-			enc.w.Write(enc.title.Buf)
-			enc.w.Write(enc.newline)
+			if enc.title != nil && enc.title.Width != 0 {
+				enc.w.Write(enc.title.Buf)
+				enc.w.Write(enc.newline)
+			}
 		}
 
 		if err := enc.encodeVals(vals); err != nil {
