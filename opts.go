@@ -73,19 +73,40 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			}
 		}
 		builder := NewTableEncoder
-		if e, ok := opts["expanded"]; ok {
-			switch e {
-			case "auto":
-				cols := 0
+		// TODO detect "pager" option, on means auto, always means on
+		// TODO pager should check both width and height in both TableEncoder and ExpandedEncoder
+		pager := opts["pager"]
+		pagerCmd := opts["pager_cmd"]
+		if pager != "" && pagerCmd != "" {
+			tableOpts = append(tableOpts, WithPager(pagerCmd))
+			switch pager {
+			case "on":
+				cols, rows := consolesize.GetConsoleSize()
 				if cstr, ok := opts["columns"]; ok && cstr != "" {
-					if c, err := strconv.ParseUint(cstr, 10, 32); err == nil {
+					if c, err := strconv.ParseUint(cstr, 10, 32); err == nil && c != 0 {
 						cols = int(c)
 					}
 				}
-				if cols == 0 {
-					cols, _ = consolesize.GetConsoleSize()
+				if rstr, ok := opts["pager_min_lines"]; ok && rstr != "" {
+					if r, err := strconv.ParseUint(rstr, 10, 32); err == nil && r != 0 {
+						rows = int(r)
+					}
 				}
-				tableOpts = append(tableOpts, WithMaxWidth(cols))
+				tableOpts = append(tableOpts, WithMinPagerWidth(cols+1), WithMinPagerHeight(rows+1))
+			case "always":
+				tableOpts = append(tableOpts, WithMinPagerWidth(-1), WithMinPagerHeight(-1))
+			}
+		}
+		if e, ok := opts["expanded"]; ok {
+			switch e {
+			case "auto":
+				cols, _ := consolesize.GetConsoleSize()
+				if cstr, ok := opts["columns"]; ok && cstr != "" {
+					if c, err := strconv.ParseUint(cstr, 10, 32); err == nil && c != 0 {
+						cols = int(c)
+					}
+				}
+				tableOpts = append(tableOpts, WithMinExpandWidth(cols+1))
 			case "on":
 				builder = NewExpandedEncoder
 			}
@@ -232,14 +253,53 @@ func WithWidths(widths []int) Option {
 	}
 }
 
-// WithMaxWidth is a encoder option to set maximum width before switching to expanded format.
-func WithMaxWidth(w int) Option {
+// WithMinExpandWidth is a encoder option to set maximum width before switching to expanded format.
+func WithMinExpandWidth(w int) Option {
 	return func(v interface{}) error {
 		switch enc := v.(type) {
 		case *TableEncoder:
-			enc.maxWidth = w
+			enc.minExpandWidth = w
 		case *ExpandedEncoder:
-			enc.maxWidth = w
+			enc.minExpandWidth = w
+		}
+		return nil
+	}
+}
+
+// WithMinPagerWidth is a encoder option to set maximum width before redirecting output to pager.
+func WithMinPagerWidth(w int) Option {
+	return func(v interface{}) error {
+		switch enc := v.(type) {
+		case *TableEncoder:
+			enc.minPagerWidth = w
+		case *ExpandedEncoder:
+			enc.minPagerWidth = w
+		}
+		return nil
+	}
+}
+
+// WithMinPagerHeight is a encoder option to set maximum height before redirecting output to pager.
+func WithMinPagerHeight(h int) Option {
+	return func(v interface{}) error {
+		switch enc := v.(type) {
+		case *TableEncoder:
+			enc.minPagerHeight = h
+		case *ExpandedEncoder:
+			enc.minPagerHeight = h
+		}
+		return nil
+	}
+}
+
+// WithPager is a encoder option to set the pager command.
+func WithPager(p string) Option {
+	return func(v interface{}) error {
+		switch enc := v.(type) {
+		case *TableEncoder:
+			enc.pagerCmd = p
+		case *ExpandedEncoder:
+			enc.pagerCmd = p
 		}
 		return nil
 	}

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os/exec"
 	"strings"
 
 	runewidth "github.com/mattn/go-runewidth"
@@ -68,9 +69,21 @@ type TableEncoder struct {
 	// They are at least as wide as user-supplied widths
 	maxWidths []int
 
-	// maxWidth of whole table, before switching to the ExpandedEncoder,
+	// minExpandWidth of the table required to switch to the ExpandedEncoder
 	// zero disables switching
-	maxWidth int
+	minExpandWidth int
+
+	// minPagerWidth of the table required to redirect output to the pager,
+	// zero disables pager
+	minPagerWidth int
+
+	// minPagerHeight of the table required to redirect output to the pager,
+	// zero disables pager
+	minPagerHeight int
+
+	// pagerCmd is the pager command to run and redirect output to
+	// if height or width is greater than minPagerHeight and minPagerWidth,
+	pagerCmd string
 
 	// scanCount is the number of scanned results in the result set.
 	scanCount int
@@ -161,6 +174,9 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		return err
 	}
 
+	var cmd *exec.Cmd
+	var cmdBuf io.WriteCloser
+
 	for {
 		var vals [][]*Value
 
@@ -177,7 +193,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 
 		enc.calcWidth(vals)
 
-		if enc.maxWidth != 0 && enc.tableWidth() > enc.maxWidth {
+		if enc.minExpandWidth != 0 && enc.tableWidth() >= enc.minExpandWidth {
 			t := *enc
 			t.formatter = NewEscapeFormatter()
 			exp := ExpandedEncoder{
@@ -187,10 +203,30 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 			exp.maxWidths = make([]int, 2)
 			exp.calcWidth(vals)
 
+			if exp.pagerCmd != "" && cmd == nil &&
+				((exp.minPagerHeight != 0 && exp.tableHeight(vals) >= exp.minPagerHeight) ||
+					(exp.minPagerWidth != 0 && exp.tableWidth() >= exp.minPagerWidth)) {
+				cmd, cmdBuf, err = startPager(exp.pagerCmd, w)
+				if err != nil {
+					return err
+				}
+				exp.w = bufio.NewWriterSize(cmdBuf, 2048)
+			}
+
 			if err := exp.encodeVals(vals); err != nil {
 				return nil
 			}
 			continue
+		}
+
+		if enc.pagerCmd != "" && cmd == nil &&
+			((enc.minPagerHeight != 0 && enc.tableHeight(vals) >= enc.minPagerHeight) ||
+				(enc.minPagerWidth != 0 && enc.tableWidth() >= enc.minPagerWidth)) {
+			cmd, cmdBuf, err = startPager(enc.pagerCmd, w)
+			if err != nil {
+				return err
+			}
+			enc.w = bufio.NewWriterSize(cmdBuf, 2048)
 		}
 
 		// print header if not already done
@@ -213,7 +249,28 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 	enc.summarize(w)
 
 	// flush will return the error code
-	return enc.w.Flush()
+	err = enc.w.Flush()
+	if err != nil {
+		return err
+	}
+	if cmd != nil {
+		cmdBuf.Close()
+		return cmd.Wait()
+	}
+	return nil
+}
+
+func startPager(pagerCmd string, w io.Writer) (*exec.Cmd, io.WriteCloser, error) {
+	cmd := exec.Command(pagerCmd)
+	cmd.Stdout = w
+	cmd.Stderr = w
+	cmdBuf, err := cmd.StdinPipe()
+	if err != nil {
+		return nil, nil, err
+	}
+	// TODO when pager exits early, writes and flushes
+	// will start producing "broken pipe" errors, how to detect them?
+	return cmd, cmdBuf, cmd.Start()
 }
 
 func (enc *TableEncoder) encodeVals(vals [][]*Value) error {
@@ -449,6 +506,50 @@ func (enc *TableEncoder) tableWidth() int {
 	return width
 }
 
+// tableHeight calculates total table height.
+func (enc *TableEncoder) tableHeight(rows [][]*Value) int {
+	height := 0
+	if enc.title != nil && enc.title.Width != 0 {
+		height += strings.Count(string(enc.title.Buf), "\n")
+	}
+	// top border
+	if enc.border >= 2 && !enc.inline {
+		height++
+	}
+	// header
+	height++
+	// mid divider
+	if enc.inline {
+		height++
+	}
+
+	for _, row := range rows {
+		largest := 1
+		for _, cell := range row {
+			if cell != nil {
+				cell = enc.empty
+			}
+
+			if len(cell.Newlines) > largest {
+				largest = len(cell.Newlines)
+			}
+		}
+		height += largest
+	}
+
+	// end border
+	if enc.border >= 2 {
+		height++
+	}
+
+	// scanCount at this point is not the final value but this is better than nothing
+	if enc.summary != nil && enc.summary[-1] != nil || enc.summary[enc.scanCount] != nil {
+		height++
+	}
+
+	return height
+}
+
 // row draws the a table row.
 func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 	var l int
@@ -620,7 +721,10 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 		return err
 	}
 
+	var cmd *exec.Cmd
+	var cmdBuf io.WriteCloser
 	var wroteTitle bool
+
 	for {
 		var vals [][]*Value
 
@@ -636,6 +740,16 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 		}
 
 		enc.calcWidth(vals)
+
+		if enc.pagerCmd != "" && cmd == nil &&
+			((enc.minPagerHeight != 0 && enc.tableHeight(vals) >= enc.minPagerHeight) ||
+				(enc.minPagerWidth != 0 && enc.tableWidth() >= enc.minPagerWidth)) {
+			cmd, cmdBuf, err = startPager(enc.pagerCmd, w)
+			if err != nil {
+				return err
+			}
+			enc.w = bufio.NewWriterSize(cmdBuf, 2048)
+		}
 
 		// print title if not already done
 		if !wroteTitle {
@@ -656,7 +770,15 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 	enc.summarize(w)
 
 	// flush will return the error code
-	return enc.w.Flush()
+	err = enc.w.Flush()
+	if err != nil {
+		return err
+	}
+	if cmd != nil {
+		cmdBuf.Close()
+		return cmd.Wait()
+	}
+	return nil
 }
 
 func (enc *ExpandedEncoder) encodeVals(vals [][]*Value) error {
@@ -736,6 +858,38 @@ func (enc *ExpandedEncoder) calcWidth(vals [][]*Value) {
 			enc.maxWidths[1] = max(enc.maxWidths[1], cell.MaxWidth(offset, enc.tab))
 		}
 	}
+}
+
+// tableHeight calculates total table height.
+func (enc *ExpandedEncoder) tableHeight(rows [][]*Value) int {
+	height := 0
+	if enc.title != nil && enc.title.Width != 0 {
+		height += strings.Count(string(enc.title.Buf), "\n")
+	}
+
+	for _, row := range rows {
+		// header
+		height++
+		for _, cell := range row {
+			if cell != nil {
+				cell = enc.empty
+			}
+
+			height += 1 + len(cell.Newlines)
+		}
+	}
+
+	// end border
+	if enc.border >= 2 {
+		height++
+	}
+
+	// scanCount at this point is not the final value but this is better than nothing
+	if enc.summary != nil && enc.summary[-1] != nil || enc.summary[enc.scanCount] != nil {
+		height++
+	}
+
+	return height
 }
 
 func (enc *ExpandedEncoder) record(i int, vals []*Value, rs rowStyle) {
