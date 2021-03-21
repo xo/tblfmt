@@ -91,7 +91,7 @@ func ExampleNewTableEncoder_encodeAll() {
 		res,
 		tblfmt.WithBorder(2),
 		tblfmt.WithLineStyle(tblfmt.UnicodeDoubleLineStyle()),
-		tblfmt.WithWidths([]int{20, 20}),
+		tblfmt.WithWidths([]int{20, 20, 20}),
 		tblfmt.WithSummary(tblfmt.DefaultTableSummary()),
 	)
 	if err != nil {

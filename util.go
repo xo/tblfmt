@@ -108,3 +108,9 @@ func condWrite(w io.Writer, repeat int, runes ...rune) error {
 	return err
 }
 */
+
+func repeat(w io.Writer, b []byte, c int) {
+	for i := 0; i < c; i++ {
+		w.Write(b)
+	}
+}

@@ -270,8 +270,13 @@ func BenchmarkEncodeFormats(b *testing.B) {
 		opts []Option
 	}{
 		{"aligned", NewTableEncoder, nil},
+		{"aligned-batch10", NewTableEncoder, []Option{WithCount(10)}},
+		{"aligned-batch100", NewTableEncoder, []Option{WithCount(100)}},
 		{"json", NewJSONEncoder, nil},
-		{"csv", NewUnalignedEncoder, nil},
+		{"unaligned", NewUnalignedEncoder, nil},
+		{"csv", NewCSVEncoder, nil},
+		{"template-asciidoc", NewTemplateEncoder, []Option{WithTemplate("asciidoc")}},
+		{"template-html", NewTemplateEncoder, []Option{WithTemplate("html")}},
 	}
 	for _, enc := range encoders {
 		b.Run(enc.name, func(b *testing.B) {

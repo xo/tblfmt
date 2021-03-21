@@ -72,6 +72,12 @@ type TableEncoder struct {
 	scanCount int
 	// w is the undelying writer
 	w *bufio.Writer
+
+	// scanBuffer for scanning row into
+	scanBuffer []interface{}
+
+	// valsBuffer for prefetching a set of rows to calculate max column width
+	valsBuffer [][]*Value
 }
 
 // NewTableEncoder creates a new table encoder using the provided options.
@@ -143,6 +149,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 	if err != nil {
 		return err
 	}
+	enc.initBuffers()
 	var cmd *exec.Cmd
 	var cmdBuf io.WriteCloser
 	for {
@@ -159,7 +166,9 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		enc.calcWidth(vals)
 		if enc.minExpandWidth != 0 && enc.tableWidth() >= enc.minExpandWidth {
 			t := *enc
-			t.formatter = NewEscapeFormatter()
+			if f, ok := t.formatter.(*EscapeFormatter); ok {
+				f.Configure(WithHeaderAlign(AlignLeft))
+			}
 			exp := ExpandedEncoder{
 				TableEncoder: t,
 			}
@@ -235,6 +244,19 @@ func checkErr(err error, cmd *exec.Cmd) error {
 	return err
 }
 
+func (enc *TableEncoder) initBuffers() {
+	// create buffers for scanning rows and prefetching records
+	bufSize := enc.count
+	if bufSize == 0 {
+		bufSize = 100
+	}
+	enc.valsBuffer = make([][]*Value, 0, bufSize)
+	enc.scanBuffer = make([]interface{}, len(enc.headers))
+	for i := 0; i < len(enc.headers); i++ {
+		enc.scanBuffer[i] = new(interface{})
+	}
+}
+
 func (enc *TableEncoder) encodeVals(vals [][]*Value) error {
 	rs := enc.rowStyle(enc.lineStyle.Row)
 	// print buffered vals
@@ -244,6 +266,11 @@ func (enc *TableEncoder) encodeVals(vals [][]*Value) error {
 			// check error every 1k rows
 			if err := enc.w.Flush(); err != nil {
 				return err
+			}
+		}
+		for _, v := range vals[i] {
+			if v != nil {
+				enc.formatter.Free(v)
 			}
 		}
 	}
@@ -272,29 +299,21 @@ func (enc *TableEncoder) EncodeAll(w io.Writer) error {
 // nextResults reads the next enc.count values,
 // or all values if enc.count = 0
 func (enc *TableEncoder) nextResults() ([][]*Value, error) {
-	var vals [][]*Value
-	if enc.count != 0 {
-		vals = make([][]*Value, 0, enc.count)
-	}
-	// set up storage for results
-	r := make([]interface{}, len(enc.headers))
-	for i := 0; i < len(enc.headers); i++ {
-		r[i] = new(interface{})
-	}
+	enc.valsBuffer = enc.valsBuffer[:0]
 	// read to count (or all)
 	var i int
 	for enc.resultSet.Next() {
-		v, err := enc.scanAndFormat(r)
+		v, err := enc.scanAndFormat(enc.scanBuffer)
 		if err != nil {
-			return vals, err
+			return enc.valsBuffer, err
 		}
-		vals, i = append(vals, v), i+1
+		enc.valsBuffer, i = append(enc.valsBuffer, v), i+1
 		// read by batches of enc.count rows
 		if enc.count != 0 && i%enc.count == 0 {
 			break
 		}
 	}
-	return vals, nil
+	return enc.valsBuffer, nil
 }
 
 func (enc *TableEncoder) calcWidth(vals [][]*Value) {
@@ -401,7 +420,7 @@ func (enc *TableEncoder) divider(rs rowStyle) {
 	enc.w.Write(rs.left)
 	for i, width := range enc.maxWidths {
 		// column
-		enc.w.Write(bytes.Repeat(rs.filler, width))
+		repeat(enc.w, rs.filler, width)
 		// line feed indicator
 		if rs.hasWrapping && enc.border >= 1 {
 			enc.w.Write(rs.filler)
@@ -507,6 +526,7 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 			} else {
 				if enc.border > 1 || i != len(vals)-1 {
 					enc.w.Write(bytes.Repeat(rs.filler, enc.maxWidths[i]))
+					repeat(enc.w, rs.filler, enc.maxWidths[i])
 				}
 			}
 			// write newline wrap value
@@ -550,13 +570,13 @@ func (enc *TableEncoder) writeAligned(b, filler []byte, a Align, padding int) {
 	}
 	// add padding left
 	if paddingLeft > 0 {
-		enc.w.Write(bytes.Repeat(filler, paddingLeft))
+		repeat(enc.w, filler, paddingLeft)
 	}
 	// write
 	enc.w.Write(b)
 	// add padding right
 	if paddingRight > 0 {
-		enc.w.Write(bytes.Repeat(filler, paddingRight))
+		repeat(enc.w, filler, paddingRight)
 	}
 }
 
@@ -602,7 +622,9 @@ func NewExpandedEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 		return nil, err
 	}
 	t := tableEnc.(*TableEncoder)
-	t.formatter = NewEscapeFormatter()
+	if f, ok := t.formatter.(*EscapeFormatter); ok {
+		f.Configure(WithHeaderAlign(AlignLeft))
+	}
 	if !t.isCustomSummary {
 		t.summary = nil
 	}
@@ -636,6 +658,7 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 	if err != nil {
 		return err
 	}
+	enc.initBuffers()
 	var cmd *exec.Cmd
 	var cmdBuf io.WriteCloser
 	wroteTitle := enc.skipHeader
@@ -693,6 +716,11 @@ func (enc *ExpandedEncoder) encodeVals(vals [][]*Value) error {
 			// check error every 1k rows
 			if err := enc.w.Flush(); err != nil {
 				return err
+			}
+		}
+		for _, v := range vals[i] {
+			if v != nil {
+				enc.formatter.Free(v)
 			}
 		}
 	}
@@ -791,7 +819,7 @@ func (enc *ExpandedEncoder) record(i int, vals []*Value, rs rowStyle) {
 		enc.w.WriteString(header)
 		padding := enc.maxWidths[0] + enc.maxWidths[1] + runewidth.StringWidth(string(headerRS.middle))*2 - len(header) - 1
 		if padding > 0 {
-			enc.w.Write(bytes.Repeat(headerRS.filler, padding))
+			repeat(enc.w, headerRS.filler, padding)
 		}
 		// write newline wrap value
 		enc.w.Write(headerRS.filler)
@@ -932,6 +960,10 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 				if _, err = w.Write(cma); err != nil {
 					return err
 				}
+			}
+
+			if v != enc.empty {
+				enc.formatter.Free(v)
 			}
 		}
 		if _, err = w.Write(cls); err != nil {
@@ -1109,6 +1141,9 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 			}
 			if _, err := w.Write(buf); err != nil {
 				return err
+			}
+			if v != enc.empty {
+				enc.formatter.Free(v)
 			}
 		}
 		if _, err := w.Write(enc.newline); err != nil {

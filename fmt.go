@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -19,6 +20,9 @@ type Formatter interface {
 	Header([]string) ([]*Value, error)
 	// Format returns a slice of formatted value the provided row values.
 	Format([]interface{}) ([]*Value, error)
+
+	// Free the value if it's no longer going to be used
+	Free(*Value)
 }
 
 // EscapeFormatter is an escaping formatter, that handles formatting the
@@ -61,6 +65,8 @@ type EscapeFormatter struct {
 	invalidWidth int
 	// headerAlign is the default header values alignment
 	headerAlign Align
+
+	valuesPool valuesPool
 }
 
 // NewEscapeFormatter creates a escape formatter to handle basic Go values,
@@ -73,11 +79,16 @@ func NewEscapeFormatter(opts ...EscapeFormatterOption) *EscapeFormatter {
 		mask:       "%d",
 		timeFormat: time.RFC3339Nano,
 		indent:     "  ",
+		valuesPool: newValuesPool(),
 	}
+	f.Configure(opts...)
+	return f
+}
+
+func (f *EscapeFormatter) Configure(opts ...EscapeFormatterOption) {
 	for _, o := range opts {
 		o(f)
 	}
-	return f
 }
 
 // Header satisfies the Formatter interface.
@@ -92,7 +103,7 @@ func (f *EscapeFormatter) Header(headers []string) ([]*Value, error) {
 		} else if s == "" {
 			s = f.mask
 		}
-		res[i] = FormatBytes([]byte(s), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
+		res[i] = f.valuesPool.formatBytes([]byte(s), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
 		res[i].Align = f.headerAlign
 	}
 	return res, nil
@@ -102,131 +113,158 @@ func (f *EscapeFormatter) Header(headers []string) ([]*Value, error) {
 func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 	n := len(vals)
 	res := make([]*Value, n)
-	// TODO: change time to v.AppendFormat() + pool
+
 	// TODO: use strconv.Format* for numeric times
-	// TODO: use pool
 	// TODO: allow configurable runes that can be escaped
 	// TODO: handler driver.Valuer
 	for i := 0; i < n; i++ {
 		switch v := (*(vals[i].(*interface{}))).(type) {
 		case nil:
 		case bool:
-			res[i] = newValue(strconv.FormatBool(v), AlignLeft, false)
+			res[i] = f.valuesPool.newEmpty(AlignLeft, false)
+			res[i].Buf = strconv.AppendBool(res[i].Buf, v)
 		case *bool:
 			if v != nil {
-				res[i] = newValue(strconv.FormatBool(*v), AlignLeft, false)
-			}
-		case uint8:
-			res[i] = &Value{Buf: []byte(string(rune(v))), Width: 1, Align: AlignRight, Raw: true}
-		case *uint8:
-			if v != nil {
-				res[i] = &Value{Buf: []byte(string(rune(*v))), Width: 1, Align: AlignRight, Raw: true}
+				res[i] = f.valuesPool.newEmpty(AlignLeft, false)
+				res[i].Buf = strconv.AppendBool(res[i].Buf, *v)
 			}
 		case int:
-			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
+			res[i] = f.valuesPool.newEmpty(AlignRight, true)
+			res[i].Buf = strconv.AppendInt(res[i].Buf, int64(v), 10)
 		case int8:
-			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
+			res[i] = f.valuesPool.newEmpty(AlignRight, true)
+			res[i].Buf = strconv.AppendInt(res[i].Buf, int64(v), 10)
 		case int16:
-			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
+			res[i] = f.valuesPool.newEmpty(AlignRight, true)
+			res[i].Buf = strconv.AppendInt(res[i].Buf, int64(v), 10)
 		case int32:
-			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
+			res[i] = f.valuesPool.newEmpty(AlignRight, true)
+			res[i].Buf = strconv.AppendInt(res[i].Buf, int64(v), 10)
 		case int64:
-			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
+			res[i] = f.valuesPool.newEmpty(AlignRight, true)
+			res[i].Buf = strconv.AppendInt(res[i].Buf, int64(v), 10)
 		case *int:
 			if v != nil {
-				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
+				res[i] = f.valuesPool.newEmpty(AlignRight, true)
+				res[i].Buf = strconv.AppendInt(res[i].Buf, int64(*v), 10)
 			}
 		case *int8:
 			if v != nil {
-				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
+				res[i] = f.valuesPool.newEmpty(AlignRight, true)
+				res[i].Buf = strconv.AppendInt(res[i].Buf, int64(*v), 10)
 			}
 		case *int16:
 			if v != nil {
-				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
+				res[i] = f.valuesPool.newEmpty(AlignRight, true)
+				res[i].Buf = strconv.AppendInt(res[i].Buf, int64(*v), 10)
 			}
 		case *int32:
 			if v != nil {
-				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
+				res[i] = f.valuesPool.newEmpty(AlignRight, true)
+				res[i].Buf = strconv.AppendInt(res[i].Buf, int64(*v), 10)
 			}
 		case *int64:
 			if v != nil {
-				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
+				res[i] = f.valuesPool.newEmpty(AlignRight, true)
+				res[i].Buf = strconv.AppendInt(res[i].Buf, int64(*v), 10)
 			}
 		case uint:
-			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
+			res[i] = f.valuesPool.newEmpty(AlignRight, true)
+			res[i].Buf = strconv.AppendInt(res[i].Buf, int64(v), 10)
+		case uint8:
+			res[i] = f.valuesPool.newEmpty(AlignRight, true)
+			res[i].Buf = strconv.AppendInt(res[i].Buf, int64(v), 10)
 		case uint16:
-			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
+			res[i] = f.valuesPool.newEmpty(AlignRight, true)
+			res[i].Buf = strconv.AppendInt(res[i].Buf, int64(v), 10)
 		case uint32:
-			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
+			res[i] = f.valuesPool.newEmpty(AlignRight, true)
+			res[i].Buf = strconv.AppendInt(res[i].Buf, int64(v), 10)
 		case uint64:
-			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
+			res[i] = f.valuesPool.newEmpty(AlignRight, true)
+			res[i].Buf = strconv.AppendInt(res[i].Buf, int64(v), 10)
 		case *uint:
 			if v != nil {
-				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
+				res[i] = f.valuesPool.newEmpty(AlignRight, true)
+				res[i].Buf = strconv.AppendInt(res[i].Buf, int64(*v), 10)
+			}
+		case *uint8:
+			if v != nil {
+				res[i] = f.valuesPool.newEmpty(AlignRight, true)
+				res[i].Buf = strconv.AppendInt(res[i].Buf, int64(*v), 10)
 			}
 		case *uint16:
 			if v != nil {
-				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
+				res[i] = f.valuesPool.newEmpty(AlignRight, true)
+				res[i].Buf = strconv.AppendInt(res[i].Buf, int64(*v), 10)
 			}
 		case *uint32:
 			if v != nil {
-				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
+				res[i] = f.valuesPool.newEmpty(AlignRight, true)
+				res[i].Buf = strconv.AppendInt(res[i].Buf, int64(*v), 10)
 			}
 		case *uint64:
 			if v != nil {
 				// int64 cannot hold uint64's max value
-				res[i] = newValue(strconv.FormatUint(uint64(*v), 10), AlignRight, true)
+				res[i] = f.valuesPool.newEmpty(AlignRight, true)
+				res[i].Buf = strconv.AppendUint(res[i].Buf, uint64(*v), 10)
 			}
 		case uintptr:
-			res[i] = newValue(fmt.Sprintf("(0x%x)", v), AlignRight, true)
+			res[i] = f.valuesPool.newValue(fmt.Sprintf("(0x%x)", v), AlignRight, true)
 		case *uintptr:
 			if v != nil {
-				res[i] = newValue(fmt.Sprintf("(0x%x)", v), AlignRight, true)
+				res[i] = f.valuesPool.newValue(fmt.Sprintf("(0x%x)", v), AlignRight, true)
 			}
 		case float32:
-			res[i] = newValue(strconv.FormatFloat(float64(v), 'g', -1, 32), AlignRight, true)
+			res[i] = f.valuesPool.newEmpty(AlignRight, true)
+			res[i].Buf = strconv.AppendFloat(res[i].Buf, float64(v), 'g', -1, 32)
 		case float64:
-			res[i] = newValue(strconv.FormatFloat(v, 'g', -1, 64), AlignRight, true)
+			res[i] = f.valuesPool.newEmpty(AlignRight, true)
+			res[i].Buf = strconv.AppendFloat(res[i].Buf, float64(v), 'g', -1, 64)
 		case *float32:
 			if v != nil {
-				res[i] = newValue(strconv.FormatFloat(float64(*v), 'g', -1, 32), AlignRight, true)
+				res[i] = f.valuesPool.newEmpty(AlignRight, true)
+				res[i].Buf = strconv.AppendFloat(res[i].Buf, float64(*v), 'g', -1, 32)
 			}
 		case *float64:
 			if v != nil {
-				res[i] = newValue(strconv.FormatFloat(*v, 'g', -1, 64), AlignRight, true)
+				res[i] = f.valuesPool.newEmpty(AlignRight, true)
+				res[i].Buf = strconv.AppendFloat(res[i].Buf, float64(*v), 'g', -1, 64)
 			}
 		case complex64:
-			res[i] = newValue(fmt.Sprintf("%g", v), AlignRight, false)
+			res[i] = f.valuesPool.newValue(fmt.Sprintf("%g", v), AlignRight, false)
 		case complex128:
-			res[i] = newValue(fmt.Sprintf("%g", v), AlignRight, false)
+			res[i] = f.valuesPool.newValue(fmt.Sprintf("%g", v), AlignRight, false)
 		case *complex64:
 			if v != nil {
-				res[i] = newValue(fmt.Sprintf("%g", *v), AlignRight, false)
+				res[i] = f.valuesPool.newValue(fmt.Sprintf("%g", *v), AlignRight, false)
 			}
 		case *complex128:
 			if v != nil {
-				res[i] = newValue(fmt.Sprintf("%g", *v), AlignRight, false)
+				res[i] = f.valuesPool.newValue(fmt.Sprintf("%g", *v), AlignRight, false)
 			}
 		case []byte:
-			res[i] = FormatBytes(v, f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
+			res[i] = f.valuesPool.formatBytes(v, f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
 		case *[]byte:
 			if v != nil {
-				res[i] = FormatBytes(*v, f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
+				res[i] = f.valuesPool.formatBytes(*v, f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
 			}
 		case string:
-			res[i] = FormatBytes([]byte(v), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
+			res[i] = f.valuesPool.formatBytes([]byte(v), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
 		case *string:
 			if v != nil {
-				res[i] = FormatBytes([]byte(*v), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
+				res[i] = f.valuesPool.formatBytes([]byte(*v), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
 			}
 		case time.Time:
-			res[i] = newValue(v.Format(f.timeFormat), AlignLeft, false)
+			res[i] = f.valuesPool.newEmpty(AlignLeft, false)
+			res[i].Buf = v.AppendFormat(res[i].Buf, f.timeFormat)
 		case *time.Time:
 			if v != nil {
-				res[i] = newValue(v.Format(f.timeFormat), AlignLeft, false)
+				res[i] = f.valuesPool.newEmpty(AlignLeft, false)
+				res[i].Buf = v.AppendFormat(res[i].Buf, f.timeFormat)
 			}
 		case fmt.Stringer:
-			res[i] = FormatBytes([]byte(v.String()), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
+			res[i] = f.valuesPool.formatBytes([]byte(v.String()), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
 		default:
 			// TODO: pool
 			if f.marshaler != nil {
@@ -234,10 +272,7 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 				if err != nil {
 					return nil, err
 				}
-				res[i] = &Value{
-					Buf: buf,
-					Raw: true,
-				}
+				res[i] = f.valuesPool.newRaw(buf)
 			} else {
 				// json encode
 				buf := new(bytes.Buffer)
@@ -248,33 +283,71 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 					return nil, err
 				}
 				if f.isJSON {
-					res[i] = &Value{
-						Buf: bytes.TrimSpace(buf.Bytes()),
-						Raw: true,
-					}
+					res[i] = f.valuesPool.newRaw(bytes.TrimSpace(buf.Bytes()))
 				} else {
-					res[i] = FormatBytes(bytes.TrimSpace(buf.Bytes()), f.invalid, f.invalidWidth, false, f.isRaw, f.sep, f.quote)
+					res[i] = f.valuesPool.formatBytes(bytes.TrimSpace(buf.Bytes()), f.invalid, f.invalidWidth, false, f.isRaw, f.sep, f.quote)
 					res[i].Raw = true
 				}
 			}
+		}
+		if res[i] != nil && res[i].Width == 0 {
+			res[i].Width = len(res[i].Buf)
 		}
 	}
 	return res, nil
 }
 
-// valueFromBuffer returns a value from a buffer known not to contain
-// characters to escape.
-func newValue(str string, align Align, raw bool) *Value {
-	v := &Value{Buf: []byte(str), Align: align, Raw: raw}
+func (f *EscapeFormatter) Free(v *Value) {
+	f.valuesPool.free(v)
+}
+
+type valuesPool struct {
+	sync.Pool
+}
+
+func newValuesPool() valuesPool {
+	return valuesPool{
+		Pool: sync.Pool{
+			New: func() interface{} {
+				return new(Value)
+			},
+		},
+	}
+}
+
+func (p *valuesPool) newEmpty(align Align, raw bool) *Value {
+	v := p.Get().(*Value)
+	v.Align = align
+	v.Raw = raw
+	return v
+}
+
+func (p *valuesPool) newValue(str string, align Align, raw bool) *Value {
+	v := p.Get().(*Value)
+	v.Buf = append(v.Buf, str...)
+	v.Align = align
+	v.Raw = raw
 	v.Width = len(v.Buf)
 	return v
 }
 
-// FormatBytes parses src, saving escaped (encoded) and unescaped runes to a
+func (p *valuesPool) newRaw(b []byte) *Value {
+	v := p.Get().(*Value)
+	v.Buf = append(v.Buf, b...)
+	v.Raw = true
+	v.Width = len(v.Buf)
+	return v
+}
+
+// formatBytes parses src, saving escaped (encoded) and unescaped runes to a
 // Value, along with tab and newline positions in the generated buf.
-func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isCSV bool, sep, quote rune) *Value {
-	res := &Value{
-		Tabs: make([][][2]int, 1),
+func (p *valuesPool) formatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isCSV bool, sep, quote rune) *Value {
+	res := p.Get().(*Value)
+	if res.Tabs != nil {
+		// Tabs slice should always be zeroed
+		res.Tabs = append(res.Tabs, nil)
+	} else {
+		res.Tabs = make([][][2]int, 1)
 	}
 	var tmp [4]byte
 	var r rune
@@ -401,6 +474,16 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isCSV boo
 		}
 	}
 	return res
+}
+
+func (p *valuesPool) free(v *Value) {
+	v.Buf = v.Buf[:0]
+	v.Newlines = v.Newlines[:0]
+	v.Tabs = v.Tabs[:0]
+	v.Width = 0
+	v.Align = AlignLeft
+	v.Raw = false
+	p.Pool.Put(v)
 }
 
 // Value contains information pertaining to a formatted value.
