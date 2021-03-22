@@ -72,9 +72,6 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 				}
 			}
 		}
-		builder := NewTableEncoder
-		// TODO detect "pager" option, on means auto, always means on
-		// TODO pager should check both width and height in both TableEncoder and ExpandedEncoder
 		pager := opts["pager"]
 		pagerCmd := opts["pager_cmd"]
 		if pager != "" && pagerCmd != "" {
@@ -97,6 +94,7 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 				tableOpts = append(tableOpts, WithMinPagerWidth(-1), WithMinPagerHeight(-1))
 			}
 		}
+		builder := NewTableEncoder
 		if e, ok := opts["expanded"]; ok {
 			switch e {
 			case "auto":

@@ -5,10 +5,12 @@ import (
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
 	"strings"
+	"syscall"
 
 	runewidth "github.com/mattn/go-runewidth"
 )
@@ -214,7 +216,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 			}
 
 			if err := exp.encodeVals(vals); err != nil {
-				return nil
+				return checkErr(err, cmd)
 			}
 			continue
 		}
@@ -236,7 +238,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		}
 
 		if err := enc.encodeVals(vals); err != nil {
-			return err
+			return checkErr(err, cmd)
 		}
 
 		// draw end border
@@ -248,10 +250,8 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 	// add summary
 	enc.summarize(w)
 
-	// flush will return the error code
-	err = enc.w.Flush()
-	if err != nil {
-		return err
+	if err := enc.w.Flush(); err != nil {
+		return checkErr(err, cmd)
 	}
 	if cmd != nil {
 		cmdBuf.Close()
@@ -268,9 +268,15 @@ func startPager(pagerCmd string, w io.Writer) (*exec.Cmd, io.WriteCloser, error)
 	if err != nil {
 		return nil, nil, err
 	}
-	// TODO when pager exits early, writes and flushes
-	// will start producing "broken pipe" errors, how to detect them?
 	return cmd, cmdBuf, cmd.Start()
+}
+
+func checkErr(err error, cmd *exec.Cmd) error {
+	if cmd != nil && errors.Is(err, syscall.EPIPE) {
+		// broken pipe means pager quit before consuming all data, which might be expected
+		return nil
+	}
+	return err
 }
 
 func (enc *TableEncoder) encodeVals(vals [][]*Value) error {
@@ -762,17 +768,15 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 		}
 
 		if err := enc.encodeVals(vals); err != nil {
-			return err
+			return checkErr(err, cmd)
 		}
 	}
 
 	// add summary
 	enc.summarize(w)
 
-	// flush will return the error code
-	err = enc.w.Flush()
-	if err != nil {
-		return err
+	if err := enc.w.Flush(); err != nil {
+		return checkErr(err, cmd)
 	}
 	if cmd != nil {
 		cmdBuf.Close()
