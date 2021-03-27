@@ -30,6 +30,9 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			sep, _ := utf8.DecodeRuneInString(s)
 			csvOpts = append(csvOpts, WithFieldSeparator(sep))
 		}
+		if s, ok := opts["tuples_only"]; ok && s == "on" {
+			csvOpts = append(csvOpts, WithSkipHeader(true))
+		}
 		return NewCSVEncoder, csvOpts
 
 	case "html", "asciidoc", "latex", "latex-longtable", "troff-ms":
@@ -48,14 +51,16 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			border, _ := strconv.Atoi(s)
 			tableOpts = append(tableOpts, WithBorder(border))
 		}
+		if s, ok := opts["tuples_only"]; ok && s == "on" {
+			tableOpts = append(tableOpts, WithSkipHeader(true))
+			opts["footer"] = "off"
+		}
 		if s, ok := opts["title"]; ok {
 			tableOpts = append(tableOpts, WithTitle(s))
 		}
-		if s, ok := opts["footer"]; ok {
-			if s == "off" {
-				// use an empty summary map to skip drawing the footer
-				tableOpts = append(tableOpts, WithSummary(map[int]func(io.Writer, int) (int, error){}))
-			}
+		if s, ok := opts["footer"]; ok && s == "off" {
+			// use an empty summary map to skip drawing the footer
+			tableOpts = append(tableOpts, WithSummary(map[int]func(io.Writer, int) (int, error){}))
 		}
 		if s, ok := opts["linestyle"]; ok {
 			switch s {
@@ -162,6 +167,24 @@ func WithSummary(summary map[int]func(io.Writer, int) (int, error)) Option {
 		case *TableEncoder:
 			enc.summary = summary
 			enc.isCustomSummary = true
+		case *ExpandedEncoder:
+			enc.summary = summary
+			enc.isCustomSummary = true
+		}
+		return nil
+	}
+}
+
+// WithSkipHeader is a encoder option to skip drawing header.
+func WithSkipHeader(s bool) Option {
+	return func(v interface{}) error {
+		switch enc := v.(type) {
+		case *TableEncoder:
+			enc.skipHeader = s
+		case *ExpandedEncoder:
+			enc.skipHeader = s
+		case *CSVEncoder:
+			enc.skipHeader = s
 		}
 		return nil
 	}
