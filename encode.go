@@ -46,6 +46,9 @@ type TableEncoder struct {
 	// formatter handles formatting values prior to output.
 	formatter Formatter
 
+	// skipHeader allows to skip drawing header
+	skipHeader bool
+
 	// summary is the summary map.
 	summary map[int]func(io.Writer, int) (int, error)
 
@@ -162,7 +165,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 
 	// setup offsets, widths
 	enc.offsets = make([]int, clen)
-	var wroteHeader bool
+	wroteHeader := enc.skipHeader
 
 	// default to user-supplied widths
 	if len(enc.widths) == clen {
@@ -729,7 +732,7 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 
 	var cmd *exec.Cmd
 	var cmdBuf io.WriteCloser
-	var wroteTitle bool
+	wroteTitle := enc.skipHeader
 
 	for {
 		var vals [][]*Value
@@ -897,25 +900,27 @@ func (enc *ExpandedEncoder) tableHeight(rows [][]*Value) int {
 }
 
 func (enc *ExpandedEncoder) record(i int, vals []*Value, rs rowStyle) {
-	// write record header as a single record
-	headerRS := rs
-	header := enc.recordHeader(i)
-	if enc.border != 0 {
-		headerRS = enc.rowStyle(enc.lineStyle.Top)
-		if i != 0 {
-			headerRS = enc.rowStyle(enc.lineStyle.Mid)
+	if !enc.skipHeader {
+		// write record header as a single record
+		headerRS := rs
+		header := enc.recordHeader(i)
+		if enc.border != 0 {
+			headerRS = enc.rowStyle(enc.lineStyle.Top)
+			if i != 0 {
+				headerRS = enc.rowStyle(enc.lineStyle.Mid)
+			}
 		}
-	}
 
-	enc.w.Write(headerRS.left)
-	enc.w.WriteString(header)
-	padding := enc.maxWidths[0] + enc.maxWidths[1] + runewidth.StringWidth(string(headerRS.middle))*2 - len(header) - 1
-	if padding > 0 {
-		enc.w.Write(bytes.Repeat(headerRS.filler, padding))
+		enc.w.Write(headerRS.left)
+		enc.w.WriteString(header)
+		padding := enc.maxWidths[0] + enc.maxWidths[1] + runewidth.StringWidth(string(headerRS.middle))*2 - len(header) - 1
+		if padding > 0 {
+			enc.w.Write(bytes.Repeat(headerRS.filler, padding))
+		}
+		// write newline wrap value
+		enc.w.Write(headerRS.filler)
+		enc.w.Write(headerRS.right)
 	}
-	// write newline wrap value
-	enc.w.Write(headerRS.filler)
-	enc.w.Write(headerRS.right)
 
 	// write each value with column name in first col
 	for j, v := range vals {
@@ -1136,6 +1141,9 @@ type CSVEncoder struct {
 	// formatter handles formatting values prior to output.
 	formatter Formatter
 
+	// skipHeader allows to skip drawing header
+	skipHeader bool
+
 	// empty is the empty value.
 	empty *Value
 }
@@ -1184,8 +1192,10 @@ func (enc *CSVEncoder) Encode(w io.Writer) error {
 		return ErrResultSetHasNoColumns
 	}
 
-	if err = c.Write(cols); err != nil {
-		return err
+	if !enc.skipHeader {
+		if err = c.Write(cols); err != nil {
+			return err
+		}
 	}
 
 	// set up storage for results
