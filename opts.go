@@ -7,6 +7,8 @@ import (
 	txt "text/template"
 	"unicode/utf8"
 
+	"github.com/xo/tblfmt/csv"
+
 	"github.com/nathan-fiscaletti/consolesize-go"
 )
 
@@ -24,11 +26,39 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 	case "json":
 		return NewJSONEncoder, nil
 
-	case "csv":
+	case "csv", "unaligned":
 		var csvOpts []Option
-		if s, ok := opts["fieldsep"]; ok {
-			sep, _ := utf8.DecodeRuneInString(s)
-			csvOpts = append(csvOpts, WithFieldSeparator(sep))
+		if opts["format"] == "unaligned" {
+			newline := "\n"
+			if s, ok := opts["recordsep"]; ok {
+				newline = s
+			}
+			fieldsep := '|'
+			if s, ok := opts["fieldsep"]; ok {
+				r, _ := utf8.DecodeRuneInString(s)
+				fieldsep = r
+			}
+			if s, ok := opts["fieldsep_zero"]; ok && s == "on" {
+				fieldsep = 0
+			}
+			csvOpts = append(csvOpts, WithNewCSVWriter(func(w io.Writer) CSVWriter {
+				writer := csv.NewWriter(w)
+				writer.Newline = newline
+				writer.Comma = fieldsep
+				return writer
+			}))
+		} else {
+			csvOpts = append(csvOpts, WithNewline(""))
+			// recognize both for backward-compatibility, but csv_fieldsep takes precedence
+			for _, name := range []string{"fieldsep", "csv_fieldsep"} {
+				if s, ok := opts[name]; ok {
+					sep, _ := utf8.DecodeRuneInString(s)
+					csvOpts = append(csvOpts, WithFieldSeparator(sep))
+				}
+			}
+		}
+		if s, ok := opts["fieldsep_zero"]; ok && s == "on" {
+			csvOpts = append(csvOpts, WithFieldSeparator(0))
 		}
 		if s, ok := opts["tuples_only"]; ok && s == "on" {
 			csvOpts = append(csvOpts, WithSkipHeader(true))
@@ -41,9 +71,6 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			WithTableAttributes(opts["tableattr"]),
 			WithTitle(opts["title"]),
 		}
-
-	case "unaligned":
-		fallthrough
 
 	case "aligned":
 		var tableOpts []Option
@@ -345,12 +372,24 @@ func WithNewline(newline string) Option {
 	}
 }
 
+// WithNewCSVWriter is a encoder option to set the newCSVWriter func.
+func WithNewCSVWriter(f func(io.Writer) CSVWriter) Option {
+	return func(v interface{}) error {
+		switch enc := v.(type) {
+		case *CSVEncoder:
+			enc.newCSVWriter = f
+		}
+		return nil
+	}
+}
+
 // WithFieldSeparator is a encoder option to set the field separator.
 func WithFieldSeparator(fieldsep rune) Option {
 	return func(v interface{}) error {
 		switch enc := v.(type) {
 		case *CSVEncoder:
 			enc.fieldsep = fieldsep
+			enc.fieldsepIsZero = fieldsep == 0
 		}
 		return nil
 	}

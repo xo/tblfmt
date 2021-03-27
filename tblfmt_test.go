@@ -20,6 +20,9 @@ func TestEncodeFormats(t *testing.T) {
 			name: "unaligned",
 			params: map[string]string{
 				"format": "unaligned",
+				"title":  "won't print",
+				// TODO psql does print the footer
+				"footer": "off",
 			},
 		},
 		{

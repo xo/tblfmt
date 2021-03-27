@@ -391,7 +391,7 @@ func (enc *TableEncoder) header() {
 
 	if enc.title != nil && enc.title.Width != 0 {
 		maxWidth := ((enc.tableWidth() - enc.title.Width) / 2) + enc.title.Width
-		enc.writeAligned(enc.title.Buf, rs.filler, AlignRight, enc.title.Width, maxWidth)
+		enc.writeAligned(enc.title.Buf, rs.filler, AlignRight, maxWidth-enc.title.Width)
 		enc.w.Write(enc.newline)
 	}
 	// draw top border
@@ -590,9 +590,16 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 					width += v.Width
 				}
 
-				enc.writeAligned(v.Buf[start:end], rs.filler, v.Align, width, enc.maxWidths[i])
+				padding := enc.maxWidths[i] - width
+				// no padding for last cell if no border
+				if enc.border <= 1 && i == len(vals)-1 && (!rs.hasWrapping || l >= len(v.Newlines)) {
+					padding = 0
+				}
+				enc.writeAligned(v.Buf[start:end], rs.filler, v.Align, padding)
 			} else {
-				enc.w.Write(bytes.Repeat(rs.filler, enc.maxWidths[i]))
+				if enc.border > 1 || i != len(vals)-1 {
+					enc.w.Write(bytes.Repeat(rs.filler, enc.maxWidths[i]))
+				}
 			}
 
 			// write newline wrap value
@@ -624,9 +631,8 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 	}
 }
 
-func (enc *TableEncoder) writeAligned(b, filler []byte, a Align, width, max int) {
+func (enc *TableEncoder) writeAligned(b, filler []byte, a Align, padding int) {
 	// calc padding
-	padding := max - width
 	paddingLeft := 0
 	paddingRight := 0
 	switch a {
@@ -1129,11 +1135,17 @@ func (enc *JSONEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
 
 // CSVEncoder is an unbuffered CSV encoder for result sets.
 type CSVEncoder struct {
-	// ResultSet is the result set to encode.
+	// resultSet is the result set to encode.
 	resultSet ResultSet
+
+	// newCSVWriter that should have all options already set
+	newCSVWriter func(io.Writer) CSVWriter
 
 	// fieldsep is the field separator to use.
 	fieldsep rune
+
+	// fieldsep is true if fieldsep should be a zero byte.
+	fieldsepIsZero bool
 
 	// newline is the newline to use.
 	newline []byte
@@ -1146,6 +1158,12 @@ type CSVEncoder struct {
 
 	// empty is the empty value.
 	empty *Value
+}
+
+type CSVWriter interface {
+	Write([]string) error
+	Flush()
+	Error() error
 }
 
 // NewCSVEncoder creates a new CSV encoder using the provided options.
@@ -1164,6 +1182,18 @@ func NewCSVEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 			return nil, err
 		}
 	}
+	if enc.newCSVWriter == nil {
+		enc.newCSVWriter = func(w io.Writer) CSVWriter {
+			writer := csv.NewWriter(w)
+			if enc.fieldsep != 0 {
+				writer.Comma = enc.fieldsep
+			}
+			if enc.fieldsepIsZero {
+				writer.Comma = 0
+			}
+			return writer
+		}
+	}
 	return enc, nil
 }
 
@@ -1177,10 +1207,7 @@ func (enc *CSVEncoder) Encode(w io.Writer) error {
 	var i int
 	var err error
 
-	c := csv.NewWriter(w)
-	if enc.fieldsep != 0 {
-		c.Comma = enc.fieldsep
-	}
+	c := enc.newCSVWriter(w)
 
 	// get and check columns
 	cols, err := enc.resultSet.Columns()
