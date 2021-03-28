@@ -2,9 +2,7 @@ package tblfmt
 
 import (
 	"bytes"
-	"encoding/csv"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"regexp"
@@ -271,9 +269,6 @@ func BenchmarkEncodeFormats(b *testing.B) {
 		f    Builder
 		opts []Option
 	}{
-		{"unaligned", NewCSVEncoder, []Option{WithNewCSVWriter(func(w io.Writer) CSVWriter {
-			return csv.NewWriter(w)
-		})}},
 		{"aligned", NewTableEncoder, nil},
 		{"aligned-batch10", NewTableEncoder, []Option{WithCount(10)}},
 		{"aligned-batch100", NewTableEncoder, []Option{WithCount(100)}},

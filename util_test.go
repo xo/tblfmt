@@ -345,11 +345,8 @@ func TestRepeat(t *testing.T) {
 	filler := []byte("x")
 	filler = repeat(buf, filler, 10)
 	filler = repeat(buf, filler, 10)
-	if cap(filler) != 16 {
-		t.Errorf("Expected filler to have cap of 16, got %d", cap(filler))
-	}
-	if len(filler) != 1 {
-		t.Errorf("Expected filler to have len of 1, got %d", len(filler))
+	if len(filler) != 16 {
+		t.Errorf("Expected filler to have len of 16, got %d", len(filler))
 	}
 	actual := buf.String()
 	if actual != "xxxxxxxxxxxxxxxxxxxx" {

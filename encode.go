@@ -215,7 +215,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		}
 		// draw end border
 		if enc.border >= 2 {
-			enc.divider(enc.rowStyles.End)
+			enc.divider(&enc.rowStyles.End)
 		}
 	}
 	// add summary
@@ -268,7 +268,7 @@ func (enc *TableEncoder) encodeVals(vals [][]*Value) error {
 	rs := enc.rowStyles.Row
 	// print buffered vals
 	for i := 0; i < len(vals); i++ {
-		enc.row(vals[i], rs)
+		enc.row(vals[i], &rs)
 		if i+1%1000 == 0 {
 			// check error every 1k rows
 			if err := enc.w.Flush(); err != nil {
@@ -361,17 +361,17 @@ func (enc *TableEncoder) header() {
 	}
 	// draw top border
 	if enc.border >= 2 && !enc.inline {
-		enc.divider(enc.rowStyles.Top)
+		enc.divider(&enc.rowStyles.Top)
 	}
 	// draw the header row with top border style
 	if enc.inline {
 		rs = enc.rowStyles.Top
 	}
 	// write header
-	enc.row(enc.headers, rs)
+	enc.row(enc.headers, &rs)
 	if !enc.inline {
 		// draw mid divider
-		enc.divider(enc.rowStyles.Mid)
+		enc.divider(&enc.rowStyles.Mid)
 	}
 }
 
@@ -405,6 +405,7 @@ func (enc TableEncoder) lineToRowStyle(r [4]rune) rowStyle {
 		middle:      []byte(middle),
 		right:       []byte(right + string(enc.newline)),
 		filler:      bytes.Repeat([]byte(filler), 8),
+		fillerWidth: len([]byte(filler)),
 		hasWrapping: runewidth.RuneWidth(enc.lineStyle.Row[1]) > 0,
 	}
 }
@@ -422,15 +423,15 @@ func (enc *TableEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
 }
 
 // divider draws a divider.
-func (enc *TableEncoder) divider(rs rowStyle) {
+func (enc *TableEncoder) divider(rs *rowStyle) {
 	// left
 	enc.w.Write(rs.left)
 	for i, width := range enc.maxWidths {
 		// column
-		rs.filler = repeat(enc.w, rs.filler, width)
+		rs.filler = repeat(enc.w, rs.filler, rs.fillerWidth*width)
 		// line feed indicator
 		if rs.hasWrapping && enc.border >= 1 {
-			enc.w.Write(rs.filler[:1])
+			enc.w.Write(rs.filler[:rs.fillerWidth])
 		}
 		// middle separator
 		if i != len(enc.maxWidths)-1 {
@@ -497,7 +498,7 @@ func (enc *TableEncoder) tableHeight(rows [][]*Value) int {
 }
 
 // row draws the a table row.
-func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
+func (enc *TableEncoder) row(vals []*Value, rs *rowStyle) {
 	var l int
 	for {
 		// left
@@ -529,10 +530,10 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 				if enc.border <= 1 && i == len(vals)-1 && (!rs.hasWrapping || l >= len(v.Newlines)) {
 					padding = 0
 				}
-				enc.writeAligned(v.Buf[start:end], &rs, v.Align, padding)
+				enc.writeAligned(v.Buf[start:end], rs, v.Align, padding)
 			} else {
 				if enc.border > 1 || i != len(vals)-1 {
-					rs.filler = repeat(enc.w, rs.filler, enc.maxWidths[i])
+					rs.filler = repeat(enc.w, rs.filler, rs.fillerWidth*enc.maxWidths[i])
 				}
 			}
 			// write newline wrap value
@@ -540,7 +541,7 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 				if l < len(v.Newlines) {
 					enc.w.Write(rs.wrapper)
 				} else {
-					enc.w.Write(rs.filler[:1])
+					enc.w.Write(rs.filler[:rs.fillerWidth])
 				}
 			}
 			remaining = remaining || l < len(v.Newlines)
@@ -576,13 +577,13 @@ func (enc *TableEncoder) writeAligned(b []byte, rs *rowStyle, a Align, padding i
 	}
 	// add padding left
 	if paddingLeft > 0 {
-		rs.filler = repeat(enc.w, rs.filler, paddingLeft)
+		rs.filler = repeat(enc.w, rs.filler, rs.fillerWidth*paddingLeft)
 	}
 	// write
 	enc.w.Write(b)
 	// add padding right
 	if paddingRight > 0 {
-		rs.filler = repeat(enc.w, rs.filler, paddingRight)
+		rs.filler = repeat(enc.w, rs.filler, rs.fillerWidth*paddingRight)
 	}
 }
 
@@ -613,6 +614,7 @@ func (enc *TableEncoder) summarize(w io.Writer) error {
 // rowStyle is the row style for a row, as arrays of bytes to print.
 type rowStyle struct {
 	left, right, middle, filler, wrapper []byte
+	fillerWidth                          int
 	hasWrapping                          bool
 }
 
@@ -736,7 +738,7 @@ func (enc *ExpandedEncoder) encodeVals(vals [][]*Value) error {
 	}
 	// draw end border
 	if enc.border >= 2 && enc.scanCount != 0 {
-		enc.divider(enc.rowStyles.End)
+		enc.divider(&enc.rowStyles.End)
 	}
 	return nil
 }
@@ -829,10 +831,10 @@ func (enc *ExpandedEncoder) record(i int, vals []*Value, rs rowStyle) {
 		enc.w.WriteString(header)
 		padding := enc.maxWidths[0] + enc.maxWidths[1] + runewidth.StringWidth(string(headerRS.middle))*2 - len(header) - 1
 		if padding > 0 {
-			headerRS.filler = repeat(enc.w, headerRS.filler, padding)
+			headerRS.filler = repeat(enc.w, headerRS.filler, rs.fillerWidth*padding)
 		}
 		// write newline wrap value
-		enc.w.Write(headerRS.filler[:1])
+		enc.w.Write(headerRS.filler[:rs.fillerWidth])
 		enc.w.Write(headerRS.right)
 	}
 	// write each value with column name in first col
@@ -840,7 +842,7 @@ func (enc *ExpandedEncoder) record(i int, vals []*Value, rs rowStyle) {
 		if v != nil {
 			v.Align = AlignLeft
 		}
-		enc.row([]*Value{enc.headers[j], v}, rs)
+		enc.row([]*Value{enc.headers[j], v}, &rs)
 	}
 }
 
