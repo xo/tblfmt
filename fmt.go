@@ -43,7 +43,9 @@ type EscapeFormatter struct {
 	// []interface{} types.
 	//
 	// If nil, the standard encoding/json.Encoder will be used instead.
-	marshaler func(interface{}) ([]byte, error)
+	marshaler              func(interface{}) ([]byte, error)
+	defaultMarshaler       *json.Encoder
+	defaultMarshalerBuffer *bytes.Buffer
 	// prefix is indent prefix used by the JSON encoder when Marshaler is nil.
 	prefix string
 	// indent is the indent used by the JSON encoder when Marshaler is nil.
@@ -76,11 +78,15 @@ type EscapeFormatter struct {
 // values.
 func NewEscapeFormatter(opts ...EscapeFormatterOption) *EscapeFormatter {
 	f := &EscapeFormatter{
-		mask:       "%d",
-		timeFormat: time.RFC3339Nano,
-		indent:     "  ",
-		valuesPool: newValuesPool(),
+		mask:                   "%d",
+		timeFormat:             time.RFC3339Nano,
+		indent:                 "  ",
+		valuesPool:             newValuesPool(),
+		defaultMarshalerBuffer: new(bytes.Buffer),
 	}
+	f.defaultMarshaler = json.NewEncoder(f.defaultMarshalerBuffer)
+	f.defaultMarshaler.SetIndent(f.prefix, f.indent)
+	f.defaultMarshaler.SetEscapeHTML(f.escapeHTML)
 	f.Configure(opts...)
 	return f
 }
@@ -275,17 +281,14 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 				res[i] = f.valuesPool.newRaw(buf)
 			} else {
 				// json encode
-				buf := new(bytes.Buffer)
-				enc := json.NewEncoder(buf)
-				enc.SetIndent(f.prefix, f.indent)
-				enc.SetEscapeHTML(f.escapeHTML)
-				if err := enc.Encode(v); err != nil {
+				f.defaultMarshalerBuffer.Reset()
+				if err := f.defaultMarshaler.Encode(v); err != nil {
 					return nil, err
 				}
 				if f.isJSON {
-					res[i] = f.valuesPool.newRaw(bytes.TrimSpace(buf.Bytes()))
+					res[i] = f.valuesPool.newRaw(bytes.TrimSpace(f.defaultMarshalerBuffer.Bytes()))
 				} else {
-					res[i] = f.valuesPool.formatBytes(bytes.TrimSpace(buf.Bytes()), f.invalid, f.invalidWidth, false, f.isRaw, f.sep, f.quote)
+					res[i] = f.valuesPool.formatBytes(bytes.TrimSpace(f.defaultMarshalerBuffer.Bytes()), f.invalid, f.invalidWidth, false, f.isRaw, f.sep, f.quote)
 					res[i].Raw = true
 				}
 			}
