@@ -1,7 +1,6 @@
 package tblfmt
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"runtime"
@@ -32,18 +31,18 @@ func (err Error) Error() string {
 const (
 	// ErrResultSetIsNil is the result set is nil error.
 	ErrResultSetIsNil Error = "result set is nil"
-
 	// ErrResultSetHasNoColumns is the result set has no columns error.
 	ErrResultSetHasNoColumns Error = "result set has no columns"
-
 	// ErrInvalidFormat is the invalid format error.
 	ErrInvalidFormat Error = "invalid format"
-
 	// ErrInvalidLineStyle is the invalid line style error.
 	ErrInvalidLineStyle Error = "invalid line style"
-
 	// ErrUnknownTemplate is the unknown template error.
 	ErrUnknownTemplate Error = "unknown template"
+	// ErrInvalidFieldSeparator is the invalid field separator error.
+	ErrInvalidFieldSeparator Error = "invalid field separator"
+	// ErrInvalidRecordSeparator is the invalid record separator error.
+	ErrInvalidRecordSeparator Error = "invalid record separator"
 )
 
 // errEncoder provides a no-op encoder that always returns the wrapped error.
@@ -93,6 +92,7 @@ func max(a, b int) int {
 	return b
 }
 
+/*
 // condWrite conditionally writes runes to w.
 func condWrite(w io.Writer, repeat int, runes ...rune) error {
 	var buf []byte
@@ -107,3 +107,4 @@ func condWrite(w io.Writer, repeat int, runes ...rune) error {
 	_, err := w.Write(buf)
 	return err
 }
+*/

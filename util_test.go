@@ -51,11 +51,9 @@ func newp(src *rand.Rand) p {
 	if src.Intn(2) == 1 {
 		char = []byte{byte(int('a') + src.Intn(26))}
 	}
-
 	var z interface{}
 	switch src.Intn(4) {
 	case 0, 1:
-
 	case 2:
 		c := 1 + src.Intn(5)
 		m := make(map[string]interface{}, c)
@@ -64,7 +62,6 @@ func newp(src *rand.Rand) p {
 			m[string(r[0:3])] = string(r[3:])
 		}
 		z = m
-
 	case 3:
 		y := make([]interface{}, 1+src.Intn(5))
 		for i := range y {
@@ -73,7 +70,6 @@ func newp(src *rand.Rand) p {
 		}
 		z = y
 	}
-
 	return p{
 		name: randstr(src),
 		dob:  randtime(src),
@@ -125,14 +121,12 @@ func randtime(src *rand.Rand) time.Time {
 func rsbig() *rset {
 	src := randsrc()
 	count := src.Intn(1000)
-
 	// generate rows
 	vals := make([][]interface{}, count)
 	for i := 0; i < count; i++ {
 		p := newp(src)
 		vals[i] = []interface{}{i + 1, p.name, p.dob, p.f, p.hash, p.char, p.z}
 	}
-
 	return &rset{
 		cols: []string{"id", "name", "dob", "float", "hash", "", "z"},
 		vals: [][][]interface{}{vals},
@@ -247,27 +241,21 @@ func psqlEncodeAll(w io.Writer, resultSet ResultSet, params map[string]string) e
 	if len(dsn) == 0 {
 		return errPsqlConnNotDefined
 	}
-
 	var err error
-
 	if err = psqlEncode(w, resultSet, params, dsn); err != nil {
 		return err
 	}
-
 	for resultSet.NextResultSet() {
 		if _, err = w.Write(newline); err != nil {
 			return err
 		}
-
 		if err = psqlEncode(w, resultSet, params, dsn); err != nil {
 			return err
 		}
 	}
-
 	if _, err = w.Write(newline); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -282,7 +270,6 @@ SELECT * FROM (
 // to the writer.
 func psqlEncode(w io.Writer, resultSet ResultSet, params map[string]string, dsn string) error {
 	var err error
-
 	// read values
 	var vals string
 	var i int
@@ -295,7 +282,6 @@ func psqlEncode(w io.Writer, resultSet ResultSet, params map[string]string, dsn 
 		if i != 0 {
 			extra = ","
 		}
-
 		n := name.(string)
 		vals += fmt.Sprintf("%s\n    (%v,E'%s', %s)", extra, id, psqlEsc(n), psqlEnc(n, z))
 		i++
@@ -303,13 +289,11 @@ func psqlEncode(w io.Writer, resultSet ResultSet, params map[string]string, dsn 
 	if err = resultSet.Err(); err != nil {
 		return err
 	}
-
 	// build pset
 	var pset string
 	for k, v := range params {
 		pset += fmt.Sprintf("\n\\pset %s '%s'", k, v)
 	}
-
 	// exec
 	stdout := new(bytes.Buffer)
 	q := fmt.Sprintf(psqlValuesQuery, pset, vals)
@@ -318,7 +302,6 @@ func psqlEncode(w io.Writer, resultSet ResultSet, params map[string]string, dsn 
 	if err = cmd.Run(); err != nil {
 		return err
 	}
-
 	_, err = w.Write(bytes.TrimRightFunc(stdout.Bytes(), unicode.IsSpace))
 	if err != nil {
 		return err
@@ -350,8 +333,7 @@ func psqlEnc(n string, v interface{}) string {
 	return "E'" + s[1:len(s)-1] + "'"
 }
 
-type noopWriter struct {
-}
+type noopWriter struct{}
 
 func (*noopWriter) Write(buf []byte) (int, error) {
 	return len(buf), nil

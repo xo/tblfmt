@@ -30,19 +30,16 @@ func TestTabwidthCalc(t *testing.T) {
 		{"\t\t\u8888", 0, 8, 18}, // 10
 		{"\u8888\t\u8888", 0, 8, 10},
 		{"\u8888\t\u8888\t", 0, 8, 16},
-
 		{"", 1, 8, 0}, // 13
 		{"\t", 1, 4, 3},
 		{" \t", 1, 4, 3},
 		{" \t ", 1, 4, 4},
 		{"\u8888\t\u8888\t", 1, 4, 7},
-
 		/*
 		   ---xxxxxxxxx (width == 9)
 		  |   袈   袈  |
 		*/
 		{"\u8888\t\t\u8888\t", 3, 2, 9}, // 18
-
 		/*
 		   --------------xxxxxxxxxxxxxxxxxxxxxxxxxxxx (width == 28)
 		  |              袈        袈              袈|
@@ -50,7 +47,6 @@ func TestTabwidthCalc(t *testing.T) {
 		{"\u8888\t\u8888\t\t\u8888", 14, 8, 28}, // 19
 		{"袈	袈		袈", 14, 8, 28},
 	}
-
 	for i, test := range tests {
 		tabs, w := tabpositions(test.s)
 		w += tabwidth(tabs, test.offset, test.tab)
@@ -83,13 +79,12 @@ func TestFormatBytesTabs(t *testing.T) {
 		v(" \u8888 \t \u8888 ", 8),
 	}
 	for i, test := range tests {
-		v := FormatBytes([]byte(test.s), nil, 0, false)
+		v := FormatBytes([]byte(test.s), nil, 0, false, false, 0, 0)
 		if !reflect.DeepEqual(v, test.exp) {
 			t.Errorf(
 				"test %d %q expected %v, got: %v",
 				i, test.s, test.exp, v,
 			)
-
 			width := runewidth.StringWidth(string(v.Buf))
 			if v.Width != width {
 				t.Errorf(
@@ -97,7 +92,6 @@ func TestFormatBytesTabs(t *testing.T) {
 					i, test.s, width, v.Width,
 				)
 			}
-
 			if width != test.check {
 				t.Errorf(
 					"test %d %q expected check width %d, got: %d",
@@ -115,10 +109,37 @@ func TestFormatBytesComplex(t *testing.T) {
   "2013": "Boels-Dolmans Cycling Team",
   "2015": "Boels-Dolmans"
 }`
-
-	v := FormatBytes([]byte(s), nil, 0, false)
+	v := FormatBytes([]byte(s), nil, 0, false, false, 0, 0)
 	if w := v.MaxWidth(0, 8); w != 39 {
 		t.Errorf("expected width of 39, got: %d", w)
+	}
+}
+
+func TestFormatBytesCSV(t *testing.T) {
+	tests := []struct {
+		s   string
+		exp string
+	}{
+		{"", ""},
+		{"a", "a"},
+		{" ", `" "`},
+		{"  ", `"  "`},
+		{"    ", `"    "`},
+		{"\n", "\"\n\""},
+		{"\t", "\"\t\""},
+		{",", "\",\""},
+		{",\t", "\",\t\""},
+		{",\t\"", "\",\t\"\"\""},
+	}
+	for i, test := range tests {
+		v := FormatBytes([]byte(test.s), nil, 0, false, true, ',', '"')
+		buf := v.Buf
+		if v.Quoted {
+			buf = append([]byte{'"'}, append(buf, '"')...)
+		}
+		if string(buf) != test.exp {
+			t.Errorf("test %d %q expected %q == %q", i, test.s, string(buf), test.exp)
+		}
 	}
 }
 

@@ -7,41 +7,46 @@ import (
 
 func TestFromMap(t *testing.T) {
 	tests := map[string]struct {
-		name       string
-		opts       map[string]string
-		expBuilder Builder
+		name string
+		opts map[string]string
+		exp  Builder
 	}{
 		"empty": {
-			expBuilder: newErrEncoder,
+			exp: newErrEncoder,
 		},
-		"default format": {
+		"aligned": {
 			opts: map[string]string{
 				"format": "aligned",
 			},
-			expBuilder: NewTableEncoder,
+			exp: NewTableEncoder,
 		},
-		"csv format": {
+		"unaligned": {
+			opts: map[string]string{
+				"format": "unaligned",
+			},
+			exp: NewUnalignedEncoder,
+		},
+		"csv": {
 			opts: map[string]string{
 				"format": "csv",
 			},
-			expBuilder: NewCSVEncoder,
+			exp: NewUnalignedEncoder,
 		},
-		"all": {
+		"any": {
 			opts: map[string]string{
 				"format":   "aligned",
 				"border":   "2",
 				"title":    "some title",
 				"expanded": "on",
 			},
-			expBuilder: NewExpandedEncoder,
+			exp: NewExpandedEncoder,
 		},
 	}
-
 	for n, test := range tests {
 		t.Run(n, func(t *testing.T) {
 			builder, _ := FromMap(test.opts)
-			if reflect.ValueOf(builder).Pointer() != reflect.ValueOf(test.expBuilder).Pointer() {
-				t.Errorf("invalid builder, expected %+v, got %+v", test.expBuilder, builder)
+			if reflect.ValueOf(builder).Pointer() != reflect.ValueOf(test.exp).Pointer() {
+				t.Errorf("invalid builder, expected %T, got %T", test.exp, builder)
 			}
 		})
 	}

@@ -3,7 +3,6 @@ package tblfmt
 import (
 	"bufio"
 	"bytes"
-	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,7 +18,6 @@ import (
 type TableEncoder struct {
 	// ResultSet is the result set to encode.
 	resultSet ResultSet
-
 	// count is the number of rows to scan ahead by (buffer), up to count, in
 	// order to determine maximum column widths returned by the encoder's
 	// formatter.
@@ -27,80 +25,57 @@ type TableEncoder struct {
 	// Note: when 0 all rows will be scanned (buffered) prior to encoding the
 	// table.
 	count int
-
 	// tab is the tab width.
 	tab int
-
-	// newline is the newline to use.
+	// newline is the record separator to use.
 	newline []byte
-
 	// border is the display border size.
 	border int
-
 	// inline toggles drawing the column header names inline with the top line.
 	inline bool
-
 	// lineStyle is the table line style.
 	lineStyle LineStyle
-
 	// formatter handles formatting values prior to output.
 	formatter Formatter
-
 	// skipHeader allows to skip drawing header
 	skipHeader bool
-
 	// summary is the summary map.
 	summary map[int]func(io.Writer, int) (int, error)
-
 	// isCustomSummary when summary has been set via options
 	isCustomSummary bool
-
 	// title is the title value.
 	title *Value
-
 	// empty is the empty value.
 	empty *Value
-
 	// headers contains formatted column names.
 	headers []*Value
-
 	// offsets are the column offsets.
 	offsets []int
-
 	// widths are the user-supplied column widths.
 	widths []int
-
 	// maxWidths are calculated max column widths.
 	// They are at least as wide as user-supplied widths
 	maxWidths []int
-
 	// minExpandWidth of the table required to switch to the ExpandedEncoder
 	// zero disables switching
 	minExpandWidth int
-
 	// minPagerWidth of the table required to redirect output to the pager,
 	// zero disables pager
 	minPagerWidth int
-
 	// minPagerHeight of the table required to redirect output to the pager,
 	// zero disables pager
 	minPagerHeight int
-
 	// pagerCmd is the pager command to run and redirect output to
 	// if height or width is greater than minPagerHeight and minPagerWidth,
 	pagerCmd string
-
 	// scanCount is the number of scanned results in the result set.
 	scanCount int
-
 	// w is the undelying writer
 	w *bufio.Writer
 }
 
 // NewTableEncoder creates a new table encoder using the provided options.
 func NewTableEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
-	var err error
-
 	enc := &TableEncoder{
 		resultSet: resultSet,
 		newline:   newline,
@@ -113,14 +88,12 @@ func NewTableEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 			Tabs: make([][][2]int, 1),
 		},
 	}
-
 	// apply options
 	for _, o := range opts {
-		if err = o(enc); err != nil {
+		if err := o(enc); err != nil {
 			return nil, err
 		}
 	}
-
 	// check linestyle runes
 	// TODO: this check should be removed
 	for _, l := range [][4]rune{
@@ -136,7 +109,6 @@ func NewTableEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 			}
 		}
 	}
-
 	return enc, nil
 }
 
@@ -146,13 +118,9 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 	// reset scan count
 	enc.scanCount = 0
 	enc.w = bufio.NewWriterSize(w, 2048)
-
-	var err error
-
 	if enc.resultSet == nil {
 		return ErrResultSetIsNil
 	}
-
 	// get and check columns
 	cols, err := enc.resultSet.Columns()
 	if err != nil {
@@ -162,42 +130,33 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 	if clen == 0 {
 		return ErrResultSetHasNoColumns
 	}
-
 	// setup offsets, widths
 	enc.offsets = make([]int, clen)
 	wroteHeader := enc.skipHeader
-
 	// default to user-supplied widths
 	if len(enc.widths) == clen {
 		enc.maxWidths = enc.widths
 	} else {
 		enc.maxWidths = make([]int, clen)
 	}
-
 	enc.headers, err = enc.formatter.Header(cols)
 	if err != nil {
 		return err
 	}
-
 	var cmd *exec.Cmd
 	var cmdBuf io.WriteCloser
-
 	for {
 		var vals [][]*Value
-
 		// buffer
 		vals, err = enc.nextResults()
 		if err != nil {
 			return err
 		}
-
 		// no more values
 		if len(vals) == 0 {
 			break
 		}
-
 		enc.calcWidth(vals)
-
 		if enc.minExpandWidth != 0 && enc.tableWidth() >= enc.minExpandWidth {
 			t := *enc
 			t.formatter = NewEscapeFormatter()
@@ -207,7 +166,6 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 			exp.offsets = make([]int, 2)
 			exp.maxWidths = make([]int, 2)
 			exp.calcWidth(vals)
-
 			if exp.pagerCmd != "" && cmd == nil &&
 				((exp.minPagerHeight != 0 && exp.tableHeight(vals) >= exp.minPagerHeight) ||
 					(exp.minPagerWidth != 0 && exp.tableWidth() >= exp.minPagerWidth)) {
@@ -217,13 +175,11 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 				}
 				exp.w = bufio.NewWriterSize(cmdBuf, 2048)
 			}
-
 			if err := exp.encodeVals(vals); err != nil {
 				return checkErr(err, cmd)
 			}
 			continue
 		}
-
 		if enc.pagerCmd != "" && cmd == nil &&
 			((enc.minPagerHeight != 0 && enc.tableHeight(vals) >= enc.minPagerHeight) ||
 				(enc.minPagerWidth != 0 && enc.tableWidth() >= enc.minPagerWidth)) {
@@ -233,26 +189,23 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 			}
 			enc.w = bufio.NewWriterSize(cmdBuf, 2048)
 		}
-
 		// print header if not already done
 		if !wroteHeader {
 			wroteHeader = true
 			enc.header()
 		}
-
 		if err := enc.encodeVals(vals); err != nil {
 			return checkErr(err, cmd)
 		}
-
 		// draw end border
 		if enc.border >= 2 {
 			enc.divider(enc.rowStyle(enc.lineStyle.End))
 		}
 	}
-
 	// add summary
-	enc.summarize(w)
-
+	if err := enc.summarize(w); err != nil {
+		return err
+	}
 	if err := enc.w.Flush(); err != nil {
 		return checkErr(err, cmd)
 	}
@@ -294,32 +247,25 @@ func (enc *TableEncoder) encodeVals(vals [][]*Value) error {
 			}
 		}
 	}
-
 	return nil
 }
 
 // EncodeAll encodes all result sets to the writer using the encoder settings.
 func (enc *TableEncoder) EncodeAll(w io.Writer) error {
-	var err error
-
-	if err = enc.Encode(w); err != nil {
+	if err := enc.Encode(w); err != nil {
 		return err
 	}
-
 	for enc.resultSet.NextResultSet() {
-		if _, err = w.Write(enc.newline); err != nil {
+		if _, err := w.Write(enc.newline); err != nil {
 			return err
 		}
-
-		if err = enc.Encode(w); err != nil {
+		if err := enc.Encode(w); err != nil {
 			return err
 		}
 	}
-
-	if _, err = w.Write(enc.newline); err != nil {
+	if _, err := w.Write(enc.newline); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -335,7 +281,6 @@ func (enc *TableEncoder) nextResults() ([][]*Value, error) {
 	for i := 0; i < len(enc.headers); i++ {
 		r[i] = new(interface{})
 	}
-
 	// read to count (or all)
 	var i int
 	for enc.resultSet.Next() {
@@ -344,7 +289,6 @@ func (enc *TableEncoder) nextResults() ([][]*Value, error) {
 			return vals, err
 		}
 		vals, i = append(vals, v), i+1
-
 		// read by batches of enc.count rows
 		if enc.count != 0 && i%enc.count == 0 {
 			break
@@ -362,13 +306,10 @@ func (enc *TableEncoder) calcWidth(vals [][]*Value) {
 		if i != 0 {
 			offset += runewidth.StringWidth(string(rs.middle))
 		}
-
 		// store offset
 		enc.offsets[i] = offset
-
 		// header's widths are the minimum
 		enc.maxWidths[i] = max(enc.maxWidths[i], h.MaxWidth(offset, enc.tab))
-
 		// from top to bottom, find max column width
 		for j := 0; j < len(vals); j++ {
 			cell := vals[j][i]
@@ -377,7 +318,6 @@ func (enc *TableEncoder) calcWidth(vals [][]*Value) {
 			}
 			enc.maxWidths[i] = max(enc.maxWidths[i], cell.MaxWidth(offset, enc.tab))
 		}
-
 		// add column width, and one space for newline indicator
 		offset += enc.maxWidths[i]
 		if rs.hasWrapping && enc.border != 0 {
@@ -388,7 +328,6 @@ func (enc *TableEncoder) calcWidth(vals [][]*Value) {
 
 func (enc *TableEncoder) header() {
 	rs := enc.rowStyle(enc.lineStyle.Row)
-
 	if enc.title != nil && enc.title.Width != 0 {
 		maxWidth := ((enc.tableWidth() - enc.title.Width) / 2) + enc.title.Width
 		enc.writeAligned(enc.title.Buf, rs.filler, AlignRight, maxWidth-enc.title.Width)
@@ -398,25 +337,16 @@ func (enc *TableEncoder) header() {
 	if enc.border >= 2 && !enc.inline {
 		enc.divider(enc.rowStyle(enc.lineStyle.Top))
 	}
-
 	// draw the header row with top border style
 	if enc.inline {
 		rs = enc.rowStyle(enc.lineStyle.Top)
 	}
-
 	// write header
 	enc.row(enc.headers, rs)
-
 	if !enc.inline {
 		// draw mid divider
 		enc.divider(enc.rowStyle(enc.lineStyle.Mid))
 	}
-}
-
-// the style for the current row, as arrays of bytes to print
-type rowStyle struct {
-	left, right, middle, filler, wrapper []byte
-	hasWrapping                          bool
 }
 
 // rowStyle returns the left, right and midle borders.
@@ -426,28 +356,23 @@ func (enc TableEncoder) rowStyle(r [4]rune) rowStyle {
 	var left, right, middle, spacer, filler string
 	spacer = strings.Repeat(string(r[1]), runewidth.RuneWidth(enc.lineStyle.Row[1]))
 	filler = string(r[1])
-
 	// compact output, r[1] is set to \0
 	if r[1] == 0 {
 		filler = " "
 	}
-
 	// outside borders
 	if enc.border > 1 {
 		left = string(r[0])
 		right = string(r[3])
 	}
-
 	// initial spacer when borders are set
 	if enc.border > 0 {
 		left += spacer
 	}
-
 	middle = " "
 	if enc.border >= 1 { // inside border
 		middle = string(r[2]) + spacer
 	}
-
 	return rowStyle{
 		left:        []byte(left),
 		wrapper:     []byte(string(enc.lineStyle.Wrap[1])),
@@ -460,11 +385,10 @@ func (enc TableEncoder) rowStyle(r [4]rune) rowStyle {
 
 // scanAndFormat scans and formats values from the result set.
 func (enc *TableEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
-	var err error
-	if err = enc.resultSet.Err(); err != nil {
+	if err := enc.resultSet.Err(); err != nil {
 		return nil, err
 	}
-	if err = enc.resultSet.Scan(vals...); err != nil {
+	if err := enc.resultSet.Scan(vals...); err != nil {
 		return nil, err
 	}
 	enc.scanCount++
@@ -475,22 +399,18 @@ func (enc *TableEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
 func (enc *TableEncoder) divider(rs rowStyle) {
 	// left
 	enc.w.Write(rs.left)
-
 	for i, width := range enc.maxWidths {
 		// column
 		enc.w.Write(bytes.Repeat(rs.filler, width))
-
 		// line feed indicator
 		if rs.hasWrapping && enc.border >= 1 {
 			enc.w.Write(rs.filler)
 		}
-
 		// middle separator
 		if i != len(enc.maxWidths)-1 {
 			enc.w.Write(rs.middle)
 		}
 	}
-
 	// right
 	enc.w.Write(rs.right)
 }
@@ -499,19 +419,15 @@ func (enc *TableEncoder) divider(rs rowStyle) {
 func (enc *TableEncoder) tableWidth() int {
 	rs := enc.rowStyle(enc.lineStyle.Mid)
 	width := runewidth.StringWidth(string(rs.left)) + runewidth.StringWidth(string(rs.right))
-
 	for i, w := range enc.maxWidths {
 		width += w
-
 		if rs.hasWrapping && enc.border >= 1 {
 			width += 1
 		}
-
 		if i != len(enc.maxWidths)-1 {
 			width += runewidth.StringWidth(string(rs.middle))
 		}
 	}
-
 	return width
 }
 
@@ -531,31 +447,26 @@ func (enc *TableEncoder) tableHeight(rows [][]*Value) int {
 	if enc.inline {
 		height++
 	}
-
 	for _, row := range rows {
 		largest := 1
 		for _, cell := range row {
 			if cell != nil {
 				cell = enc.empty
 			}
-
 			if len(cell.Newlines) > largest {
 				largest = len(cell.Newlines)
 			}
 		}
 		height += largest
 	}
-
 	// end border
 	if enc.border >= 2 {
 		height++
 	}
-
 	// scanCount at this point is not the final value but this is better than nothing
 	if enc.summary != nil && enc.summary[-1] != nil || enc.summary[enc.scanCount] != nil {
 		height++
 	}
-
 	return height
 }
 
@@ -565,13 +476,11 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 	for {
 		// left
 		enc.w.Write(rs.left)
-
 		var remaining bool
 		for i, v := range vals {
 			if v == nil {
 				v = enc.empty
 			}
-
 			// write value
 			if l <= len(v.Newlines) {
 				// determine start, end, width
@@ -589,7 +498,6 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 				if l == len(v.Newlines) {
 					width += v.Width
 				}
-
 				padding := enc.maxWidths[i] - width
 				// no padding for last cell if no border
 				if enc.border <= 1 && i == len(vals)-1 && (!rs.hasWrapping || l >= len(v.Newlines)) {
@@ -601,7 +509,6 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 					enc.w.Write(bytes.Repeat(rs.filler, enc.maxWidths[i]))
 				}
 			}
-
 			// write newline wrap value
 			if rs.hasWrapping {
 				if l < len(v.Newlines) {
@@ -610,23 +517,18 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 					enc.w.Write(rs.filler)
 				}
 			}
-
 			remaining = remaining || l < len(v.Newlines)
-
 			// middle separator. If border == 0, the new line indicator
 			// acts as the middle separator
 			if i != len(enc.maxWidths)-1 && enc.border >= 1 {
 				enc.w.Write(rs.middle)
 			}
 		}
-
 		// right
 		enc.w.Write(rs.right)
-
 		if !remaining {
 			break
 		}
-
 		l++
 	}
 }
@@ -646,15 +548,12 @@ func (enc *TableEncoder) writeAligned(b, filler []byte, a Align, padding int) {
 		paddingLeft = 0
 		paddingRight = padding
 	}
-
 	// add padding left
 	if paddingLeft > 0 {
 		enc.w.Write(bytes.Repeat(filler, paddingLeft))
 	}
-
 	// write
 	enc.w.Write(b)
-
 	// add padding right
 	if paddingRight > 0 {
 		enc.w.Write(bytes.Repeat(filler, paddingRight))
@@ -662,10 +561,10 @@ func (enc *TableEncoder) writeAligned(b, filler []byte, a Align, padding int) {
 }
 
 // summarize writes the table scan count summary.
-func (enc *TableEncoder) summarize(w io.Writer) {
+func (enc *TableEncoder) summarize(w io.Writer) error {
 	// do summary
 	if enc.summary == nil {
-		return
+		return nil
 	}
 	var f func(io.Writer, int) (int, error)
 	if z, ok := enc.summary[-1]; ok {
@@ -675,9 +574,20 @@ func (enc *TableEncoder) summarize(w io.Writer) {
 		f = z
 	}
 	if f != nil {
-		f(enc.w, enc.scanCount)
-		enc.w.Write(enc.newline)
+		if _, err := f(enc.w, enc.scanCount); err != nil {
+			return err
+		}
+		if _, err := enc.w.Write(enc.newline); err != nil {
+			return err
+		}
 	}
+	return nil
+}
+
+// rowStyle is the row style for a row, as arrays of bytes to print.
+type rowStyle struct {
+	left, right, middle, filler, wrapper []byte
+	hasWrapping                          bool
 }
 
 // ExpandedEncoder is a buffered, lookahead expanded table encoder for result sets.
@@ -685,7 +595,7 @@ type ExpandedEncoder struct {
 	TableEncoder
 }
 
-// NewExpandedEncoder creates a new table encoder using the provided options.
+// NewExpandedEncoder creates a new expanded table encoder using the provided options.
 func NewExpandedEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	tableEnc, err := NewTableEncoder(resultSet, opts...)
 	if err != nil {
@@ -696,11 +606,9 @@ func NewExpandedEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	if !t.isCustomSummary {
 		t.summary = nil
 	}
-
 	enc := &ExpandedEncoder{
 		TableEncoder: *t,
 	}
-
 	return enc, nil
 }
 
@@ -710,52 +618,39 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 	// reset scan count
 	enc.scanCount = 0
 	enc.w = bufio.NewWriterSize(w, 2048)
-
-	var err error
-
 	if enc.resultSet == nil {
 		return ErrResultSetIsNil
 	}
-
 	// get and check columns
 	cols, err := enc.resultSet.Columns()
 	if err != nil {
 		return err
 	}
-	clen := len(cols)
-	if clen == 0 {
+	if len(cols) == 0 {
 		return ErrResultSetHasNoColumns
 	}
-
 	// setup offsets, widths
 	enc.offsets = make([]int, 2)
 	enc.maxWidths = make([]int, 2)
-
 	enc.headers, err = enc.formatter.Header(cols)
 	if err != nil {
 		return err
 	}
-
 	var cmd *exec.Cmd
 	var cmdBuf io.WriteCloser
 	wroteTitle := enc.skipHeader
-
 	for {
 		var vals [][]*Value
-
 		// buffer
 		vals, err = enc.nextResults()
 		if err != nil {
 			return err
 		}
-
 		// no more values
 		if len(vals) == 0 {
 			break
 		}
-
 		enc.calcWidth(vals)
-
 		if enc.pagerCmd != "" && cmd == nil &&
 			((enc.minPagerHeight != 0 && enc.tableHeight(vals) >= enc.minPagerHeight) ||
 				(enc.minPagerWidth != 0 && enc.tableWidth() >= enc.minPagerWidth)) {
@@ -765,25 +660,20 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 			}
 			enc.w = bufio.NewWriterSize(cmdBuf, 2048)
 		}
-
 		// print title if not already done
 		if !wroteTitle {
 			wroteTitle = true
-
 			if enc.title != nil && enc.title.Width != 0 {
 				enc.w.Write(enc.title.Buf)
 				enc.w.Write(enc.newline)
 			}
 		}
-
 		if err := enc.encodeVals(vals); err != nil {
 			return checkErr(err, cmd)
 		}
 	}
-
 	// add summary
 	enc.summarize(w)
-
 	if err := enc.w.Flush(); err != nil {
 		return checkErr(err, cmd)
 	}
@@ -806,7 +696,6 @@ func (enc *ExpandedEncoder) encodeVals(vals [][]*Value) error {
 			}
 		}
 	}
-
 	// draw end border
 	if enc.border >= 2 && enc.scanCount != 0 {
 		enc.divider(enc.rowStyle(enc.lineStyle.End))
@@ -816,51 +705,38 @@ func (enc *ExpandedEncoder) encodeVals(vals [][]*Value) error {
 
 // EncodeAll encodes all result sets to the writer using the encoder settings.
 func (enc *ExpandedEncoder) EncodeAll(w io.Writer) error {
-	var err error
-
-	if err = enc.Encode(w); err != nil {
+	if err := enc.Encode(w); err != nil {
 		return err
 	}
-
 	for enc.resultSet.NextResultSet() {
-		if _, err = w.Write(enc.newline); err != nil {
+		if _, err := w.Write(enc.newline); err != nil {
 			return err
 		}
-
-		if err = enc.Encode(w); err != nil {
+		if err := enc.Encode(w); err != nil {
 			return err
 		}
 	}
-
-	if _, err = w.Write(enc.newline); err != nil {
+	if _, err := w.Write(enc.newline); err != nil {
 		return err
 	}
-
 	return nil
 }
 
 func (enc *ExpandedEncoder) calcWidth(vals [][]*Value) {
 	rs := enc.rowStyle(enc.lineStyle.Row)
-
 	offset := runewidth.StringWidth(string(rs.left))
-
 	enc.offsets[0] = offset
-
 	// first column is always the column name
 	for _, h := range enc.headers {
 		enc.maxWidths[0] = max(enc.maxWidths[0], h.MaxWidth(offset, enc.tab))
 	}
-
 	offset += enc.maxWidths[0]
 	if rs.hasWrapping && enc.border != 0 {
 		offset++
 	}
-
 	mw := runewidth.StringWidth(string(rs.middle))
 	offset += mw
-
 	enc.offsets[1] = offset
-
 	// second column is any value from any row but no less than the record header
 	enc.maxWidths[1] = max(0, len(enc.recordHeader(len(vals)-1))-enc.maxWidths[0]-mw-1)
 	for _, row := range vals {
@@ -879,7 +755,6 @@ func (enc *ExpandedEncoder) tableHeight(rows [][]*Value) int {
 	if enc.title != nil && enc.title.Width != 0 {
 		height += strings.Count(string(enc.title.Buf), "\n")
 	}
-
 	for _, row := range rows {
 		// header
 		height++
@@ -887,21 +762,17 @@ func (enc *ExpandedEncoder) tableHeight(rows [][]*Value) int {
 			if cell != nil {
 				cell = enc.empty
 			}
-
 			height += 1 + len(cell.Newlines)
 		}
 	}
-
 	// end border
 	if enc.border >= 2 {
 		height++
 	}
-
 	// scanCount at this point is not the final value but this is better than nothing
 	if enc.summary != nil && enc.summary[-1] != nil || enc.summary[enc.scanCount] != nil {
 		height++
 	}
-
 	return height
 }
 
@@ -916,7 +787,6 @@ func (enc *ExpandedEncoder) record(i int, vals []*Value, rs rowStyle) {
 				headerRS = enc.rowStyle(enc.lineStyle.Mid)
 			}
 		}
-
 		enc.w.Write(headerRS.left)
 		enc.w.WriteString(header)
 		padding := enc.maxWidths[0] + enc.maxWidths[1] + runewidth.StringWidth(string(headerRS.middle))*2 - len(header) - 1
@@ -927,7 +797,6 @@ func (enc *ExpandedEncoder) record(i int, vals []*Value, rs rowStyle) {
 		enc.w.Write(headerRS.filler)
 		enc.w.Write(headerRS.right)
 	}
-
 	// write each value with column name in first col
 	for j, v := range vals {
 		if v != nil {
@@ -948,24 +817,20 @@ func (enc *ExpandedEncoder) recordHeader(i int) string {
 // JSONEncoder is an unbuffered JSON encoder for result sets.
 type JSONEncoder struct {
 	resultSet ResultSet
-
-	// newline is the newline to use.
+	// newline is the record separator to use.
 	newline []byte
-
 	// formatter handles formatting values prior to output.
 	formatter Formatter
-
 	// empty is the empty value.
 	empty *Value
 }
 
 // NewJSONEncoder creates a new JSON encoder using the provided options.
 func NewJSONEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
-	var err error
 	enc := &JSONEncoder{
 		resultSet: resultSet,
 		newline:   newline,
-		formatter: NewEscapeFormatter(WithEscapeJSON(true)),
+		formatter: NewEscapeFormatter(WithIsJSON(true)),
 		empty: &Value{
 			Buf:  []byte("null"),
 			Tabs: make([][][2]int, 1),
@@ -973,7 +838,7 @@ func NewJSONEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 		},
 	}
 	for _, o := range opts {
-		if err = o(enc); err != nil {
+		if err := o(enc); err != nil {
 			return nil, err
 		}
 	}
@@ -986,10 +851,7 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 	if enc.resultSet == nil {
 		return ErrResultSetIsNil
 	}
-
 	var i int
-	var err error
-
 	var (
 		start = []byte{'['}
 		end   = []byte{']'}
@@ -998,7 +860,6 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		q     = []byte{'"'}
 		cma   = []byte{','}
 	)
-
 	// get and check columns
 	cols, err := enc.resultSet.Columns()
 	if err != nil {
@@ -1015,18 +876,15 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		}
 		cb[i] = append(cb[i], ':')
 	}
-
 	// set up storage for results
 	r := make([]interface{}, clen)
 	for i = 0; i < clen; i++ {
 		r[i] = new(interface{})
 	}
-
 	// start
 	if _, err = w.Write(start); err != nil {
 		return err
 	}
-
 	// process
 	var v *Value
 	var vals []*Value
@@ -1042,22 +900,18 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		if err != nil {
 			return err
 		}
-
 		if _, err = w.Write(open); err != nil {
 			return err
 		}
-
 		for i = 0; i < clen; i++ {
 			v = vals[i]
 			if v == nil {
 				v = enc.empty
 			}
-
 			// write "column":
 			if _, err = w.Write(cb[i]); err != nil {
 				return err
 			}
-
 			// if raw, write the exact value
 			if v.Raw {
 				if _, err = w.Write(v.Buf); err != nil {
@@ -1074,19 +928,16 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 					return err
 				}
 			}
-
 			if i != clen-1 {
 				if _, err = w.Write(cma); err != nil {
 					return err
 				}
 			}
 		}
-
 		if _, err = w.Write(cls); err != nil {
 			return err
 		}
 	}
-
 	// end
 	_, err = w.Write(end)
 	return err
@@ -1094,104 +945,98 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 
 // EncodeAll encodes all result sets to the writer using the encoder settings.
 func (enc *JSONEncoder) EncodeAll(w io.Writer) error {
-	var err error
-
-	if err = enc.Encode(w); err != nil {
+	if err := enc.Encode(w); err != nil {
 		return err
 	}
-
 	for enc.resultSet.NextResultSet() {
-		if _, err = w.Write([]byte{','}); err != nil {
+		if _, err := w.Write([]byte{','}); err != nil {
 			return err
 		}
-
-		if _, err = w.Write(enc.newline); err != nil {
+		if _, err := w.Write(enc.newline); err != nil {
 			return err
 		}
-
-		if err = enc.Encode(w); err != nil {
+		if err := enc.Encode(w); err != nil {
 			return err
 		}
 	}
-
-	if _, err = w.Write(enc.newline); err != nil {
+	if _, err := w.Write(enc.newline); err != nil {
 		return err
 	}
-
 	return nil
 }
 
 // scanAndFormat scans and formats values from the result set.
 func (enc *JSONEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
-	var err error
-	if err = enc.resultSet.Err(); err != nil {
+	if err := enc.resultSet.Err(); err != nil {
 		return nil, err
 	}
-	if err = enc.resultSet.Scan(vals...); err != nil {
+	if err := enc.resultSet.Scan(vals...); err != nil {
 		return nil, err
 	}
 	return enc.formatter.Format(vals)
 }
 
-// CSVEncoder is an unbuffered CSV encoder for result sets.
-type CSVEncoder struct {
+// UnalignedEncoder is an unbuffered unaligned encoder for result sets.
+// Provides a way of encoding unaligned result sets in formats such as
+// comma-separated value (CSV) or tab-separated value (TSV) files.
+//
+// By default uses a field separator of ',' and a record separator of
+// the platform's default newline ("\r\n" on Windows, "\n" otherwise).
+type UnalignedEncoder struct {
 	// resultSet is the result set to encode.
 	resultSet ResultSet
-
-	// newCSVWriter that should have all options already set
-	newCSVWriter func(io.Writer) CSVWriter
-
-	// fieldsep is the field separator to use.
-	fieldsep rune
-
-	// fieldsep is true if fieldsep should be a zero byte.
-	fieldsepIsZero bool
-
-	// newline is the newline to use.
+	// sep is the separator to use.
+	sep rune
+	// quote is the quote to use.
+	quote rune
+	// newline is the record separator to use.
 	newline []byte
-
 	// formatter handles formatting values prior to output.
 	formatter Formatter
-
-	// skipHeader allows to skip drawing header
+	// skipHeader allows to skip drawing header.
 	skipHeader bool
-
 	// empty is the empty value.
 	empty *Value
 }
 
-type CSVWriter interface {
-	Write([]string) error
-	Flush()
-	Error() error
-}
-
-// NewCSVEncoder creates a new CSV encoder using the provided options.
-func NewCSVEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
-	var err error
-	enc := &CSVEncoder{
+// NewUnalignedEncoder creates a new unaligned encoder using the provided
+// options.
+func NewUnalignedEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
+	sep, quote := rune('|'), rune(0)
+	enc := &UnalignedEncoder{
 		resultSet: resultSet,
+		sep:       sep,
+		quote:     quote,
 		newline:   newline,
-		formatter: NewEscapeFormatter(),
+		formatter: NewEscapeFormatter(WithIsRaw(true, sep, quote)),
 		empty: &Value{
 			Tabs: make([][][2]int, 1),
 		},
 	}
 	for _, o := range opts {
-		if err = o(enc); err != nil {
+		if err := o(enc); err != nil {
 			return nil, err
 		}
 	}
-	if enc.newCSVWriter == nil {
-		enc.newCSVWriter = func(w io.Writer) CSVWriter {
-			writer := csv.NewWriter(w)
-			if enc.fieldsep != 0 {
-				writer.Comma = enc.fieldsep
-			}
-			if enc.fieldsepIsZero {
-				writer.Comma = 0
-			}
-			return writer
+	return enc, nil
+}
+
+// NewCSVEncoder creates a new csv encoder using the provided options.
+func NewCSVEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
+	sep, quote := rune(','), rune('"')
+	enc := &UnalignedEncoder{
+		resultSet: resultSet,
+		sep:       sep,
+		quote:     quote,
+		newline:   newline,
+		formatter: NewEscapeFormatter(WithIsRaw(true, sep, quote)),
+		empty: &Value{
+			Tabs: make([][][2]int, 1),
+		},
+	}
+	for _, o := range opts {
+		if err := o(enc); err != nil {
+			return nil, err
 		}
 	}
 	return enc, nil
@@ -1199,16 +1044,10 @@ func NewCSVEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 
 // Encode encodes a single result set to the writer using the formatting
 // options specified in the encoder.
-func (enc *CSVEncoder) Encode(w io.Writer) error {
+func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 	if enc.resultSet == nil {
 		return ErrResultSetIsNil
 	}
-
-	var i int
-	var err error
-
-	c := enc.newCSVWriter(w)
-
 	// get and check columns
 	cols, err := enc.resultSet.Columns()
 	if err != nil {
@@ -1218,82 +1057,92 @@ func (enc *CSVEncoder) Encode(w io.Writer) error {
 	if clen == 0 {
 		return ErrResultSetHasNoColumns
 	}
-
+	sep, quote := []byte(string(enc.sep)), []byte(string(enc.quote))
+	// write header
 	if !enc.skipHeader {
-		if err = c.Write(cols); err != nil {
-			return err
-		}
-	}
-
-	// set up storage for results
-	r := make([]interface{}, clen)
-	for i = 0; i < clen; i++ {
-		r[i] = new(interface{})
-	}
-
-	// process
-	var v *Value
-	var vals []*Value
-	z := make([]string, clen)
-	for enc.resultSet.Next() {
-		c.Flush()
-		if err = c.Error(); err != nil {
-			return err
-		}
-		vals, err = enc.scanAndFormat(r)
+		headers, err := enc.formatter.Header(cols)
 		if err != nil {
 			return err
 		}
-
-		for i = 0; i < clen; i++ {
-			v = vals[i]
+		for i := 0; i < clen; i++ {
+			if i != 0 {
+				if _, err := w.Write(sep); err != nil {
+					return err
+				}
+			}
+			buf := headers[i].Buf
+			if enc.quote != 0 && headers[i].Quoted {
+				buf = append(quote, append(buf, quote...)...)
+			}
+			if _, err := w.Write(buf); err != nil {
+				return err
+			}
+		}
+		if _, err := w.Write(enc.newline); err != nil {
+			return err
+		}
+	}
+	// set up storage for results
+	r := make([]interface{}, clen)
+	for i := 0; i < clen; i++ {
+		r[i] = new(interface{})
+	}
+	// process
+	for enc.resultSet.Next() {
+		vals, err := enc.scanAndFormat(r)
+		if err != nil {
+			return err
+		}
+		for i := 0; i < clen; i++ {
+			if i != 0 {
+				if _, err := w.Write(sep); err != nil {
+					return err
+				}
+			}
+			v := vals[i]
 			if v == nil {
 				v = enc.empty
 			}
-			z[i] = string(v.Buf)
+			buf := v.Buf
+			if enc.quote != 0 && v.Quoted {
+				buf = append(quote, append(buf, quote...)...)
+			}
+			if _, err := w.Write(buf); err != nil {
+				return err
+			}
 		}
-		if err = c.Write(z); err != nil {
+		if _, err := w.Write(enc.newline); err != nil {
 			return err
 		}
 	}
-
-	// flush
-	c.Flush()
-	return c.Error()
+	return nil
 }
 
 // EncodeAll encodes all result sets to the writer using the encoder settings.
-func (enc *CSVEncoder) EncodeAll(w io.Writer) error {
-	var err error
-
-	if err = enc.Encode(w); err != nil {
+func (enc *UnalignedEncoder) EncodeAll(w io.Writer) error {
+	if err := enc.Encode(w); err != nil {
 		return err
 	}
-
 	for enc.resultSet.NextResultSet() {
-		if _, err = w.Write(enc.newline); err != nil {
+		if _, err := w.Write(enc.newline); err != nil {
 			return err
 		}
-
-		if err = enc.Encode(w); err != nil {
+		if err := enc.Encode(w); err != nil {
 			return err
 		}
 	}
-
-	if _, err = w.Write(enc.newline); err != nil {
+	if _, err := w.Write(enc.newline); err != nil {
 		return err
 	}
-
 	return nil
 }
 
 // scanAndFormat scans and formats values from the result set.
-func (enc *CSVEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
-	var err error
-	if err = enc.resultSet.Err(); err != nil {
+func (enc *UnalignedEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
+	if err := enc.resultSet.Err(); err != nil {
 		return nil, err
 	}
-	if err = enc.resultSet.Scan(vals...); err != nil {
+	if err := enc.resultSet.Scan(vals...); err != nil {
 		return nil, err
 	}
 	return enc.formatter.Format(vals)
@@ -1303,33 +1152,22 @@ func (enc *CSVEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
 type TemplateEncoder struct {
 	// ResultSet is the result set to encode.
 	resultSet ResultSet
-
-	// newline is the newline to use.
+	// executor is the template executor function.
+	executor func(io.Writer, interface{}) error
+	// newline is the record separator to use.
 	newline []byte
-
 	// formatter handles formatting values prior to output.
 	formatter Formatter
-
 	// title is the title value.
 	title *Value
-
 	// empty is the empty value.
 	empty *Value
-
-	// template is the parsed template
-	template Executor
-
-	// attributes are extra table attributes
+	// attributes are extra table attributes.
 	attributes string
-}
-
-type Executor interface {
-	Execute(io.Writer, interface{}) error
 }
 
 // NewTemplateEncoder creates a new template encoder using the provided options.
 func NewTemplateEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
-	var err error
 	enc := &TemplateEncoder{
 		resultSet: resultSet,
 		newline:   newline,
@@ -1339,7 +1177,7 @@ func NewTemplateEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 		},
 	}
 	for _, o := range opts {
-		if err = o(enc); err != nil {
+		if err := o(enc); err != nil {
 			return nil, err
 		}
 	}
@@ -1352,7 +1190,6 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 	if enc.resultSet == nil {
 		return ErrResultSetIsNil
 	}
-
 	// get and check columns
 	cols, err := enc.resultSet.Columns()
 	if err != nil {
@@ -1362,109 +1199,65 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 	if clen == 0 {
 		return ErrResultSetHasNoColumns
 	}
-
 	headers, err := enc.formatter.Header(cols)
 	if err != nil {
 		return err
 	}
-
+	// set up storage for results
+	r := make([]interface{}, clen)
+	for i := 0; i < clen; i++ {
+		r[i] = new(interface{})
+	}
+	// process
+	var rows [][]*Value
+	for enc.resultSet.Next() {
+		vals, err := enc.scanAndFormat(r)
+		if err != nil {
+			return err
+		}
+		rows = append(rows, vals)
+	}
+	if err := enc.resultSet.Err(); err != nil {
+		return err
+	}
 	title := enc.title
 	if title == nil {
 		title = enc.empty
 	}
-
-	stop := make(chan struct{})
-	data := struct {
-		Title      *Value
-		Attributes string
-		Headers    []*Value
-		Rows       <-chan []cell
-	}{
-		Title:      title,
-		Attributes: enc.attributes,
-		Headers:    headers,
-		Rows:       enc.rows(headers, stop),
-	}
-	err = enc.template.Execute(w, data)
-	close(stop)
-	return err
-}
-
-type cell struct {
-	Name  string
-	Value *Value
-}
-
-func (enc *TemplateEncoder) rows(headers []*Value, stop <-chan struct{}) chan []cell {
-	// set up storage for results
-	r := make([]interface{}, len(headers))
-	for i := range headers {
-		r[i] = new(interface{})
-	}
-	result := make(chan []cell)
-	go func() {
-		defer close(result)
-		for enc.resultSet.Next() {
-			row := make([]cell, len(headers))
-			err := enc.scanAndFormat(headers, r, row)
-			if err != nil {
-				return
-			}
-			select {
-			case result <- row:
-				// sent successfully
-			case <-stop:
-				return
-			}
-		}
-	}()
-	return result
+	return enc.executor(w, map[string]interface{}{
+		"Title":      title,
+		"Attributes": enc.attributes,
+		"Headers":    headers,
+		"Rows":       rows,
+	})
 }
 
 // EncodeAll encodes all result sets to the writer using the encoder settings.
 func (enc *TemplateEncoder) EncodeAll(w io.Writer) error {
-	var err error
-
-	if err = enc.Encode(w); err != nil {
+	if err := enc.Encode(w); err != nil {
 		return err
 	}
-
 	for enc.resultSet.NextResultSet() {
-		if _, err = w.Write(enc.newline); err != nil {
+		if _, err := w.Write(enc.newline); err != nil {
 			return err
 		}
-		if err = enc.Encode(w); err != nil {
+		if err := enc.Encode(w); err != nil {
 			return err
 		}
 	}
-
-	if _, err = w.Write(enc.newline); err != nil {
+	if _, err := w.Write(enc.newline); err != nil {
 		return err
 	}
-
 	return nil
 }
 
 // scanAndFormat scans and formats values from the result set.
-// vals and result are passed as args to avoid allocation
-func (enc *TemplateEncoder) scanAndFormat(headers []*Value, buf []interface{}, row []cell) error {
-	var err error
-	if err = enc.resultSet.Err(); err != nil {
-		return err
+func (enc *TemplateEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
+	if err := enc.resultSet.Err(); err != nil {
+		return nil, err
 	}
-	if err = enc.resultSet.Scan(buf...); err != nil {
-		return err
+	if err := enc.resultSet.Scan(vals...); err != nil {
+		return nil, err
 	}
-	vals, err := enc.formatter.Format(buf)
-	if err != nil {
-		return err
-	}
-	for i, h := range headers {
-		v := vals[i]
-		if v == nil {
-			v = enc.empty
-		}
-		row[i] = cell{Name: string(h.Buf), Value: v}
-	}
-	return nil
+	return enc.formatter.Format(vals)
 }

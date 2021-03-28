@@ -1,0 +1,15 @@
+<table {{. [compiler:]
+    <caption>{{.Title}}</caption>
+    <thead>
+        <tr>
+{{range .Headers}}          <th align="{{.Align}}">{{.}}</th>
+{{end}}
+        </tr>
+    </thead>
+    <tbody>
+{{range .Rows}}     <tr>
+{{range .}}         <td align="{{.Value.Align}}">{{.Value}}</td>
+{{end}}     </tr>
+{{end}}
+    </tbody>
+</table>

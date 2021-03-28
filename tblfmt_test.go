@@ -20,8 +20,6 @@ func TestEncodeFormats(t *testing.T) {
 			name: "unaligned",
 			params: map[string]string{
 				"format": "unaligned",
-				"title":  "won't print",
-				// TODO psql does print the footer
 				"footer": "off",
 			},
 		},
@@ -117,9 +115,7 @@ func TestEncodeFormats(t *testing.T) {
 		//"latex-longtable",
 		//"troff-ms",
 	}
-
 	expected := "testdata/formats.expected.txt"
-
 	var fe *os.File
 	var err error
 	dsn := os.Getenv("PSQL_CONN")
@@ -129,16 +125,14 @@ func TestEncodeFormats(t *testing.T) {
 			t.Fatalf("Cannot create expected file %s: %v", expected, err)
 		}
 	}
-
 	actual := "testdata/formats.actual.txt"
 	fa, err := os.Create(actual)
 	if err != nil {
 		t.Fatalf("Cannot create results file %s: %v", actual, err)
 	}
-
 	for _, c := range cases {
 		t.Run("psql-"+c.name, func(t *testing.T) {
-			//t.Parallel()
+			// t.Parallel()
 			buf := new(bytes.Buffer)
 			if err := psqlEncodeAll(buf, rs(), c.params); err != nil {
 				if err == errPsqlConnNotDefined {
@@ -153,9 +147,8 @@ func TestEncodeFormats(t *testing.T) {
 				fmt.Fprintln(fe, res)
 			}
 		})
-
 		t.Run(c.name, func(t *testing.T) {
-			//t.Parallel()
+			// t.Parallel()
 			buf := new(bytes.Buffer)
 			if err := EncodeAll(buf, rs(), c.params); err != nil {
 				t.Fatalf("expected no error when encoding format %q, got: %v", c.name, err)
@@ -166,12 +159,10 @@ func TestEncodeFormats(t *testing.T) {
 			fmt.Fprintln(fa, res)
 		})
 	}
-
 	if fe != nil {
 		fe.Close()
 	}
 	fa.Close()
-
 	err = filesEqual(expected, actual)
 	if err != nil {
 		t.Error(err)
@@ -210,14 +201,12 @@ func TestEncodeExportFormats(t *testing.T) {
 
 func TestTinyAligned(t *testing.T) {
 	resultSet := rstiny()
-
 	expected := "testdata/tiny.expected.txt"
 	actual := "testdata/tiny.actual.txt"
 	fa, err := os.Create(actual)
 	if err != nil {
 		t.Fatalf("Cannot create results file %s: %v", actual, err)
 	}
-
 	buf := new(bytes.Buffer)
 	params := map[string]string{
 		"format":   "aligned",
@@ -231,7 +220,6 @@ func TestTinyAligned(t *testing.T) {
 	t.Log("\n", newlineRE.ReplaceAllString(res, "\t"))
 	fmt.Fprintln(fa, res)
 	fa.Close()
-
 	err = filesEqual(expected, actual)
 	if err != nil {
 		t.Error(err)
@@ -253,15 +241,14 @@ func TestWideExpanded(t *testing.T) {
 }
 
 func TestBigAligned(t *testing.T) {
+	t.Skip()
 	resultSet := rsbig()
-
 	expected := "testdata/big.expected.txt"
 	actual := "testdata/big.actual.txt"
 	fa, err := os.Create(actual)
 	if err != nil {
 		t.Fatalf("Cannot create results file %s: %v", actual, err)
 	}
-
 	buf := new(bytes.Buffer)
 	if err := EncodeTableAll(buf, resultSet); err != nil {
 		t.Fatalf("expected no error when encoding, got: %v", err)
@@ -270,7 +257,6 @@ func TestBigAligned(t *testing.T) {
 	t.Log("\n", newlineRE.ReplaceAllString(res, "\t"))
 	fmt.Fprintln(fa, res)
 	fa.Close()
-
 	err = filesEqual(expected, actual)
 	if err != nil {
 		t.Error(err)
@@ -285,9 +271,8 @@ func BenchmarkEncodeFormats(b *testing.B) {
 	}{
 		{"aligned", NewTableEncoder, nil},
 		{"json", NewJSONEncoder, nil},
-		{"csv", NewCSVEncoder, nil},
+		{"csv", NewUnalignedEncoder, nil},
 	}
-
 	for _, enc := range encoders {
 		b.Run(enc.name, func(b *testing.B) {
 			resultSet, w := rsbig(), &noopWriter{}
@@ -296,7 +281,6 @@ func BenchmarkEncodeFormats(b *testing.B) {
 				if err != nil {
 					b.Fatalf("expected no error, got: %v", err)
 				}
-
 				if err = enc.Encode(w); err != nil {
 					b.Errorf("expected no error, got: %v", err)
 				}
@@ -313,12 +297,10 @@ func filesEqual(a, b string) error {
 	if err != nil {
 		return fmt.Errorf("Cannot read file %s: %w", a, err)
 	}
-
 	f2, err := ioutil.ReadFile(b)
 	if err != nil {
 		return fmt.Errorf("Cannot read file %s: %w", b, err)
 	}
-
 	if !bytes.Equal(f1, f2) {
 		return fmt.Errorf("Files %s and %s have different contents", a, b)
 	}

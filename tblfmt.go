@@ -103,8 +103,28 @@ func EncodeJSONAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.Encode(w)
 }
 
-// EncodeCSV encodes the result set to the writer as CSV using the supplied
-// encoding options.
+// EncodeUnaligned encodes the result set to the writer unaligned using the
+// supplied encoding options.
+func EncodeUnaligned(w io.Writer, resultSet ResultSet, opts ...Option) error {
+	enc, err := NewUnalignedEncoder(resultSet, opts...)
+	if err != nil {
+		return err
+	}
+	return enc.Encode(w)
+}
+
+// EncodeUnalignedAll encodes all result sets to the writer unaligned using the
+// supplied encoding options.
+func EncodeUnalignedAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
+	enc, err := NewUnalignedEncoder(resultSet, opts...)
+	if err != nil {
+		return err
+	}
+	return enc.Encode(w)
+}
+
+// EncodeCSV encodes the result set to the writer unaligned using the
+// supplied encoding options.
 func EncodeCSV(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewCSVEncoder(resultSet, opts...)
 	if err != nil {
@@ -113,8 +133,8 @@ func EncodeCSV(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.Encode(w)
 }
 
-// EncodeCSVAll encodes all result sets to the writer as CSV using the supplied
-// encoding options.
+// EncodeCSVAll encodes all result sets to the writer unaligned using the
+// supplied encoding options.
 func EncodeCSVAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewCSVEncoder(resultSet, opts...)
 	if err != nil {

@@ -1,77 +1,66 @@
 package tblfmt
 
 import (
-	html "html/template"
+	htmltemplate "html/template"
 	"io"
 	"strconv"
-	txt "text/template"
-	"unicode/utf8"
-
-	"github.com/xo/tblfmt/csv"
+	texttemplate "text/template"
 
 	"github.com/nathan-fiscaletti/consolesize-go"
+	"github.com/xo/tblfmt/templates"
 )
 
 // Builder is the shared builder interface.
-type Builder func(ResultSet, ...Option) (Encoder, error)
+type Builder = func(ResultSet, ...Option) (Encoder, error)
 
 // Option is a Encoder option.
-type Option func(interface{}) error
+type Option = func(interface{}) error
 
 // FromMap creates an encoder for the provided result set, applying the named
 // options.
+//
+// Note: this func is primarily a helper func to accommodate psql-like format
+// option names.
 func FromMap(opts map[string]string) (Builder, []Option) {
 	// unaligned, aligned, wrapped, html, asciidoc, latex, latex-longtable, troff-ms, json, csv
-	switch opts["format"] {
+	switch format := opts["format"]; format {
 	case "json":
 		return NewJSONEncoder, nil
-
 	case "csv", "unaligned":
-		var csvOpts []Option
-		if opts["format"] == "unaligned" {
-			newline := "\n"
-			if s, ok := opts["recordsep"]; ok {
-				newline = s
-			}
-			fieldsep := '|'
-			if s, ok := opts["fieldsep"]; ok {
-				r, _ := utf8.DecodeRuneInString(s)
-				fieldsep = r
-			}
-			if s, ok := opts["fieldsep_zero"]; ok && s == "on" {
-				fieldsep = 0
-			}
-			csvOpts = append(csvOpts, WithNewCSVWriter(func(w io.Writer) CSVWriter {
-				writer := csv.NewWriter(w)
-				writer.Newline = newline
-				writer.Comma = fieldsep
-				return writer
-			}))
-		} else {
-			csvOpts = append(csvOpts, WithNewline(""))
-			// recognize both for backward-compatibility, but csv_fieldsep takes precedence
-			for _, name := range []string{"fieldsep", "csv_fieldsep"} {
-				if s, ok := opts[name]; ok {
-					sep, _ := utf8.DecodeRuneInString(s)
-					csvOpts = append(csvOpts, WithFieldSeparator(sep))
-				}
-			}
+		// determine separator, quote
+		sep, quote, field := '|', rune(0), "fieldsep"
+		if format == "csv" {
+			sep, quote, field = ',', '"', "csv_fieldsep"
 		}
-		if s, ok := opts["fieldsep_zero"]; ok && s == "on" {
-			csvOpts = append(csvOpts, WithFieldSeparator(0))
+		if s, ok := opts[field]; ok {
+			if len(s) != 1 {
+				return newErrEncoder, []Option{withError(ErrInvalidFieldSeparator)}
+			}
+			sep = []rune(s)[0]
 		}
-		if s, ok := opts["tuples_only"]; ok && s == "on" {
-			csvOpts = append(csvOpts, WithSkipHeader(true))
+		if format != "csv" && opts["fieldsep_zero"] == "true" {
+			sep = 0
 		}
-		return NewCSVEncoder, csvOpts
-
+		// determine newline
+		recordsep := newline
+		if rs, ok := opts["recordsep"]; ok {
+			recordsep = []byte(rs)
+		}
+		if opts["recordsep_zero"] == "true" {
+			recordsep = []byte{0}
+		}
+		return NewUnalignedEncoder, []Option{
+			WithSeparator(sep),
+			WithQuote(quote),
+			WithFormatter(NewEscapeFormatter(WithIsRaw(true, sep, quote))),
+			WithNewline(string(recordsep)),
+		}
 	case "html", "asciidoc", "latex", "latex-longtable", "troff-ms":
 		return NewTemplateEncoder, []Option{
-			WithNamedTemplate(opts["format"]),
+			WithTemplate(format),
 			WithTableAttributes(opts["tableattr"]),
 			WithTitle(opts["title"]),
 		}
-
 	case "aligned":
 		var tableOpts []Option
 		if s, ok := opts["border"]; ok {
@@ -142,7 +131,6 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			}
 		}
 		return builder, tableOpts
-
 	default:
 		return newErrEncoder, []Option{withError(ErrInvalidFormat)}
 	}
@@ -182,6 +170,10 @@ func WithFormatter(formatter Formatter) Option {
 			enc.formatter = formatter
 		case *ExpandedEncoder:
 			enc.formatter = formatter
+		case *UnalignedEncoder:
+			enc.formatter = formatter
+		case *JSONEncoder:
+			enc.formatter = formatter
 		}
 		return nil
 	}
@@ -210,7 +202,7 @@ func WithSkipHeader(s bool) Option {
 			enc.skipHeader = s
 		case *ExpandedEncoder:
 			enc.skipHeader = s
-		case *CSVEncoder:
+		case *UnalignedEncoder:
 			enc.skipHeader = s
 		}
 		return nil
@@ -301,7 +293,8 @@ func WithWidths(widths []int) Option {
 	}
 }
 
-// WithMinExpandWidth is a encoder option to set maximum width before switching to expanded format.
+// WithMinExpandWidth is a encoder option to set maximum width before switching
+// to expanded format.
 func WithMinExpandWidth(w int) Option {
 	return func(v interface{}) error {
 		switch enc := v.(type) {
@@ -314,7 +307,8 @@ func WithMinExpandWidth(w int) Option {
 	}
 }
 
-// WithMinPagerWidth is a encoder option to set maximum width before redirecting output to pager.
+// WithMinPagerWidth is a encoder option to set maximum width before
+// redirecting output to pager.
 func WithMinPagerWidth(w int) Option {
 	return func(v interface{}) error {
 		switch enc := v.(type) {
@@ -327,7 +321,8 @@ func WithMinPagerWidth(w int) Option {
 	}
 }
 
-// WithMinPagerHeight is a encoder option to set maximum height before redirecting output to pager.
+// WithMinPagerHeight is a encoder option to set maximum height before
+// redirecting output to pager.
 func WithMinPagerHeight(h int) Option {
 	return func(v interface{}) error {
 		switch enc := v.(type) {
@@ -353,6 +348,28 @@ func WithPager(p string) Option {
 	}
 }
 
+// WithSeparator is a encoder option to set the field separator.
+func WithSeparator(sep rune) Option {
+	return func(v interface{}) error {
+		switch enc := v.(type) {
+		case *UnalignedEncoder:
+			enc.sep = sep
+		}
+		return nil
+	}
+}
+
+// WithQuote is a encoder option to set the field quote.
+func WithQuote(quote rune) Option {
+	return func(v interface{}) error {
+		switch enc := v.(type) {
+		case *UnalignedEncoder:
+			enc.quote = quote
+		}
+		return nil
+	}
+}
+
 // WithNewline is a encoder option to set the newline.
 func WithNewline(newline string) Option {
 	return func(v interface{}) error {
@@ -363,33 +380,10 @@ func WithNewline(newline string) Option {
 			enc.newline = []byte(newline)
 		case *JSONEncoder:
 			enc.newline = []byte(newline)
-		case *CSVEncoder:
+		case *UnalignedEncoder:
 			enc.newline = []byte(newline)
 		case *TemplateEncoder:
 			enc.newline = []byte(newline)
-		}
-		return nil
-	}
-}
-
-// WithNewCSVWriter is a encoder option to set the newCSVWriter func.
-func WithNewCSVWriter(f func(io.Writer) CSVWriter) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *CSVEncoder:
-			enc.newCSVWriter = f
-		}
-		return nil
-	}
-}
-
-// WithFieldSeparator is a encoder option to set the field separator.
-func WithFieldSeparator(fieldsep rune) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *CSVEncoder:
-			enc.fieldsep = fieldsep
-			enc.fieldsepIsZero = fieldsep == 0
 		}
 		return nil
 	}
@@ -408,65 +402,72 @@ func WithBorder(border int) Option {
 	}
 }
 
-// WithTextTemplate is a encoder option to set the raw text template used.
-func WithTextTemplate(t string) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *TemplateEncoder:
-			var err error
-			enc.template, err = txt.New("main").Parse(t)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-}
-
-// WithHtmlTemplate is a encoder option to set the raw html template used.
-func WithHtmlTemplate(t string) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *TemplateEncoder:
-			var err error
-			enc.template, err = html.New("main").Funcs(htmlFuncMap).Parse(t)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-}
-
-// WithNamedTemplate is a encoder option to set the template used.
-func WithNamedTemplate(name string) Option {
-	return func(v interface{}) error {
-		template, ok := templates[name]
-		if !ok {
-			return ErrUnknownTemplate
-		}
-		switch enc := v.(type) {
-		case *TemplateEncoder:
-			var err error
-			if name == "html" {
-				enc.template, err = html.New(name).Funcs(htmlFuncMap).Parse(template)
-			} else {
-				enc.template, err = txt.New(name).Parse(template)
-			}
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-}
-
 // WithTableAttributes is a encoder option to set the table attributes.
 func WithTableAttributes(a string) Option {
 	return func(v interface{}) error {
 		switch enc := v.(type) {
 		case *TemplateEncoder:
 			enc.attributes = a
+		}
+		return nil
+	}
+}
+
+// WithExecutor is a encoder option to set the executor.
+func WithExecutor(executor func(io.Writer, interface{}) error) Option {
+	return func(v interface{}) error {
+		switch enc := v.(type) {
+		case *TemplateEncoder:
+			enc.executor = executor
+		}
+		return nil
+	}
+}
+
+// WithRawTemplate is a encoder option to set a raw template of either "text"
+// or "html" type.
+func WithRawTemplate(text, typ string) Option {
+	return func(v interface{}) error {
+		switch enc := v.(type) {
+		case *TemplateEncoder:
+			switch typ {
+			case "html":
+				tpl, err := htmltemplate.New("").Funcs(htmltemplate.FuncMap{
+					"attr": func(s string) htmltemplate.HTMLAttr { return htmltemplate.HTMLAttr(s) },
+					"safe": func(s string) htmltemplate.HTML { return htmltemplate.HTML(s) },
+				}).Parse(text)
+				if err != nil {
+					return err
+				}
+				enc.executor = tpl.Execute
+			case "text":
+				tpl, err := texttemplate.New("").Parse(text)
+				if err != nil {
+					return err
+				}
+				enc.executor = tpl.Execute
+			default:
+				return ErrUnknownTemplate
+			}
+		}
+		return nil
+	}
+}
+
+// WithTemplate is a encoder option to set a named template.
+func WithTemplate(name string) Option {
+	return func(v interface{}) error {
+		switch enc := v.(type) {
+		case *TemplateEncoder:
+			typ := "text"
+			if name == "html" {
+				typ = "html"
+			}
+			buf, err := templates.Templates.ReadFile(name + ".txt")
+			if err != nil {
+				return err
+			}
+			return WithRawTemplate(string(buf), typ)(enc)
 		}
 		return nil
 	}

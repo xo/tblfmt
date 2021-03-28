@@ -1,0 +1,8 @@
+[%header]
+{{if .Title.Buf}}.{{.Title}}
+{{end}}|===
+{{range .Headers}}|{{.}}
+{{end}}
+{{range .Rows}}{{range .}}|{{.Value}}
+{{end}}
+{{end}}|===
