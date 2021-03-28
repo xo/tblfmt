@@ -21,6 +21,12 @@ type Formatter interface {
 	// Format returns a slice of formatted value the provided row values.
 	Format([]interface{}) ([]*Value, error)
 
+	// HeaderInto populates a slice with formatted values for the provided headers.
+	HeaderInto([]string, []*Value) error
+
+	// FormatInto populates a slice with formatted value the provided row values.
+	FormatInto([]interface{}, []*Value) error
+
 	// Free the value if it's no longer going to be used
 	Free(*Value)
 }
@@ -99,8 +105,14 @@ func (f *EscapeFormatter) Configure(opts ...EscapeFormatterOption) {
 
 // Header satisfies the Formatter interface.
 func (f *EscapeFormatter) Header(headers []string) ([]*Value, error) {
+	res := make([]*Value, len(headers))
+	err := f.HeaderInto(headers, res)
+	return res, err
+}
+
+// HeaderInto satisfies the Formatter interface.
+func (f *EscapeFormatter) HeaderInto(headers []string, res []*Value) error {
 	n := len(headers)
-	res := make([]*Value, n)
 	useMask := strings.Contains(f.mask, "%")
 	for i := 0; i < n; i++ {
 		s := strings.TrimSpace(headers[i])
@@ -112,13 +124,19 @@ func (f *EscapeFormatter) Header(headers []string) ([]*Value, error) {
 		res[i] = f.valuesPool.formatBytes([]byte(s), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
 		res[i].Align = f.headerAlign
 	}
-	return res, nil
+	return nil
 }
 
 // Format satisfies the Formatter interface.
 func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
+	res := make([]*Value, len(vals))
+	err := f.FormatInto(vals, res)
+	return res, err
+}
+
+// Format satisfies the Formatter interface.
+func (f *EscapeFormatter) FormatInto(vals []interface{}, res []*Value) error {
 	n := len(vals)
-	res := make([]*Value, n)
 
 	// TODO: use strconv.Format* for numeric times
 	// TODO: allow configurable runes that can be escaped
@@ -276,14 +294,14 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 			if f.marshaler != nil {
 				buf, err := f.marshaler(v)
 				if err != nil {
-					return nil, err
+					return err
 				}
 				res[i] = f.valuesPool.newRaw(buf)
 			} else {
 				// json encode
 				f.defaultMarshalerBuffer.Reset()
 				if err := f.defaultMarshaler.Encode(v); err != nil {
-					return nil, err
+					return err
 				}
 				if f.isJSON {
 					res[i] = f.valuesPool.newRaw(bytes.TrimSpace(f.defaultMarshalerBuffer.Bytes()))
@@ -297,7 +315,7 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 			res[i].Width = len(res[i].Buf)
 		}
 	}
-	return res, nil
+	return nil
 }
 
 func (f *EscapeFormatter) Free(v *Value) {
