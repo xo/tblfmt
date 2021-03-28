@@ -35,6 +35,8 @@ type TableEncoder struct {
 	inline bool
 	// lineStyle is the table line style.
 	lineStyle LineStyle
+	// rowStyles is the table of row style.
+	rowStyles rowStyles
 	// formatter handles formatting values prior to output.
 	formatter Formatter
 	// skipHeader allows to skip drawing header
@@ -100,6 +102,11 @@ func NewTableEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 			return nil, err
 		}
 	}
+	enc.rowStyles.Top = enc.lineToRowStyle(enc.lineStyle.Top)
+	enc.rowStyles.Mid = enc.lineToRowStyle(enc.lineStyle.Mid)
+	enc.rowStyles.Row = enc.lineToRowStyle(enc.lineStyle.Row)
+	enc.rowStyles.Wrap = enc.lineToRowStyle(enc.lineStyle.Wrap)
+	enc.rowStyles.End = enc.lineToRowStyle(enc.lineStyle.End)
 	// check linestyle runes
 	// TODO: this check should be removed
 	for _, l := range [][4]rune{
@@ -208,7 +215,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		}
 		// draw end border
 		if enc.border >= 2 {
-			enc.divider(enc.rowStyle(enc.lineStyle.End))
+			enc.divider(enc.rowStyles.End)
 		}
 	}
 	// add summary
@@ -258,7 +265,7 @@ func (enc *TableEncoder) initBuffers() {
 }
 
 func (enc *TableEncoder) encodeVals(vals [][]*Value) error {
-	rs := enc.rowStyle(enc.lineStyle.Row)
+	rs := enc.rowStyles.Row
 	// print buffered vals
 	for i := 0; i < len(vals); i++ {
 		enc.row(vals[i], rs)
@@ -319,7 +326,7 @@ func (enc *TableEncoder) nextResults() ([][]*Value, error) {
 func (enc *TableEncoder) calcWidth(vals [][]*Value) {
 	// calc offsets and widths for this batch of rows
 	var offset int
-	rs := enc.rowStyle(enc.lineStyle.Row)
+	rs := enc.rowStyles.Row
 	offset += runewidth.StringWidth(string(rs.left))
 	for i, h := range enc.headers {
 		if i != 0 {
@@ -346,7 +353,7 @@ func (enc *TableEncoder) calcWidth(vals [][]*Value) {
 }
 
 func (enc *TableEncoder) header() {
-	rs := enc.rowStyle(enc.lineStyle.Row)
+	rs := enc.rowStyles.Row
 	if enc.title != nil && enc.title.Width != 0 {
 		maxWidth := ((enc.tableWidth() - enc.title.Width) / 2) + enc.title.Width
 		enc.writeAligned(enc.title.Buf, &rs, AlignRight, maxWidth-enc.title.Width)
@@ -354,24 +361,24 @@ func (enc *TableEncoder) header() {
 	}
 	// draw top border
 	if enc.border >= 2 && !enc.inline {
-		enc.divider(enc.rowStyle(enc.lineStyle.Top))
+		enc.divider(enc.rowStyles.Top)
 	}
 	// draw the header row with top border style
 	if enc.inline {
-		rs = enc.rowStyle(enc.lineStyle.Top)
+		rs = enc.rowStyles.Top
 	}
 	// write header
 	enc.row(enc.headers, rs)
 	if !enc.inline {
 		// draw mid divider
-		enc.divider(enc.rowStyle(enc.lineStyle.Mid))
+		enc.divider(enc.rowStyles.Mid)
 	}
 }
 
 // rowStyle returns the left, right and midle borders.
 // It also profides the filler string, and indicates
 // if this style uses a wrapping indicator.
-func (enc TableEncoder) rowStyle(r [4]rune) rowStyle {
+func (enc TableEncoder) lineToRowStyle(r [4]rune) rowStyle {
 	var left, right, middle, spacer, filler string
 	spacer = strings.Repeat(string(r[1]), runewidth.RuneWidth(enc.lineStyle.Row[1]))
 	filler = string(r[1])
@@ -436,7 +443,7 @@ func (enc *TableEncoder) divider(rs rowStyle) {
 
 // tableWidth calculates total table width.
 func (enc *TableEncoder) tableWidth() int {
-	rs := enc.rowStyle(enc.lineStyle.Mid)
+	rs := enc.rowStyles.Mid
 	width := runewidth.StringWidth(string(rs.left)) + runewidth.StringWidth(string(rs.right))
 	for i, w := range enc.maxWidths {
 		width += w
@@ -609,6 +616,10 @@ type rowStyle struct {
 	hasWrapping                          bool
 }
 
+type rowStyles struct {
+	Top, Mid, Row, Wrap, End rowStyle
+}
+
 // ExpandedEncoder is a buffered, lookahead expanded table encoder for result sets.
 type ExpandedEncoder struct {
 	TableEncoder
@@ -707,7 +718,7 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 }
 
 func (enc *ExpandedEncoder) encodeVals(vals [][]*Value) error {
-	rs := enc.rowStyle(enc.lineStyle.Row)
+	rs := enc.rowStyles.Row
 	// print buffered vals
 	for i := 0; i < len(vals); i++ {
 		enc.record(i, vals[i], rs)
@@ -725,7 +736,7 @@ func (enc *ExpandedEncoder) encodeVals(vals [][]*Value) error {
 	}
 	// draw end border
 	if enc.border >= 2 && enc.scanCount != 0 {
-		enc.divider(enc.rowStyle(enc.lineStyle.End))
+		enc.divider(enc.rowStyles.End)
 	}
 	return nil
 }
@@ -750,7 +761,7 @@ func (enc *ExpandedEncoder) EncodeAll(w io.Writer) error {
 }
 
 func (enc *ExpandedEncoder) calcWidth(vals [][]*Value) {
-	rs := enc.rowStyle(enc.lineStyle.Row)
+	rs := enc.rowStyles.Row
 	offset := runewidth.StringWidth(string(rs.left))
 	enc.offsets[0] = offset
 	// first column is always the column name
@@ -809,9 +820,9 @@ func (enc *ExpandedEncoder) record(i int, vals []*Value, rs rowStyle) {
 		headerRS := rs
 		header := enc.recordHeader(i)
 		if enc.border != 0 {
-			headerRS = enc.rowStyle(enc.lineStyle.Top)
+			headerRS = enc.rowStyles.Top
 			if i != 0 {
-				headerRS = enc.rowStyle(enc.lineStyle.Mid)
+				headerRS = enc.rowStyles.Mid
 			}
 		}
 		enc.w.Write(headerRS.left)
