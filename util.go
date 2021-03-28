@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"runtime"
+	"strconv"
+	"strings"
 )
 
 const lowerhex = "0123456789abcdef"
@@ -37,12 +39,28 @@ const (
 	ErrInvalidFormat Error = "invalid format"
 	// ErrInvalidLineStyle is the invalid line style error.
 	ErrInvalidLineStyle Error = "invalid line style"
-	// ErrUnknownTemplate is the unknown template error.
-	ErrUnknownTemplate Error = "unknown template"
+	// ErrInvalidTemplate is the invalid template error.
+	ErrInvalidTemplate Error = "invalid template"
 	// ErrInvalidFieldSeparator is the invalid field separator error.
 	ErrInvalidFieldSeparator Error = "invalid field separator"
-	// ErrInvalidRecordSeparator is the invalid record separator error.
-	ErrInvalidRecordSeparator Error = "invalid record separator"
+	// ErrCrosstabResultMustHaveAtLeast3Columns is the crosstab result must
+	// have at least 3 columns error.
+	ErrCrosstabResultMustHaveAtLeast3Columns Error = "crosstab result must have at least 3 columns"
+	// ErrCrosstabVerticalAndHorizontalColumnsMustNotBeSame is the crosstab
+	// vertical and horizontal columns must not be same error.
+	ErrCrosstabVerticalAndHorizontalColumnsMustNotBeSame Error = "crosstab vertical and horizontal columns must not be same"
+	// ErrCrosstabVerticalColumnNotInResult is the crosstab vertical column not
+	// in result error.
+	ErrCrosstabVerticalColumnNotInResult Error = "crosstab vertical column not in result"
+	// ErrCrosstabHorizontalColumnNotInResult is the crosstab horizontal column
+	// not in result error.
+	ErrCrosstabHorizontalColumnNotInResult Error = "crosstab horizontal column not in result"
+	// ErrCrosstabContentColumnNotInResult is the crosstab content column not
+	// in result error.
+	ErrCrosstabContentColumnNotInResult Error = "crosstab content column not in result"
+	// ErrCrosstabSortColumnNotInResult is the crosstab sort column not in
+	// result error.
+	ErrCrosstabSortColumnNotInResult Error = "crosstab sort column not in result"
 )
 
 // errEncoder provides a no-op encoder that always returns the wrapped error.
@@ -62,10 +80,9 @@ func (err errEncoder) EncodeAll(io.Writer) error {
 
 // newErrEncoder creates a no-op error encoder.
 func newErrEncoder(_ ResultSet, opts ...Option) (Encoder, error) {
-	var err error
 	enc := &errEncoder{}
 	for _, o := range opts {
-		if err = o(enc); err != nil {
+		if err := o(enc); err != nil {
 			return nil, err
 		}
 	}
@@ -90,6 +107,36 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// indexOf returns the index of s in v. If s is a integer, then it returns the
+// converted value of s. If s is an integer, it needs to be 1-based.
+func indexOf(v []string, s string) int {
+	s = strings.TrimSpace(s)
+	if i, err := strconv.Atoi(s); err == nil {
+		i--
+		if i >= 0 && i < len(v) {
+			return i
+		}
+		return -1
+	}
+	for i, vv := range v {
+		if strings.EqualFold(s, strings.TrimSpace(vv)) {
+			return i
+		}
+	}
+	return -1
+}
+
+// findIndex returns the index of s in v.
+func findIndex(v []string, s string, i int) int {
+	if s == "" {
+		if i < len(v) {
+			return -1
+		}
+		return i
+	}
+	return indexOf(v, s)
 }
 
 /*

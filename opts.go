@@ -4,6 +4,7 @@ import (
 	htmltemplate "html/template"
 	"io"
 	"strconv"
+	"strings"
 	texttemplate "text/template"
 
 	"github.com/nathan-fiscaletti/consolesize-go"
@@ -433,8 +434,10 @@ func WithRawTemplate(text, typ string) Option {
 			switch typ {
 			case "html":
 				tpl, err := htmltemplate.New("").Funcs(htmltemplate.FuncMap{
-					"attr": func(s string) htmltemplate.HTMLAttr { return htmltemplate.HTMLAttr(s) },
-					"safe": func(s string) htmltemplate.HTML { return htmltemplate.HTML(s) },
+					"attr":    func(s string) htmltemplate.HTMLAttr { return htmltemplate.HTMLAttr(s) },
+					"safe":    func(s string) htmltemplate.HTML { return htmltemplate.HTML(s) },
+					"toLower": func(s string) htmltemplate.HTML { return htmltemplate.HTML(strings.ToLower(s)) },
+					"toUpper": func(s string) htmltemplate.HTML { return htmltemplate.HTML(strings.ToUpper(s)) },
 				}).Parse(text)
 				if err != nil {
 					return err
@@ -447,7 +450,7 @@ func WithRawTemplate(text, typ string) Option {
 				}
 				enc.executor = tpl.Execute
 			default:
-				return ErrUnknownTemplate
+				return ErrInvalidTemplate
 			}
 		}
 		return nil

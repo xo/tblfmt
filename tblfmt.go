@@ -162,3 +162,13 @@ func EncodeTemplateAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	}
 	return enc.Encode(w)
 }
+
+// EncodeNamedTemplate encodes the result set to the writer using the named
+// template and the supplied encoding options.
+func EncodeNamedTemplate(w io.Writer, resultSet ResultSet, opts ...Option) error {
+	enc, err := NewTemplateEncoder(resultSet, append(opts, WithTemplate("html"))...)
+	if err != nil {
+		return err
+	}
+	return enc.Encode(w)
+}

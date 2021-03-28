@@ -1170,6 +1170,7 @@ type TemplateEncoder struct {
 func NewTemplateEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	enc := &TemplateEncoder{
 		resultSet: resultSet,
+		executor:  func(io.Writer, interface{}) error { return ErrInvalidTemplate },
 		newline:   newline,
 		formatter: NewEscapeFormatter(),
 		empty: &Value{
@@ -1203,6 +1204,11 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 	if err != nil {
 		return err
 	}
+	for i := 0; i < clen; i++ {
+		if headers[i] == nil {
+			headers[i] = enc.empty
+		}
+	}
 	// set up storage for results
 	r := make([]interface{}, clen)
 	for i := 0; i < clen; i++ {
@@ -1214,6 +1220,11 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 		vals, err := enc.scanAndFormat(r)
 		if err != nil {
 			return err
+		}
+		for i := 0; i < clen; i++ {
+			if vals[i] == nil {
+				vals[i] = enc.empty
+			}
 		}
 		rows = append(rows, vals)
 	}

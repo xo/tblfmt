@@ -16,25 +16,6 @@ import (
 	"unicode"
 )
 
-type rset struct {
-	rs   int
-	pos  int
-	cols []string
-	vals [][][]interface{}
-}
-
-// rs creates a simple result set for testing purposes.
-func rs() *rset {
-	s, t := rsset(14), rsset(38)
-	r := &rset{
-		cols: []string{"author_id", "name", "z"},
-		vals: [][][]interface{}{
-			s[:2], s[2:], t,
-		},
-	}
-	return r
-}
-
 type p struct {
 	name string
 	dob  time.Time
@@ -51,9 +32,11 @@ func newp(src *rand.Rand) p {
 	if src.Intn(2) == 1 {
 		char = []byte{byte(int('a') + src.Intn(26))}
 	}
+
 	var z interface{}
 	switch src.Intn(4) {
 	case 0, 1:
+
 	case 2:
 		c := 1 + src.Intn(5)
 		m := make(map[string]interface{}, c)
@@ -62,6 +45,7 @@ func newp(src *rand.Rand) p {
 			m[string(r[0:3])] = string(r[3:])
 		}
 		z = m
+
 	case 3:
 		y := make([]interface{}, 1+src.Intn(5))
 		for i := range y {
@@ -70,6 +54,7 @@ func newp(src *rand.Rand) p {
 		}
 		z = y
 	}
+
 	return p{
 		name: randstr(src),
 		dob:  randtime(src),
@@ -117,16 +102,45 @@ func randtime(src *rand.Rand) time.Time {
 	return time.Unix(src.Int63n(delta)+min, 0).UTC()
 }
 
+type rset struct {
+	rs   int
+	pos  int
+	cols []string
+	vals [][][]interface{}
+}
+
+// rs creates a simple result set for testing purposes.
+func rs() *rset {
+	s, t := rsset(14), rsset(38)
+	r := &rset{
+		cols: []string{"author_id", "name", "z"},
+		vals: [][][]interface{}{
+			s[:2], s[2:], t,
+		},
+	}
+	return r
+}
+
+// rss creates a result set for the specified columns and vals.
+func rss(cols []string, vals ...[][]interface{}) *rset {
+	return &rset{
+		cols: cols,
+		vals: vals,
+	}
+}
+
 // rsbig creates a large result set for testing / benchmarking purposes.
 func rsbig() *rset {
 	src := randsrc()
 	count := src.Intn(1000)
+
 	// generate rows
 	vals := make([][]interface{}, count)
 	for i := 0; i < count; i++ {
 		p := newp(src)
 		vals[i] = []interface{}{i + 1, p.name, p.dob, p.f, p.hash, p.char, p.z}
 	}
+
 	return &rset{
 		cols: []string{"id", "name", "dob", "float", "hash", "", "z"},
 		vals: [][][]interface{}{vals},
@@ -241,19 +255,18 @@ func psqlEncodeAll(w io.Writer, resultSet ResultSet, params map[string]string) e
 	if len(dsn) == 0 {
 		return errPsqlConnNotDefined
 	}
-	var err error
-	if err = psqlEncode(w, resultSet, params, dsn); err != nil {
+	if err := psqlEncode(w, resultSet, params, dsn); err != nil {
 		return err
 	}
 	for resultSet.NextResultSet() {
-		if _, err = w.Write(newline); err != nil {
+		if _, err := w.Write(newline); err != nil {
 			return err
 		}
-		if err = psqlEncode(w, resultSet, params, dsn); err != nil {
+		if err := psqlEncode(w, resultSet, params, dsn); err != nil {
 			return err
 		}
 	}
-	if _, err = w.Write(newline); err != nil {
+	if _, err := w.Write(newline); err != nil {
 		return err
 	}
 	return nil
@@ -269,13 +282,12 @@ SELECT * FROM (
 // psqlEncode does a single value query using psql, writing the captured output
 // to the writer.
 func psqlEncode(w io.Writer, resultSet ResultSet, params map[string]string, dsn string) error {
-	var err error
 	// read values
 	var vals string
 	var i int
 	for resultSet.Next() {
 		var id, name, z interface{}
-		if err = resultSet.Scan(&id, &name, &z); err != nil {
+		if err := resultSet.Scan(&id, &name, &z); err != nil {
 			return err
 		}
 		var extra string
@@ -286,27 +298,29 @@ func psqlEncode(w io.Writer, resultSet ResultSet, params map[string]string, dsn 
 		vals += fmt.Sprintf("%s\n    (%v,E'%s', %s)", extra, id, psqlEsc(n), psqlEnc(n, z))
 		i++
 	}
-	if err = resultSet.Err(); err != nil {
+	if err := resultSet.Err(); err != nil {
 		return err
 	}
+
 	// build pset
 	var pset string
 	for k, v := range params {
 		pset += fmt.Sprintf("\n\\pset %s '%s'", k, v)
 	}
+
 	// exec
 	stdout := new(bytes.Buffer)
 	q := fmt.Sprintf(psqlValuesQuery, pset, vals)
 	cmd := exec.Command("psql", dsn, "-qX")
 	cmd.Stdin, cmd.Stdout = bytes.NewReader([]byte(q)), stdout
-	if err = cmd.Run(); err != nil {
+	if err := cmd.Run(); err != nil {
 		return err
 	}
-	_, err = w.Write(bytes.TrimRightFunc(stdout.Bytes(), unicode.IsSpace))
-	if err != nil {
+
+	if _, err := w.Write(bytes.TrimRightFunc(stdout.Bytes(), unicode.IsSpace)); err != nil {
 		return err
 	}
-	_, err = w.Write(newline)
+	_, err := w.Write(newline)
 	return err
 }
 
@@ -337,4 +351,18 @@ type noopWriter struct{}
 
 func (*noopWriter) Write(buf []byte) (int, error) {
 	return len(buf), nil
+}
+
+// D parses s as a YYYY-MM-DD format.
+func D(s string) time.Time {
+	t, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		panic(err)
+	}
+	return t
+}
+
+// rsr creates a result set row for the passed values.
+func rsr(vals ...interface{}) []interface{} {
+	return vals
 }
