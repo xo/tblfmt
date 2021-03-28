@@ -1,11 +1,6 @@
-# About [![GoDoc][godoc]][godoc-link] [![Build Status][travis-ci]][travis-ci-link]
+# About tblfmt [![Go Reference][goref-tblfmt-status]][goref-tblfmt]
 
-[godoc]: https://godoc.org/github.com/xo/tblfmt?status.svg (GoDoc)
-[travis-ci]: https://travis-ci.org/xo/tblfmt.svg?branch=master (Travis CI)
-[godoc-link]: https://godoc.org/github.com/xo/tblfmt
-[travis-ci-link]: https://travis-ci.org/xo/tblfmt
-
-`tblfmt` provides a streaming table encoders for result sets (ie, from a
+Package `tblfmt` provides streaming table encoders for result sets (ie, from a
 database), creating tables like the following:
 
 ```text
@@ -24,6 +19,9 @@ database), creating tables like the following:
 (6 rows)
 ```
 
+Additionally, there are standard encoders for JSON, CSV, HTML, unaligned and
+all display variants [available in `usql`][usql].
+
 ## Installing
 
 Install in the usual [Go][go-project] fashion:
@@ -34,8 +32,8 @@ $ go get -u github.com/xo/tblfmt
 
 ## Using
 
-`tblfmt` was designed for use by [usql][] and Go's native `database/sql` types,
-but will handle any type with the following interface:
+`tblfmt` was designed for use by [`usql`][usql] and Go's native `database/sql`
+types, but will handle any type with the following interface:
 
 ```go
 // ResultSet is the shared interface for a result set.
@@ -100,7 +98,7 @@ Which can produce output like the following:
 (3 rows)
 ```
 
-Please see the [GoDoc listing][godoc] for the full API.
+Please see the [Go Reference][goref-tblfmt] for the full API.
 
 ## Testing
 
@@ -134,9 +132,8 @@ $ go test -v
 1. add center alignment output
 2. allow user to override alignment
 3. finish template implementations for HTML, LaTeX, etc.
-4. add title for tables
-5. finish compatibility with PostgreSQL (`psql`) output
 
 [go-project]: https://golang.org/project
-[godoc]: https://godoc.org/github.com/xo/tblfmt
+[goref-tblfmt]: https://pkg.go.dev/github.com/xo/tblfmt
+[goref-tblfmt-status]: https://pkg.go.dev/badge/github.com/xo/tblfmt.svg
 [usql]: https://github.com/xo/usql
