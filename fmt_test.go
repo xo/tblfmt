@@ -51,10 +51,7 @@ func TestTabwidthCalc(t *testing.T) {
 		tabs, w := tabpositions(test.s)
 		w += tabwidth(tabs, test.offset, test.tab)
 		if test.exp != w {
-			t.Errorf(
-				"test %d %q expected tabwidth(%v, %d, %d) = %d, got: %d",
-				i, test.s, tabs, test.offset, test.tab, test.exp, w,
-			)
+			t.Errorf("test %d %q expected tabwidth(%v, %d, %d) = %d, got: %d", i, test.s, tabs, test.offset, test.tab, test.exp, w)
 		}
 	}
 }
@@ -81,22 +78,13 @@ func TestFormatBytesTabs(t *testing.T) {
 	for i, test := range tests {
 		v := FormatBytes([]byte(test.s), nil, 0, false, false, 0, 0)
 		if !reflect.DeepEqual(v, test.exp) {
-			t.Errorf(
-				"test %d %q expected %v, got: %v",
-				i, test.s, test.exp, v,
-			)
+			t.Errorf("test %d %q expected %v, got: %v", i, test.s, test.exp, v)
 			width := runewidth.StringWidth(string(v.Buf))
 			if v.Width != width {
-				t.Errorf(
-					"test %d %q expected width %d, got: %d",
-					i, test.s, width, v.Width,
-				)
+				t.Errorf("test %d %q expected width %d, got: %d", i, test.s, width, v.Width)
 			}
 			if width != test.check {
-				t.Errorf(
-					"test %d %q expected check width %d, got: %d",
-					i, test.s, test.check, width,
-				)
+				t.Errorf("test %d %q expected check width %d, got: %d", i, test.s, test.check, width)
 			}
 		}
 	}
@@ -115,7 +103,7 @@ func TestFormatBytesComplex(t *testing.T) {
 	}
 }
 
-func TestFormatBytesCSV(t *testing.T) {
+func TestFormatBytesRaw(t *testing.T) {
 	tests := []struct {
 		s   string
 		exp string

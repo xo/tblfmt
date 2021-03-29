@@ -7,6 +7,8 @@ import (
 	"os"
 	"regexp"
 	"testing"
+
+	"github.com/xo/tblfmt/internal"
 )
 
 var newlineRE = regexp.MustCompile(`(?ms)^`)
@@ -132,12 +134,13 @@ func TestEncodeFormats(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run("psql-"+c.name, func(t *testing.T) {
+			dsn := os.Getenv("PSQL_CONN")
+			if dsn == "" {
+				t.Skipf("PSQL_CONN not defined, skipping psql query")
+			}
 			// t.Parallel()
 			buf := new(bytes.Buffer)
-			if err := psqlEncodeAll(buf, rs(), c.params); err != nil {
-				if err == errPsqlConnNotDefined {
-					t.Skipf("PSQL_CONN not defined, skipping psql query")
-				}
+			if err := internal.PsqlEncodeAll(buf, internal.NewRset(), c.params, dsn); err != nil {
 				t.Fatalf("unable to run psql, got: %v", err)
 			}
 			res := buf.String()
@@ -150,7 +153,7 @@ func TestEncodeFormats(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			// t.Parallel()
 			buf := new(bytes.Buffer)
-			if err := EncodeAll(buf, rs(), c.params); err != nil {
+			if err := EncodeAll(buf, internal.NewRset(), c.params); err != nil {
 				t.Fatalf("expected no error when encoding format %q, got: %v", c.name, err)
 			}
 			res := buf.String()
@@ -191,7 +194,7 @@ func TestEncodeExportFormats(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			buf := new(bytes.Buffer)
-			if err := EncodeAll(buf, rs(), c.params); err != nil {
+			if err := EncodeAll(buf, internal.NewRset(), c.params); err != nil {
 				t.Fatalf("expected no error when encoding format %q, got: %v", c.name, err)
 			}
 			t.Log("\n", newlineRE.ReplaceAllString(buf.String(), "\t"))
@@ -200,7 +203,7 @@ func TestEncodeExportFormats(t *testing.T) {
 }
 
 func TestTinyAligned(t *testing.T) {
-	resultSet := rstiny()
+	resultSet := internal.NewRsetTiny()
 	expected := "testdata/tiny.expected.txt"
 	actual := "testdata/tiny.actual.txt"
 	fa, err := os.Create(actual)
@@ -227,7 +230,7 @@ func TestTinyAligned(t *testing.T) {
 }
 
 func TestWideExpanded(t *testing.T) {
-	resultSet := rswide()
+	resultSet := internal.NewRsetWide()
 	buf := new(bytes.Buffer)
 	params := map[string]string{
 		"format":   "aligned",
@@ -242,7 +245,7 @@ func TestWideExpanded(t *testing.T) {
 
 func TestBigAligned(t *testing.T) {
 	t.Skip()
-	resultSet := rsbig()
+	resultSet := internal.NewRsetBig(nil)
 	expected := "testdata/big.expected.txt"
 	actual := "testdata/big.actual.txt"
 	fa, err := os.Create(actual)
@@ -275,7 +278,8 @@ func BenchmarkEncodeFormats(b *testing.B) {
 	}
 	for _, enc := range encoders {
 		b.Run(enc.name, func(b *testing.B) {
-			resultSet, w := rsbig(), &noopWriter{}
+			b.Skip()
+			resultSet, w := internal.NewRsetBig(nil), &noopWriter{}
 			for i := 0; i < b.N; i++ {
 				enc, err := enc.f(resultSet, enc.opts...)
 				if err != nil {
@@ -305,4 +309,10 @@ func filesEqual(a, b string) error {
 		return fmt.Errorf("Files %s and %s have different contents", a, b)
 	}
 	return nil
+}
+
+type noopWriter struct{}
+
+func (*noopWriter) Write(buf []byte) (int, error) {
+	return len(buf), nil
 }

@@ -3,6 +3,8 @@ package tblfmt
 import (
 	"bytes"
 	"testing"
+
+	"github.com/xo/tblfmt/internal"
 )
 
 func TestEncodeTableAll(t *testing.T) {
@@ -66,7 +68,7 @@ func TestEncodeTableAll(t *testing.T) {
 
 `
 	buf := new(bytes.Buffer)
-	if err := EncodeTableAll(buf, rs(), WithBorder(2), WithLineStyle(UnicodeDoubleLineStyle()), WithTitle("my table"), WithWidths(20, 20)); err != nil {
+	if err := EncodeTableAll(buf, internal.NewRset(), WithBorder(2), WithLineStyle(UnicodeDoubleLineStyle()), WithTitle("my table"), WithWidths(20, 20)); err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 	actual := buf.String()
@@ -94,7 +96,7 @@ func TestEncodeJSONAll(t *testing.T) {
 ]}]
 `
 	buf := new(bytes.Buffer)
-	if err := EncodeJSONAll(buf, rs()); err != nil {
+	if err := EncodeJSONAll(buf, internal.NewRset()); err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 	actual := buf.String()
@@ -199,7 +201,7 @@ Row 7:
   {{ index $headers $j }} = "{{ $c }}"{{ end }}
 {{ end }}`
 	buf := new(bytes.Buffer)
-	if err := EncodeTemplateAll(buf, rs(), WithRawTemplate(tpl, "text"), WithEmpty("<nil>")); err != nil {
+	if err := EncodeTemplateAll(buf, internal.NewRset(), WithRawTemplate(tpl, "text"), WithEmpty("<nil>")); err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 	actual := buf.String()
@@ -256,7 +258,7 @@ test
 
 `
 	buf := new(bytes.Buffer)
-	if err := EncodeUnalignedAll(buf, rs()); err != nil {
+	if err := EncodeUnalignedAll(buf, internal.NewRset()); err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 	actual := buf.String()
@@ -313,7 +315,7 @@ test
 
 `
 	buf := new(bytes.Buffer)
-	if err := EncodeCSVAll(buf, rs()); err != nil {
+	if err := EncodeCSVAll(buf, internal.NewRset()); err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 	actual := buf.String()

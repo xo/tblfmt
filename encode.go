@@ -37,7 +37,7 @@ type TableEncoder struct {
 	lineStyle LineStyle
 	// formatter handles formatting values prior to output.
 	formatter Formatter
-	// skipHeader allows to skip drawing header
+	// skipHeader allows to skip drawing header.
 	skipHeader bool
 	// summary is the summary map.
 	summary map[int]func(io.Writer, int) (int, error)
@@ -75,6 +75,8 @@ type TableEncoder struct {
 }
 
 // NewTableEncoder creates a new table encoder using the provided options.
+//
+// The table encoder has a default value of border 1, and a tab width of 8.
 func NewTableEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	enc := &TableEncoder{
 		resultSet: resultSet,
@@ -973,12 +975,14 @@ func (enc *JSONEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
 	return enc.formatter.Format(vals)
 }
 
-// UnalignedEncoder is an unbuffered unaligned encoder for result sets.
+// UnalignedEncoder is an unbuffered, unaligned encoder for result sets.
+//
 // Provides a way of encoding unaligned result sets in formats such as
 // comma-separated value (CSV) or tab-separated value (TSV) files.
 //
-// By default uses a field separator of ',' and a record separator of
-// the platform's default newline ("\r\n" on Windows, "\n" otherwise).
+// By default uses a field separator of '|', no quote separator, and record
+// separator using the default newline for the platfom ("\r\n" on Windows, "\n"
+// otherwise).
 type UnalignedEncoder struct {
 	// resultSet is the result set to encode.
 	resultSet ResultSet
@@ -1019,6 +1023,9 @@ func NewUnalignedEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 }
 
 // NewCSVEncoder creates a new csv encoder using the provided options.
+//
+// Creates an unaligned encoder using the default field separator ',' and field
+// quote of '"'.
 func NewCSVEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	sep, quote := rune(','), rune('"')
 	enc := &UnalignedEncoder{
