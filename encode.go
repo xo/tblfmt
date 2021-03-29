@@ -134,11 +134,8 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 	enc.offsets = make([]int, clen)
 	wroteHeader := enc.skipHeader
 	// default to user-supplied widths
-	if len(enc.widths) == clen {
-		enc.maxWidths = enc.widths
-	} else {
-		enc.maxWidths = make([]int, clen)
-	}
+	enc.maxWidths = make([]int, clen)
+	copy(enc.maxWidths, enc.widths)
 	enc.headers, err = enc.formatter.Header(cols)
 	if err != nil {
 		return err

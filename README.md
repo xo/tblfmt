@@ -75,7 +75,7 @@ func main() {
 	defer result.Close()
 	enc, err := tblfmt.NewTableEncoder(result,
 		// force minimum column widths
-		tblfmt.WithWidths([]int{20, 20}),
+		tblfmt.WithWidths(20, 20),
 	)
 	if err = enc.EncodeAll(os.Stdout); err != nil {
 		log.Fatal(err)

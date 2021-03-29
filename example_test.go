@@ -128,7 +128,7 @@ func ExampleNewTableEncoder_encodeAll() {
 		res,
 		tblfmt.WithBorder(2),
 		tblfmt.WithLineStyle(tblfmt.UnicodeDoubleLineStyle()),
-		tblfmt.WithWidths([]int{20, 20}),
+		tblfmt.WithWidths(20, 20),
 		tblfmt.WithSummary(tblfmt.DefaultTableSummary()),
 	)
 	if err != nil {
@@ -138,14 +138,14 @@ func ExampleNewTableEncoder_encodeAll() {
 		log.Fatal(err)
 	}
 	// Output:
-	// ╔══════════════════════╦═══════════════════════════╦═══╗
-	// ║ author_id            ║ name                      ║ z ║
-	// ╠══════════════════════╬═══════════════════════════╬═══╣
-	// ║                   14 ║ a	b	c	d  ║   ║
-	// ║                   15 ║ aoeu                     ↵║   ║
-	// ║                      ║ test                     ↵║   ║
-	// ║                      ║                           ║   ║
-	// ║                    2 ║ 袈	袈		袈 ║   ║
-	// ╚══════════════════════╩═══════════════════════════╩═══╝
+	//╔══════════════════════╦═══════════════════════════╦═══╗
+	//║      author_id       ║           name            ║ z ║
+	//╠══════════════════════╬═══════════════════════════╬═══╣
+	//║                   14 ║ a	b	c	d  ║   ║
+	//║                   15 ║ aoeu                     ↵║   ║
+	//║                      ║ test                     ↵║   ║
+	//║                      ║                           ║   ║
+	//║                    2 ║ 袈	袈		袈 ║   ║
+	//╚══════════════════════╩═══════════════════════════╩═══╝
 	//(3 rows)
 }

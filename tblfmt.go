@@ -100,7 +100,7 @@ func EncodeJSONAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	if err != nil {
 		return err
 	}
-	return enc.Encode(w)
+	return enc.EncodeAll(w)
 }
 
 // EncodeUnaligned encodes the result set to the writer unaligned using the
@@ -120,7 +120,7 @@ func EncodeUnalignedAll(w io.Writer, resultSet ResultSet, opts ...Option) error 
 	if err != nil {
 		return err
 	}
-	return enc.Encode(w)
+	return enc.EncodeAll(w)
 }
 
 // EncodeCSV encodes the result set to the writer unaligned using the
@@ -140,7 +140,7 @@ func EncodeCSVAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	if err != nil {
 		return err
 	}
-	return enc.Encode(w)
+	return enc.EncodeAll(w)
 }
 
 // EncodeTemplate encodes the result set to the writer using a template from
@@ -160,7 +160,7 @@ func EncodeTemplateAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	if err != nil {
 		return err
 	}
-	return enc.Encode(w)
+	return enc.EncodeAll(w)
 }
 
 // EncodeNamedTemplate encodes the result set to the writer using the named

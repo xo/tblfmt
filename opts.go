@@ -276,13 +276,27 @@ func WithEmpty(empty string) Option {
 				return err
 			}
 			enc.empty = v[0]
+		case *UnalignedEncoder:
+			cell := interface{}(empty)
+			v, err := enc.formatter.Format([]interface{}{&cell})
+			if err != nil {
+				return err
+			}
+			enc.empty = v[0]
+		case *TemplateEncoder:
+			cell := interface{}(empty)
+			v, err := enc.formatter.Format([]interface{}{&cell})
+			if err != nil {
+				return err
+			}
+			enc.empty = v[0]
 		}
 		return nil
 	}
 }
 
 // WithWidths is a encoder option to set (minimum) widths for a column.
-func WithWidths(widths []int) Option {
+func WithWidths(widths ...int) Option {
 	return func(v interface{}) error {
 		switch enc := v.(type) {
 		case *TableEncoder:
