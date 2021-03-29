@@ -1,5 +1,10 @@
 package tblfmt
 
+import (
+	"fmt"
+	"io"
+)
+
 // LineStyle is a table line style.
 //
 // See the ASCII, OldASCII, and Unicode styles below for predefined table
@@ -129,5 +134,22 @@ func UnicodeDoubleLineStyle() LineStyle {
 		Row:  [4]rune{'║', ' ', '║', '║'},
 		Wrap: [4]rune{'║', '↵', '║', '║'},
 		End:  [4]rune{'╚', '═', '╩', '╝'},
+	}
+}
+
+// DefaultTableSummary is the default table summary.
+//
+// Default table summaries look like the following:
+//
+//    (3 rows)
+//
+func DefaultTableSummary() map[int]func(io.Writer, int) (int, error) {
+	return map[int]func(io.Writer, int) (int, error){
+		1: func(w io.Writer, count int) (int, error) {
+			return fmt.Fprintf(w, "(%d row)", count)
+		},
+		-1: func(w io.Writer, count int) (int, error) {
+			return fmt.Fprintf(w, "(%d rows)", count)
+		},
 	}
 }

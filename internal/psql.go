@@ -12,6 +12,17 @@ import (
 	"unicode"
 )
 
+// newline is the default newline used by the system.
+var newline []byte
+
+func init() {
+	if runtime.GOOS == "windows" {
+		newline = []byte("\r\n")
+	} else {
+		newline = []byte("\n")
+	}
+}
+
 // ResultSet is the shared interface for a result set.
 type ResultSet interface {
 	Next() bool
@@ -112,14 +123,4 @@ func psqlEnc(n string, v interface{}) string {
 	}
 	s := strconv.QuoteToASCII(string(buf))
 	return "E'" + s[1:len(s)-1] + "'"
-}
-
-var newline []byte
-
-func init() {
-	if runtime.GOOS == "windows" {
-		newline = []byte("\r\n")
-	} else {
-		newline = []byte("\n")
-	}
 }

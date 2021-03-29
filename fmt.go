@@ -270,6 +270,9 @@ func newValue(str string, align Align, raw bool) *Value {
 	return v
 }
 
+// lowerhex is the set of lower hex characters.
+const lowerhex = "0123456789abcdef"
+
 // FormatBytes parses src, saving escaped (encoded) and unescaped runes to a
 // Value, along with tab and newline positions in the generated buf.
 func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isCSV bool, sep, quote rune) *Value {
