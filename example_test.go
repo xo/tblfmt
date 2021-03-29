@@ -85,43 +85,6 @@ func ExampleEncodeAll() {
 	//2,"袈	袈		袈",
 }
 
-func ExampleEncodeTemplateAll_html() {
-	res := getDatabaseResults()
-	if err := tblfmt.EncodeTemplateAll(os.Stdout, res, tblfmt.WithTemplate("html")); err != nil {
-		log.Fatal(err)
-	}
-	// Output:
-	//<table>
-	//  <caption></caption>
-	//  <thead>
-	//    <tr>
-	//      <th align="left">author_id</th>
-	//      <th align="left">name</th>
-	//      <th align="left">z</th>
-	//    </tr>
-	//  </thead>
-	//  <tbody>
-	//    <tr>
-	//      <td align="right">14</td>
-	//      <td align="left">a	b	c	d</td>
-	//      <td align="left"></td>
-	//    </tr>
-	//    <tr>
-	//      <td align="right">15</td>
-	//      <td align="left">aoeu
-	//test
-	//</td>
-	//      <td align="left"></td>
-	//    </tr>
-	//    <tr>
-	//      <td align="right">2</td>
-	//      <td align="left">袈	袈		袈</td>
-	//      <td align="left"></td>
-	//    </tr>
-	//  </tbody>
-	//</table>
-}
-
 func ExampleNewTableEncoder_encodeAll() {
 	res := getDatabaseResults()
 	enc, err := tblfmt.NewTableEncoder(
@@ -148,4 +111,41 @@ func ExampleNewTableEncoder_encodeAll() {
 	//║                    2 ║ 袈	袈		袈 ║   ║
 	//╚══════════════════════╩═══════════════════════════╩═══╝
 	//(3 rows)
+}
+
+func ExampleEncodeTemplateAll_html() {
+	res := getDatabaseResults()
+	if err := tblfmt.EncodeTemplateAll(os.Stdout, res, tblfmt.WithTemplate("html")); err != nil {
+		log.Fatal(err)
+	}
+	// Output:
+	// <table>
+	//   <caption></caption>
+	//   <thead>
+	//     <tr>
+	//       <th align="left">author_id</th>
+	//       <th align="left">name</th>
+	//       <th align="left">z</th>
+	//     </tr>
+	//   </thead>
+	//   <tbody>
+	//     <tr>
+	//       <td align="right">14</td>
+	//       <td align="left">a	b	c	d</td>
+	//       <td align="left"></td>
+	//     </tr>
+	//     <tr>
+	//       <td align="right">15</td>
+	//       <td align="left">aoeu
+	// test
+	// </td>
+	//       <td align="left"></td>
+	//     </tr>
+	//     <tr>
+	//       <td align="right">2</td>
+	//       <td align="left">袈	袈		袈</td>
+	//       <td align="left"></td>
+	//     </tr>
+	//   </tbody>
+	// </table>
 }
