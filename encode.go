@@ -1189,6 +1189,18 @@ func NewTemplateEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	return enc, nil
 }
 
+// NewHTMLEncoder creates a new html template encoder using the provided
+// options.
+func NewHTMLEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
+	return NewTemplateEncoder(resultSet, append([]Option{WithTemplate("html")}, opts...)...)
+}
+
+// NewAsciiDocEncoder creates a new asciidoc template encoder using the
+// provided options.
+func NewAsciiDocEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
+	return NewTemplateEncoder(resultSet, append([]Option{WithTemplate("asciidoc")}, opts...)...)
+}
+
 // Encode encodes a single result set to the writer using the formatting
 // options specified in the encoder.
 func (enc *TemplateEncoder) Encode(w io.Writer) error {

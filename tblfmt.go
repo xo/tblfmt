@@ -163,12 +163,42 @@ func EncodeTemplateAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.EncodeAll(w)
 }
 
-// EncodeNamedTemplate encodes the result set to the writer using the named
+// EncodeHTMLTemplate encodes the result set to the writer using the html
 // template and the supplied encoding options.
-func EncodeNamedTemplate(w io.Writer, resultSet ResultSet, opts ...Option) error {
-	enc, err := NewTemplateEncoder(resultSet, append(opts, WithTemplate("html"))...)
+func EncodeHTMLTemplate(w io.Writer, resultSet ResultSet, opts ...Option) error {
+	enc, err := NewHTMLEncoder(resultSet, opts...)
 	if err != nil {
 		return err
 	}
 	return enc.Encode(w)
+}
+
+// EncodeHTMLTemplate encodes the result set to the writer using the html
+// template and the supplied encoding options.
+func EncodeHTMLTemplateAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
+	enc, err := NewHTMLEncoder(resultSet, opts...)
+	if err != nil {
+		return err
+	}
+	return enc.EncodeAll(w)
+}
+
+// EncodeAsciiDocTemplate encodes the result set to the writer using the
+// asciidoc template and the supplied encoding options.
+func EncodeAsciiDocTemplate(w io.Writer, resultSet ResultSet, opts ...Option) error {
+	enc, err := NewAsciiDocEncoder(resultSet, opts...)
+	if err != nil {
+		return err
+	}
+	return enc.Encode(w)
+}
+
+// EncodeAsciiDocTemplate encodes the result set to the writer using the
+// asciidoc template and the supplied encoding options.
+func EncodeAsciiDocTemplateAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
+	enc, err := NewAsciiDocEncoder(resultSet, opts...)
+	if err != nil {
+		return err
+	}
+	return enc.EncodeAll(w)
 }
