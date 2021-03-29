@@ -77,15 +77,15 @@ func ExampleEncodeAll() {
 		log.Fatal(err)
 	}
 	// Output:
-	//author_id,name,z
-	//14,"a	b	c	d",
-	//15,"aoeu
-	//test
-	//",
-	//2,"袈	袈		袈",
+	// author_id,name,z
+	// 14,"a	b	c	d",
+	// 15,"aoeu
+	// test
+	// ",
+	// 2,"袈	袈		袈",
 }
 
-func ExampleNewTableEncoder_encodeAll() {
+func ExampleNewTableEncoder() {
 	res := getDatabaseResults()
 	enc, err := tblfmt.NewTableEncoder(
 		res,
@@ -101,19 +101,19 @@ func ExampleNewTableEncoder_encodeAll() {
 		log.Fatal(err)
 	}
 	// Output:
-	//╔══════════════════════╦═══════════════════════════╦═══╗
-	//║      author_id       ║           name            ║ z ║
-	//╠══════════════════════╬═══════════════════════════╬═══╣
-	//║                   14 ║ a	b	c	d  ║   ║
-	//║                   15 ║ aoeu                     ↵║   ║
-	//║                      ║ test                     ↵║   ║
-	//║                      ║                           ║   ║
-	//║                    2 ║ 袈	袈		袈 ║   ║
-	//╚══════════════════════╩═══════════════════════════╩═══╝
-	//(3 rows)
+	// ╔══════════════════════╦═══════════════════════════╦═══╗
+	// ║      author_id       ║           name            ║ z ║
+	// ╠══════════════════════╬═══════════════════════════╬═══╣
+	// ║                   14 ║ a	b	c	d  ║   ║
+	// ║                   15 ║ aoeu                     ↵║   ║
+	// ║                      ║ test                     ↵║   ║
+	// ║                      ║                           ║   ║
+	// ║                    2 ║ 袈	袈		袈 ║   ║
+	// ╚══════════════════════╩═══════════════════════════╩═══╝
+	// (3 rows)
 }
 
-func ExampleEncodeTemplateAll_html() {
+func ExampleEncodeTemplateAll() {
 	res := getDatabaseResults()
 	if err := tblfmt.EncodeTemplateAll(os.Stdout, res, tblfmt.WithTemplate("html")); err != nil {
 		log.Fatal(err)
