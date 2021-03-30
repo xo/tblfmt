@@ -27,44 +27,52 @@ type option struct {
 	json      func(*JSONEncoder) error
 	unaligned func(*UnalignedEncoder) error
 	template  func(*TemplateEncoder) error
-	err       func(*errEncoder) error
+	// crosstab  func(*CrosstabView) error
+	err func(*errEncoder) error
 }
 
 // apply applies the option.
-func (opt option) apply(v interface{}) error {
-	switch x := v.(type) {
+func (opt option) apply(o interface{}) error {
+	switch v := o.(type) {
 	case *TableEncoder:
 		if opt.table != nil {
-			return opt.table(x)
+			return opt.table(v)
 		}
 		return nil
 	case *ExpandedEncoder:
 		if opt.expanded != nil {
-			return opt.expanded(x)
+			return opt.expanded(v)
 		}
 		return nil
 	case *JSONEncoder:
 		if opt.json != nil {
-			return opt.json(x)
+			return opt.json(v)
 		}
 		return nil
 	case *UnalignedEncoder:
 		if opt.unaligned != nil {
-			return opt.unaligned(x)
+			return opt.unaligned(v)
 		}
 		return nil
 	case *TemplateEncoder:
 		if opt.template != nil {
-			return opt.template(x)
+			return opt.template(v)
 		}
 		return nil
+		/*
+			case *CrosstabView:
+				if opt.crosstab != nil {
+					return opt.crosstab(v)
+				}
+				return nil
+		*/
 	case *errEncoder:
 		if opt.err != nil {
-			return opt.err(x)
+			return opt.err(v)
 		}
 		return nil
 	}
-	panic(fmt.Sprintf("option cannot be applied to %T", v))
+	panic(fmt.Sprintf("option cannot be applied to %T", o))
 }
 
 // FromMap creates an encoder for the provided result set, applying the named
@@ -89,7 +97,7 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			}
 			sep = []rune(s)[0]
 		}
-		if format != "csv" && opts["fieldsep_zero"] == "true" {
+		if format != "csv" && opts["fieldsep_zero"] == "on" {
 			sep = 0
 		}
 		// determine newline
@@ -97,7 +105,7 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 		if rs, ok := opts["recordsep"]; ok {
 			recordsep = []byte(rs)
 		}
-		if opts["recordsep_zero"] == "true" {
+		if opts["recordsep_zero"] == "on" {
 			recordsep = []byte{0}
 		}
 		return NewUnalignedEncoder, []Option{
@@ -105,12 +113,15 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			WithQuote(quote),
 			WithFormatter(NewEscapeFormatter(WithIsRaw(true, sep, quote))),
 			WithNewline(string(recordsep)),
+			WithTitle(opts["title"]),
+			WithEmpty(opts["null"]),
 		}
 	case "html", "asciidoc", "latex", "latex-longtable", "troff-ms":
 		return NewTemplateEncoder, []Option{
 			WithTemplate(format),
 			WithTableAttributes(opts["tableattr"]),
 			WithTitle(opts["title"]),
+			WithEmpty(opts["null"]),
 		}
 	case "aligned":
 		var tableOpts []Option
@@ -124,6 +135,9 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 		}
 		if s, ok := opts["title"]; ok {
 			tableOpts = append(tableOpts, WithTitle(s))
+		}
+		if s, ok := opts["null"]; ok {
+			tableOpts = append(tableOpts, WithEmpty(s))
 		}
 		if s, ok := opts["footer"]; ok && s == "off" {
 			// use an empty summary map to skip drawing the footer

@@ -70,7 +70,6 @@ func ExampleEncodeAll() {
 	res := getDatabaseResults()
 	if err := tblfmt.EncodeAll(os.Stdout, res, map[string]string{
 		"format":   "csv",
-		"quote":    "true",
 		"fieldsep": "|",
 		"null":     "<nil>",
 	}); err != nil {
@@ -78,11 +77,11 @@ func ExampleEncodeAll() {
 	}
 	// Output:
 	// author_id,name,z
-	// 14,"a	b	c	d",
+	// 14,"a	b	c	d",<nil>
 	// 15,"aoeu
 	// test
-	// ",
-	// 2,"袈	袈		袈",
+	// ",<nil>
+	// 2,"袈	袈		袈",<nil>
 }
 
 func ExampleNewTableEncoder() {
