@@ -1,5 +1,5 @@
 ===============================================
-encoder: table
+format: aligned
 ===============================================
  z 
 ---
@@ -7,10 +7,9 @@ encoder: table
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: ascii
-  border: 0
+format: aligned
+linestyle: ascii
+border: 0
 ===============================================
 z 
 -
@@ -18,10 +17,9 @@ x
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: ascii
-  border: 1
+format: aligned
+linestyle: ascii
+border: 1
 ===============================================
  z 
 ---
@@ -29,10 +27,9 @@ options:
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: ascii
-  border: 2
+format: aligned
+linestyle: ascii
+border: 2
 ===============================================
 +---+
 | z |
@@ -42,10 +39,9 @@ options:
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: old-ascii
-  border: 0
+format: aligned
+linestyle: old-ascii
+border: 0
 ===============================================
 z 
 -
@@ -53,10 +49,9 @@ x
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: old-ascii
-  border: 1
+format: aligned
+linestyle: old-ascii
+border: 1
 ===============================================
  z 
 ---
@@ -64,10 +59,9 @@ options:
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: old-ascii
-  border: 2
+format: aligned
+linestyle: old-ascii
+border: 2
 ===============================================
 +---+
 | z |
@@ -77,10 +71,9 @@ options:
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: unicode
-  border: 0
+format: aligned
+linestyle: unicode
+border: 0
 ===============================================
 z 
 ─
@@ -88,10 +81,9 @@ x
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: unicode
-  border: 1
+format: aligned
+linestyle: unicode
+border: 1
 ===============================================
  z 
 ───
@@ -99,10 +91,9 @@ options:
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: unicode
-  border: 2
+format: aligned
+linestyle: unicode
+border: 2
 ===============================================
 ┌───┐
 │ z │
@@ -112,10 +103,9 @@ options:
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: unicode-double
-  border: 0
+format: aligned
+linestyle: unicode-double
+border: 0
 ===============================================
 z 
 ═
@@ -123,10 +113,9 @@ x
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: unicode-double
-  border: 1
+format: aligned
+linestyle: unicode-double
+border: 1
 ===============================================
  z 
 ═══
@@ -134,10 +123,9 @@ options:
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: unicode-double
-  border: 2
+format: aligned
+linestyle: unicode-double
+border: 2
 ===============================================
 ╔═══╗
 ║ z ║
@@ -147,141 +135,129 @@ options:
 (1 row)
 
 ===============================================
-encoder: expanded
+format: expanded
 ===============================================
 -[ RECORD 1 ]-
  z | x 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: ascii
-  border: 0
+format: expanded
+linestyle: ascii
+border: 0
 ===============================================
 * Record 1 
 z x 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: ascii
-  border: 1
+format: expanded
+linestyle: ascii
+border: 1
 ===============================================
 -[ RECORD 1 ]-
  z | x 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: ascii
-  border: 2
+format: expanded
+linestyle: ascii
+border: 2
 ===============================================
 +-[ RECORD 1 ]-+
 | z | x        |
 +---+----------+
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: old-ascii
-  border: 0
+format: expanded
+linestyle: old-ascii
+border: 0
 ===============================================
 * Record 1 
 z x 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: old-ascii
-  border: 1
+format: expanded
+linestyle: old-ascii
+border: 1
 ===============================================
 -[ RECORD 1 ]-
  z | x 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: old-ascii
-  border: 2
+format: expanded
+linestyle: old-ascii
+border: 2
 ===============================================
 +-[ RECORD 1 ]-+
 | z | x        |
 +---+----------+
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: unicode
-  border: 0
+format: expanded
+linestyle: unicode
+border: 0
 ===============================================
 * Record 1 
 z x 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: unicode
-  border: 1
+format: expanded
+linestyle: unicode
+border: 1
 ===============================================
 ─[ RECORD 1 ]─
  z │ x 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: unicode
-  border: 2
+format: expanded
+linestyle: unicode
+border: 2
 ===============================================
 ┌─[ RECORD 1 ]─┐
 │ z │ x        │
 └───┴──────────┘
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: unicode-double
-  border: 0
+format: expanded
+linestyle: unicode-double
+border: 0
 ===============================================
 * Record 1 
 z x 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: unicode-double
-  border: 1
+format: expanded
+linestyle: unicode-double
+border: 1
 ===============================================
 ═[ RECORD 1 ]═
  z ║ x 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: unicode-double
-  border: 2
+format: expanded
+linestyle: unicode-double
+border: 2
 ===============================================
 ╔═[ RECORD 1 ]═╗
 ║ z ║ x        ║
 ╚═══╩══════════╝
 
 ===============================================
-encoder: json
+format: json
 ===============================================
 [{"z":"x"}]
 ===============================================
-encoder: unaligned
+format: unaligned
 ===============================================
 z
 x
 
 ===============================================
-encoder: csv
+format: csv
 ===============================================
 z
 x
 
 ===============================================
-encoder: html
+format: html
 ===============================================
 <table>
   <caption></caption>
@@ -298,7 +274,7 @@ encoder: html
 </table>
 
 ===============================================
-encoder: asciidoc
+format: asciidoc
 ===============================================
 [%header]
 |===

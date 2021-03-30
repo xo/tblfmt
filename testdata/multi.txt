@@ -1,5 +1,5 @@
 ===============================================
-encoder: table
+format: aligned
 ===============================================
  author_id |         name         | z 
 -----------+----------------------+---
@@ -50,10 +50,9 @@ encoder: table
 (8 rows)
 
 ===============================================
-encoder: table
-options:
-  linestyle: ascii
-  border: 0
+format: aligned
+linestyle: ascii
+border: 0
 ===============================================
 author_id          name           z 
 --------- ----------------------- -
@@ -104,10 +103,9 @@ author_id           name           z
 (8 rows)
 
 ===============================================
-encoder: table
-options:
-  linestyle: ascii
-  border: 1
+format: aligned
+linestyle: ascii
+border: 1
 ===============================================
  author_id |         name         | z 
 -----------+----------------------+---
@@ -158,10 +156,9 @@ options:
 (8 rows)
 
 ===============================================
-encoder: table
-options:
-  linestyle: ascii
-  border: 2
+format: aligned
+linestyle: ascii
+border: 2
 ===============================================
 +-----------+---------------------+---+
 | author_id |        name         | z |
@@ -218,10 +215,9 @@ options:
 (8 rows)
 
 ===============================================
-encoder: table
-options:
-  linestyle: old-ascii
-  border: 0
+format: aligned
+linestyle: old-ascii
+border: 0
 ===============================================
 author_id          name           z 
 --------- ----------------------- -
@@ -272,10 +268,9 @@ author_id           name           z
 (8 rows)
 
 ===============================================
-encoder: table
-options:
-  linestyle: old-ascii
-  border: 1
+format: aligned
+linestyle: old-ascii
+border: 1
 ===============================================
  author_id |         name         | z 
 -----------+----------------------+---
@@ -326,10 +321,9 @@ options:
 (8 rows)
 
 ===============================================
-encoder: table
-options:
-  linestyle: old-ascii
-  border: 2
+format: aligned
+linestyle: old-ascii
+border: 2
 ===============================================
 +-----------+---------------------+---+
 | author_id |        name         | z |
@@ -386,10 +380,9 @@ options:
 (8 rows)
 
 ===============================================
-encoder: table
-options:
-  linestyle: unicode
-  border: 0
+format: aligned
+linestyle: unicode
+border: 0
 ===============================================
 author_id          name           z 
 ───────── ─────────────────────── ─
@@ -440,10 +433,9 @@ author_id           name           z
 (8 rows)
 
 ===============================================
-encoder: table
-options:
-  linestyle: unicode
-  border: 1
+format: aligned
+linestyle: unicode
+border: 1
 ===============================================
  author_id │         name         │ z 
 ───────────┼──────────────────────┼───
@@ -494,10 +486,9 @@ options:
 (8 rows)
 
 ===============================================
-encoder: table
-options:
-  linestyle: unicode
-  border: 2
+format: aligned
+linestyle: unicode
+border: 2
 ===============================================
 ┌───────────┬─────────────────────┬───┐
 │ author_id │        name         │ z │
@@ -554,10 +545,9 @@ options:
 (8 rows)
 
 ===============================================
-encoder: table
-options:
-  linestyle: unicode-double
-  border: 0
+format: aligned
+linestyle: unicode-double
+border: 0
 ===============================================
 author_id          name           z 
 ═════════ ═══════════════════════ ═
@@ -608,10 +598,9 @@ author_id           name           z
 (8 rows)
 
 ===============================================
-encoder: table
-options:
-  linestyle: unicode-double
-  border: 1
+format: aligned
+linestyle: unicode-double
+border: 1
 ===============================================
  author_id ║         name         ║ z 
 ═══════════╬══════════════════════╬═══
@@ -662,10 +651,9 @@ options:
 (8 rows)
 
 ===============================================
-encoder: table
-options:
-  linestyle: unicode-double
-  border: 2
+format: aligned
+linestyle: unicode-double
+border: 2
 ===============================================
 ╔═══════════╦═════════════════════╦═══╗
 ║ author_id ║        name         ║ z ║
@@ -722,7 +710,7 @@ options:
 (8 rows)
 
 ===============================================
-encoder: expanded
+format: expanded
 ===============================================
 -[ RECORD 1 ]---------------------
  author_id | 14 
@@ -814,10 +802,9 @@ encoder: expanded
            | ] 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: ascii
-  border: 0
+format: expanded
+linestyle: ascii
+border: 0
 ===============================================
 * Record 1                        
 author_id 14 
@@ -909,10 +896,9 @@ z         [                         +
           ] 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: ascii
-  border: 1
+format: expanded
+linestyle: ascii
+border: 1
 ===============================================
 -[ RECORD 1 ]---------------------
  author_id | 14 
@@ -1004,10 +990,9 @@ options:
            | ] 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: ascii
-  border: 2
+format: expanded
+linestyle: ascii
+border: 2
 ===============================================
 +-[ RECORD 1 ]--------------------+
 | author_id | 14                  |
@@ -1102,10 +1087,9 @@ options:
 +-----------+------------------------------+
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: old-ascii
-  border: 0
+format: expanded
+linestyle: old-ascii
+border: 0
 ===============================================
 * Record 1                        
 author_id 14 
@@ -1197,10 +1181,9 @@ z         [
           ] 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: old-ascii
-  border: 1
+format: expanded
+linestyle: old-ascii
+border: 1
 ===============================================
 -[ RECORD 1 ]---------------------
  author_id | 14 
@@ -1292,10 +1275,9 @@ options:
            | ] 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: old-ascii
-  border: 2
+format: expanded
+linestyle: old-ascii
+border: 2
 ===============================================
 +-[ RECORD 1 ]--------------------+
 | author_id | 14                  |
@@ -1390,10 +1372,9 @@ options:
 +-----------+------------------------------+
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: unicode
-  border: 0
+format: expanded
+linestyle: unicode
+border: 0
 ===============================================
 * Record 1                        
 author_id 14 
@@ -1485,10 +1466,9 @@ z         [                         ↵
           ] 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: unicode
-  border: 1
+format: expanded
+linestyle: unicode
+border: 1
 ===============================================
 ─[ RECORD 1 ]─────────────────────
  author_id │ 14 
@@ -1580,10 +1560,9 @@ options:
            │ ] 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: unicode
-  border: 2
+format: expanded
+linestyle: unicode
+border: 2
 ===============================================
 ┌─[ RECORD 1 ]────────────────────┐
 │ author_id │ 14                  │
@@ -1678,10 +1657,9 @@ options:
 └───────────┴──────────────────────────────┘
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: unicode-double
-  border: 0
+format: expanded
+linestyle: unicode-double
+border: 0
 ===============================================
 * Record 1                        
 author_id 14 
@@ -1773,10 +1751,9 @@ z         [                         ↵
           ] 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: unicode-double
-  border: 1
+format: expanded
+linestyle: unicode-double
+border: 1
 ===============================================
 ═[ RECORD 1 ]═════════════════════
  author_id ║ 14 
@@ -1868,10 +1845,9 @@ options:
            ║ ] 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: unicode-double
-  border: 2
+format: expanded
+linestyle: unicode-double
+border: 2
 ===============================================
 ╔═[ RECORD 1 ]════════════════════╗
 ║ author_id ║ 14                  ║
@@ -1966,7 +1942,7 @@ options:
 ╚═══════════╩══════════════════════════════╝
 
 ===============================================
-encoder: json
+format: json
 ===============================================
 [{"author_id":14,"name":"a\tb\tc\td","z":"x"},{"author_id":15,"name":"aoeu\ntest\n","z":null}],
 [{"author_id":16,"name":"foo\bbar","z":null},{"author_id":17,"name":"袈\t袈\t\t袈","z":null},{"author_id":18,"name":"a\tb\t\r\n\ta","z":"a\n"},{"author_id":19,"name":"袈\t袈\t\t袈\n","z":null},{"author_id":20,"name":"javascript","z":{
@@ -1984,7 +1960,7 @@ encoder: json
   "b"
 ]}]
 ===============================================
-encoder: unaligned
+format: unaligned
 ===============================================
 author_id|name|z
 14|a	b	c	d|x
@@ -2031,7 +2007,7 @@ test
 ]
 
 ===============================================
-encoder: csv
+format: csv
 ===============================================
 author_id,name,z
 14,"a	b	c	d",x
@@ -2078,7 +2054,7 @@ test
 ]"
 
 ===============================================
-encoder: html
+format: html
 ===============================================
 <table>
   <caption></caption>
@@ -2222,7 +2198,7 @@ test
 </table>
 
 ===============================================
-encoder: asciidoc
+format: asciidoc
 ===============================================
 [%header]
 |===

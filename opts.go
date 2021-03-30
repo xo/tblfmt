@@ -58,6 +58,11 @@ func (opt option) apply(v interface{}) error {
 			return opt.template(x)
 		}
 		return nil
+	case *errEncoder:
+		if opt.err != nil {
+			return opt.err(x)
+		}
+		return nil
 	}
 	panic(fmt.Sprintf("option cannot be applied to %T", v))
 }

@@ -42,15 +42,15 @@ func run(seed int64) error {
 			}
 			optdesc := ""
 			if len(config.desc) != 0 {
-				optdesc = "\noptions:\n  " + strings.Join(config.desc, "\n  ")
+				optdesc = "\n" + strings.Join(config.desc, "\n")
 			}
 			_, err := fmt.Fprintf(
 				buf,
-				"%s\nencoder: %s%s\n%s\n",
-				divider,
-				config.encoder,
+				"%s\nformat: %s%s\n%s\n",
+				internal.Divider,
+				config.format,
 				optdesc,
-				divider,
+				internal.Divider,
 			)
 			if err != nil {
 				return err
@@ -73,10 +73,10 @@ func run(seed int64) error {
 }
 
 type config struct {
-	f       tblfmt.Builder
-	opts    []tblfmt.Option
-	encoder string
-	desc    []string
+	f      tblfmt.Builder
+	opts   []tblfmt.Option
+	format string
+	desc   []string
 }
 
 func buildConfigs() []config {
@@ -107,28 +107,26 @@ func buildConfigs() []config {
 	var configs []config
 	for _, o := range opts {
 		configs = append(configs, config{
-			f:       tblfmt.NewTableEncoder,
-			opts:    o.opts[:],
-			encoder: "table",
-			desc:    o.desc,
+			f:      tblfmt.NewTableEncoder,
+			opts:   o.opts[:],
+			format: "aligned",
+			desc:   o.desc,
 		})
 	}
 	for _, o := range opts {
 		configs = append(configs, config{
-			f:       tblfmt.NewExpandedEncoder,
-			opts:    o.opts[:],
-			encoder: "expanded",
-			desc:    o.desc,
+			f:      tblfmt.NewExpandedEncoder,
+			opts:   o.opts[:],
+			format: "expanded",
+			desc:   o.desc,
 		})
 	}
 	return append(
 		configs,
-		config{f: tblfmt.NewJSONEncoder, encoder: "json"},
-		config{f: tblfmt.NewUnalignedEncoder, encoder: "unaligned"},
-		config{f: tblfmt.NewCSVEncoder, encoder: "csv"},
-		config{f: tblfmt.NewHTMLEncoder, encoder: "html"},
-		config{f: tblfmt.NewAsciiDocEncoder, encoder: "asciidoc"},
+		config{f: tblfmt.NewJSONEncoder, format: "json"},
+		config{f: tblfmt.NewUnalignedEncoder, format: "unaligned"},
+		config{f: tblfmt.NewCSVEncoder, format: "csv"},
+		config{f: tblfmt.NewHTMLEncoder, format: "html"},
+		config{f: tblfmt.NewAsciiDocEncoder, format: "asciidoc"},
 	)
 }
-
-const divider = "==============================================="

@@ -204,3 +204,5 @@ func rset(i int) [][]interface{} {
 		{float64(i + 9), "slice", []string{"a", "b"}},
 	}
 }
+
+const Divider = "==============================================="

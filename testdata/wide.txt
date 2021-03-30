@@ -1,5 +1,5 @@
 ===============================================
-encoder: table
+format: aligned
 ===============================================
  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa | bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb | cccccccccccccccccccccccccccccc | dddddddddddddddddddddddddddddd | eeeeeeeeeeeeeeeeeeeeeeeeeeeeee | ffffffffffffffffffffffffffffff | gggggggggggggggggggggggggggggg | hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh | iiiiiiiiiiiiiiiiiiiiiiiiiiiiii | jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj 
 --------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------
@@ -7,10 +7,9 @@ encoder: table
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: ascii
-  border: 0
+format: aligned
+linestyle: ascii
+border: 0
 ===============================================
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb cccccccccccccccccccccccccccccc dddddddddddddddddddddddddddddd eeeeeeeeeeeeeeeeeeeeeeeeeeeeee ffffffffffffffffffffffffffffff gggggggggggggggggggggggggggggg hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh iiiiiiiiiiiiiiiiiiiiiiiiiiiiii jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj 
 ------------------------------ ------------------------------ ------------------------------ ------------------------------ ------------------------------ ------------------------------ ------------------------------ ------------------------------ ------------------------------ ------------------------------
@@ -18,10 +17,9 @@ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb cccccccccccccccccc
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: ascii
-  border: 1
+format: aligned
+linestyle: ascii
+border: 1
 ===============================================
  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa | bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb | cccccccccccccccccccccccccccccc | dddddddddddddddddddddddddddddd | eeeeeeeeeeeeeeeeeeeeeeeeeeeeee | ffffffffffffffffffffffffffffff | gggggggggggggggggggggggggggggg | hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh | iiiiiiiiiiiiiiiiiiiiiiiiiiiiii | jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj 
 --------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------
@@ -29,10 +27,9 @@ options:
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: ascii
-  border: 2
+format: aligned
+linestyle: ascii
+border: 2
 ===============================================
 +--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+
 | aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa | bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb | cccccccccccccccccccccccccccccc | dddddddddddddddddddddddddddddd | eeeeeeeeeeeeeeeeeeeeeeeeeeeeee | ffffffffffffffffffffffffffffff | gggggggggggggggggggggggggggggg | hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh | iiiiiiiiiiiiiiiiiiiiiiiiiiiiii | jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj |
@@ -42,10 +39,9 @@ options:
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: old-ascii
-  border: 0
+format: aligned
+linestyle: old-ascii
+border: 0
 ===============================================
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb cccccccccccccccccccccccccccccc dddddddddddddddddddddddddddddd eeeeeeeeeeeeeeeeeeeeeeeeeeeeee ffffffffffffffffffffffffffffff gggggggggggggggggggggggggggggg hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh iiiiiiiiiiiiiiiiiiiiiiiiiiiiii jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj 
 ------------------------------ ------------------------------ ------------------------------ ------------------------------ ------------------------------ ------------------------------ ------------------------------ ------------------------------ ------------------------------ ------------------------------
@@ -53,10 +49,9 @@ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb cccccccccccccccccc
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: old-ascii
-  border: 1
+format: aligned
+linestyle: old-ascii
+border: 1
 ===============================================
  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa | bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb | cccccccccccccccccccccccccccccc | dddddddddddddddddddddddddddddd | eeeeeeeeeeeeeeeeeeeeeeeeeeeeee | ffffffffffffffffffffffffffffff | gggggggggggggggggggggggggggggg | hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh | iiiiiiiiiiiiiiiiiiiiiiiiiiiiii | jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj 
 --------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------
@@ -64,10 +59,9 @@ options:
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: old-ascii
-  border: 2
+format: aligned
+linestyle: old-ascii
+border: 2
 ===============================================
 +--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+
 | aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa | bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb | cccccccccccccccccccccccccccccc | dddddddddddddddddddddddddddddd | eeeeeeeeeeeeeeeeeeeeeeeeeeeeee | ffffffffffffffffffffffffffffff | gggggggggggggggggggggggggggggg | hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh | iiiiiiiiiiiiiiiiiiiiiiiiiiiiii | jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj |
@@ -77,10 +71,9 @@ options:
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: unicode
-  border: 0
+format: aligned
+linestyle: unicode
+border: 0
 ===============================================
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb cccccccccccccccccccccccccccccc dddddddddddddddddddddddddddddd eeeeeeeeeeeeeeeeeeeeeeeeeeeeee ffffffffffffffffffffffffffffff gggggggggggggggggggggggggggggg hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh iiiiiiiiiiiiiiiiiiiiiiiiiiiiii jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj 
 ────────────────────────────── ────────────────────────────── ────────────────────────────── ────────────────────────────── ────────────────────────────── ────────────────────────────── ────────────────────────────── ────────────────────────────── ────────────────────────────── ──────────────────────────────
@@ -88,10 +81,9 @@ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb cccccccccccccccccc
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: unicode
-  border: 1
+format: aligned
+linestyle: unicode
+border: 1
 ===============================================
  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa │ bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb │ cccccccccccccccccccccccccccccc │ dddddddddddddddddddddddddddddd │ eeeeeeeeeeeeeeeeeeeeeeeeeeeeee │ ffffffffffffffffffffffffffffff │ gggggggggggggggggggggggggggggg │ hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh │ iiiiiiiiiiiiiiiiiiiiiiiiiiiiii │ jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj 
 ────────────────────────────────┼────────────────────────────────┼────────────────────────────────┼────────────────────────────────┼────────────────────────────────┼────────────────────────────────┼────────────────────────────────┼────────────────────────────────┼────────────────────────────────┼────────────────────────────────
@@ -99,10 +91,9 @@ options:
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: unicode
-  border: 2
+format: aligned
+linestyle: unicode
+border: 2
 ===============================================
 ┌────────────────────────────────┬────────────────────────────────┬────────────────────────────────┬────────────────────────────────┬────────────────────────────────┬────────────────────────────────┬────────────────────────────────┬────────────────────────────────┬────────────────────────────────┬────────────────────────────────┐
 │ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa │ bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb │ cccccccccccccccccccccccccccccc │ dddddddddddddddddddddddddddddd │ eeeeeeeeeeeeeeeeeeeeeeeeeeeeee │ ffffffffffffffffffffffffffffff │ gggggggggggggggggggggggggggggg │ hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh │ iiiiiiiiiiiiiiiiiiiiiiiiiiiiii │ jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj │
@@ -112,10 +103,9 @@ options:
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: unicode-double
-  border: 0
+format: aligned
+linestyle: unicode-double
+border: 0
 ===============================================
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb cccccccccccccccccccccccccccccc dddddddddddddddddddddddddddddd eeeeeeeeeeeeeeeeeeeeeeeeeeeeee ffffffffffffffffffffffffffffff gggggggggggggggggggggggggggggg hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh iiiiiiiiiiiiiiiiiiiiiiiiiiiiii jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj 
 ══════════════════════════════ ══════════════════════════════ ══════════════════════════════ ══════════════════════════════ ══════════════════════════════ ══════════════════════════════ ══════════════════════════════ ══════════════════════════════ ══════════════════════════════ ══════════════════════════════
@@ -123,10 +113,9 @@ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb cccccccccccccccccc
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: unicode-double
-  border: 1
+format: aligned
+linestyle: unicode-double
+border: 1
 ===============================================
  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ║ bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb ║ cccccccccccccccccccccccccccccc ║ dddddddddddddddddddddddddddddd ║ eeeeeeeeeeeeeeeeeeeeeeeeeeeeee ║ ffffffffffffffffffffffffffffff ║ gggggggggggggggggggggggggggggg ║ hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh ║ iiiiiiiiiiiiiiiiiiiiiiiiiiiiii ║ jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj 
 ════════════════════════════════╬════════════════════════════════╬════════════════════════════════╬════════════════════════════════╬════════════════════════════════╬════════════════════════════════╬════════════════════════════════╬════════════════════════════════╬════════════════════════════════╬════════════════════════════════
@@ -134,10 +123,9 @@ options:
 (1 row)
 
 ===============================================
-encoder: table
-options:
-  linestyle: unicode-double
-  border: 2
+format: aligned
+linestyle: unicode-double
+border: 2
 ===============================================
 ╔════════════════════════════════╦════════════════════════════════╦════════════════════════════════╦════════════════════════════════╦════════════════════════════════╦════════════════════════════════╦════════════════════════════════╦════════════════════════════════╦════════════════════════════════╦════════════════════════════════╗
 ║ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ║ bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb ║ cccccccccccccccccccccccccccccc ║ dddddddddddddddddddddddddddddd ║ eeeeeeeeeeeeeeeeeeeeeeeeeeeeee ║ ffffffffffffffffffffffffffffff ║ gggggggggggggggggggggggggggggg ║ hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh ║ iiiiiiiiiiiiiiiiiiiiiiiiiiiiii ║ jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj ║
@@ -147,7 +135,7 @@ options:
 (1 row)
 
 ===============================================
-encoder: expanded
+format: expanded
 ===============================================
 -[ RECORD 1 ]------------------------
  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa | 1 
@@ -162,10 +150,9 @@ encoder: expanded
  jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj | 10 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: ascii
-  border: 0
+format: expanded
+linestyle: ascii
+border: 0
 ===============================================
 * Record 1                        
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 1 
@@ -180,10 +167,9 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiiiii 9
 jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj 10 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: ascii
-  border: 1
+format: expanded
+linestyle: ascii
+border: 1
 ===============================================
 -[ RECORD 1 ]------------------------
  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa | 1 
@@ -198,10 +184,9 @@ options:
  jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj | 10 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: ascii
-  border: 2
+format: expanded
+linestyle: ascii
+border: 2
 ===============================================
 +-[ RECORD 1 ]------------------------+
 | aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa | 1  |
@@ -217,10 +202,9 @@ options:
 +--------------------------------+----+
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: old-ascii
-  border: 0
+format: expanded
+linestyle: old-ascii
+border: 0
 ===============================================
 * Record 1                        
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 1 
@@ -235,10 +219,9 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiiiii 9
 jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj 10 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: old-ascii
-  border: 1
+format: expanded
+linestyle: old-ascii
+border: 1
 ===============================================
 -[ RECORD 1 ]------------------------
  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa | 1 
@@ -253,10 +236,9 @@ options:
  jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj | 10 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: old-ascii
-  border: 2
+format: expanded
+linestyle: old-ascii
+border: 2
 ===============================================
 +-[ RECORD 1 ]------------------------+
 | aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa | 1  |
@@ -272,10 +254,9 @@ options:
 +--------------------------------+----+
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: unicode
-  border: 0
+format: expanded
+linestyle: unicode
+border: 0
 ===============================================
 * Record 1                        
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 1 
@@ -290,10 +271,9 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiiiii 9
 jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj 10 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: unicode
-  border: 1
+format: expanded
+linestyle: unicode
+border: 1
 ===============================================
 ─[ RECORD 1 ]────────────────────────
  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa │ 1 
@@ -308,10 +288,9 @@ options:
  jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj │ 10 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: unicode
-  border: 2
+format: expanded
+linestyle: unicode
+border: 2
 ===============================================
 ┌─[ RECORD 1 ]────────────────────────┐
 │ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa │ 1  │
@@ -327,10 +306,9 @@ options:
 └────────────────────────────────┴────┘
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: unicode-double
-  border: 0
+format: expanded
+linestyle: unicode-double
+border: 0
 ===============================================
 * Record 1                        
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 1 
@@ -345,10 +323,9 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiiiii 9
 jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj 10 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: unicode-double
-  border: 1
+format: expanded
+linestyle: unicode-double
+border: 1
 ===============================================
 ═[ RECORD 1 ]════════════════════════
  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ║ 1 
@@ -363,10 +340,9 @@ options:
  jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj ║ 10 
 
 ===============================================
-encoder: expanded
-options:
-  linestyle: unicode-double
-  border: 2
+format: expanded
+linestyle: unicode-double
+border: 2
 ===============================================
 ╔═[ RECORD 1 ]════════════════════════╗
 ║ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ║ 1  ║
@@ -382,23 +358,23 @@ options:
 ╚════════════════════════════════╩════╝
 
 ===============================================
-encoder: json
+format: json
 ===============================================
 [{"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa":"1","bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb":"2","cccccccccccccccccccccccccccccc":"3","dddddddddddddddddddddddddddddd":"4","eeeeeeeeeeeeeeeeeeeeeeeeeeeeee":"5","ffffffffffffffffffffffffffffff":"6","gggggggggggggggggggggggggggggg":"7","hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh":"8","iiiiiiiiiiiiiiiiiiiiiiiiiiiiii":"9","jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj":"10"}]
 ===============================================
-encoder: unaligned
+format: unaligned
 ===============================================
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb|cccccccccccccccccccccccccccccc|dddddddddddddddddddddddddddddd|eeeeeeeeeeeeeeeeeeeeeeeeeeeeee|ffffffffffffffffffffffffffffff|gggggggggggggggggggggggggggggg|hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh|iiiiiiiiiiiiiiiiiiiiiiiiiiiiii|jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
 1|2|3|4|5|6|7|8|9|10
 
 ===============================================
-encoder: csv
+format: csv
 ===============================================
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,cccccccccccccccccccccccccccccc,dddddddddddddddddddddddddddddd,eeeeeeeeeeeeeeeeeeeeeeeeeeeeee,ffffffffffffffffffffffffffffff,gggggggggggggggggggggggggggggg,hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh,iiiiiiiiiiiiiiiiiiiiiiiiiiiiii,jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
 1,2,3,4,5,6,7,8,9,10
 
 ===============================================
-encoder: html
+format: html
 ===============================================
 <table>
   <caption></caption>
@@ -433,7 +409,7 @@ encoder: html
 </table>
 
 ===============================================
-encoder: asciidoc
+format: asciidoc
 ===============================================
 [%header]
 |===
