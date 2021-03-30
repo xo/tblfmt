@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -65,7 +66,18 @@ func run(seed int64) error {
 		}
 	}
 	for k, buf := range bufMap {
-		if err := ioutil.WriteFile(k+".txt", buf.Bytes(), 0644); err != nil {
+		out := new(bytes.Buffer)
+		w := gzip.NewWriter(out)
+		if _, err := w.Write(buf.Bytes()); err != nil {
+			return err
+		}
+		if err := w.Flush(); err != nil {
+			return err
+		}
+		if err := w.Close(); err != nil {
+			return err
+		}
+		if err := ioutil.WriteFile(k+".gz", out.Bytes(), 0644); err != nil {
 			return err
 		}
 	}

@@ -2,10 +2,11 @@ package tblfmt
 
 import (
 	"bytes"
+	"compress/gzip"
 	"errors"
 	"fmt"
 	"io"
-	"os"
+	"io/ioutil"
 	"reflect"
 	"strings"
 	"testing"
@@ -71,11 +72,16 @@ func TestFromMapFormats(t *testing.T) {
 		typ := typ
 		t.Run(typ, func(t *testing.T) {
 			t.Parallel()
-			buf, err := testdata.Testdata.ReadFile(typ + ".txt")
-			switch {
-			case err != nil && os.IsNotExist(err):
-				t.Skipf("skipping (testdata/%s.txt does not exist)", typ)
-			case err != nil:
+			z, err := testdata.Testdata.ReadFile(typ + ".gz")
+			if err != nil {
+				t.Fatalf("expected no error, got: %v", err)
+			}
+			r, err := gzip.NewReader(bytes.NewReader(z))
+			if err != nil {
+				t.Fatalf("expected no error, got: %v", err)
+			}
+			buf, err := ioutil.ReadAll(r)
+			if err != nil {
 				t.Fatalf("expected no error, got: %v", err)
 			}
 			var i int

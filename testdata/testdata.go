@@ -10,4 +10,5 @@ import (
 // Testdata is the set of testdata.
 //
 //go:embed *.txt
+//go:embed *.gz
 var Testdata embed.FS
