@@ -2,5 +2,5 @@
 .{{ .Title }}{{ end }}
 |==={{ range $i, $h := $headers }}
 |{{ $h }}{{ end }}{{ range $i, $r := $rows }}
-{{ range $j, $c := $r }}|{{ .Value }}{{ end }}{{ end }}
+{{ range $j, $c := $r }}|{{ $c }}{{ end }}{{ end }}
 |===

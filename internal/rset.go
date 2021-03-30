@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// Rset is a simple result set.
+// Rset is a result set.
 type Rset struct {
 	rs   int
 	pos  int
@@ -15,8 +15,8 @@ type Rset struct {
 	vals [][][]interface{}
 }
 
-// NewRset creates a simple result set.
-func NewRset() *Rset {
+// NewRsetMulti creates a result set with multiple result sets.
+func NewRsetMulti() *Rset {
 	s, t := rset(14), rset(38)
 	r := &Rset{
 		cols: []string{"author_id", "name", "z"},
@@ -27,9 +27,9 @@ func NewRset() *Rset {
 	return r
 }
 
-// NewRsetBig creates a big random result set for testing / benchmarking
-// purposes using the rand source.
-func NewRsetBig(src *rand.Rand) *Rset {
+// NewRsetBig creates a random, big result set using the provided seed.
+func NewRsetBig(seed int64) *Rset {
+	src := rand.New(rand.NewSource(seed))
 	count := src.Intn(1000)
 	// generate rows
 	vals := make([][]interface{}, count)
@@ -43,7 +43,7 @@ func NewRsetBig(src *rand.Rand) *Rset {
 	}
 }
 
-// NewRsetTiny creates a tiny result set for testing / benchmarking purposes.
+// NewRsetTiny creates a tiny result set.
 func NewRsetTiny() *Rset {
 	return &Rset{
 		cols: []string{"z"},
@@ -55,7 +55,7 @@ func NewRsetTiny() *Rset {
 	}
 }
 
-// NewRsetWide creates a wide result set for testing / benchmarking purposes.
+// NewRsetWide creates a wide result set.
 func NewRsetWide() *Rset {
 	return &Rset{
 		cols: []string{
