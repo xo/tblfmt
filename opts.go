@@ -1,6 +1,7 @@
 package tblfmt
 
 import (
+	"fmt"
 	htmltemplate "html/template"
 	"io"
 	"strconv"
@@ -15,7 +16,51 @@ import (
 type Builder = func(ResultSet, ...Option) (Encoder, error)
 
 // Option is a Encoder option.
-type Option = func(interface{}) error
+type Option interface {
+	apply(interface{}) error
+}
+
+// option wraps setting an option on an encoder.
+type option struct {
+	table     func(*TableEncoder) error
+	expanded  func(*ExpandedEncoder) error
+	json      func(*JSONEncoder) error
+	unaligned func(*UnalignedEncoder) error
+	template  func(*TemplateEncoder) error
+	err       func(*errEncoder) error
+}
+
+// apply applies the option.
+func (opt option) apply(v interface{}) error {
+	switch x := v.(type) {
+	case *TableEncoder:
+		if opt.table != nil {
+			return opt.table(x)
+		}
+		return nil
+	case *ExpandedEncoder:
+		if opt.expanded != nil {
+			return opt.expanded(x)
+		}
+		return nil
+	case *JSONEncoder:
+		if opt.json != nil {
+			return opt.json(x)
+		}
+		return nil
+	case *UnalignedEncoder:
+		if opt.unaligned != nil {
+			return opt.unaligned(x)
+		}
+		return nil
+	case *TemplateEncoder:
+		if opt.template != nil {
+			return opt.template(x)
+		}
+		return nil
+	}
+	panic(fmt.Sprintf("option cannot be applied to %T", v))
+}
 
 // FromMap creates an encoder for the provided result set, applying the named
 // options.
@@ -139,312 +184,290 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 
 // WithCount is a encoder option to set the buffered line count.
 func WithCount(count int) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *TableEncoder:
+	return option{
+		table: func(enc *TableEncoder) error {
 			enc.count = count
-		case *ExpandedEncoder:
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
 			enc.count = count
-		}
-		return nil
+			return nil
+		},
 	}
 }
 
 // WithLineStyle is a encoder option to set the table line style.
 func WithLineStyle(lineStyle LineStyle) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *TableEncoder:
+	return option{
+		table: func(enc *TableEncoder) error {
 			enc.lineStyle = lineStyle
-		case *ExpandedEncoder:
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
 			enc.lineStyle = lineStyle
-		}
-		return nil
+			return nil
+		},
 	}
 }
 
 // WithFormatter is a encoder option to set a formatter for formatting values.
 func WithFormatter(formatter Formatter) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *TableEncoder:
+	return option{
+		table: func(enc *TableEncoder) error {
 			enc.formatter = formatter
-		case *ExpandedEncoder:
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
 			enc.formatter = formatter
-		case *UnalignedEncoder:
+			return nil
+		},
+		json: func(enc *JSONEncoder) error {
 			enc.formatter = formatter
-		case *JSONEncoder:
+			return nil
+		},
+		unaligned: func(enc *UnalignedEncoder) error {
 			enc.formatter = formatter
-		}
-		return nil
+			return nil
+		},
+		template: func(enc *TemplateEncoder) error {
+			enc.formatter = formatter
+			return nil
+		},
 	}
 }
 
 // WithSummary is a encoder option to set a summary callback map.
 func WithSummary(summary map[int]func(io.Writer, int) (int, error)) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *TableEncoder:
+	return option{
+		table: func(enc *TableEncoder) error {
 			enc.summary = summary
 			enc.isCustomSummary = true
-		case *ExpandedEncoder:
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
 			enc.summary = summary
 			enc.isCustomSummary = true
-		}
-		return nil
+			return nil
+		},
+		// FIXME: all of these should have a summary option as well ...
+		json: func(enc *JSONEncoder) error {
+			return nil
+		},
+		unaligned: func(enc *UnalignedEncoder) error {
+			return nil
+		},
+		template: func(enc *TemplateEncoder) error {
+			return nil
+		},
 	}
 }
 
-// WithSkipHeader is a encoder option to skip drawing header.
+// WithSkipHeader is a encoder option to disable writing a header.
 func WithSkipHeader(s bool) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *TableEncoder:
+	return option{
+		table: func(enc *TableEncoder) error {
 			enc.skipHeader = s
-		case *ExpandedEncoder:
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
 			enc.skipHeader = s
-		case *UnalignedEncoder:
+			return nil
+		},
+		unaligned: func(enc *UnalignedEncoder) error {
 			enc.skipHeader = s
-		}
-		return nil
+			return nil
+		},
+		template: func(enc *TemplateEncoder) error {
+			enc.skipHeader = s
+			return nil
+		},
 	}
 }
 
 // WithInline is a encoder option to set the column headers as inline to the
 // top line.
 func WithInline(inline bool) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *TableEncoder:
+	return option{
+		table: func(enc *TableEncoder) error {
 			enc.inline = inline
-		}
-		return nil
+			return nil
+		},
 	}
 }
 
-// WithTitle is a encoder option to set the title value used.
+// WithTitle is a encoder option to set the table title.
 func WithTitle(title string) Option {
-	return func(v interface{}) error {
-		var formatter Formatter
-		var val *Value
-		switch enc := v.(type) {
-		case *TableEncoder:
-			formatter = enc.formatter
-			val = enc.empty
-		case *ExpandedEncoder:
-			formatter = enc.formatter
-			val = enc.empty
-		case *TemplateEncoder:
-			formatter = enc.formatter
-			val = enc.empty
+	encode := func(formatter Formatter, empty *Value) *Value {
+		if title == "" {
+			return nil
 		}
-		if title != "" {
-			vals, err := formatter.Header([]string{title})
-			if err != nil {
-				return err
-			}
-			val = vals[0]
+		if v, err := formatter.Header([]string{title}); err == nil {
+			return v[0]
 		}
-		switch enc := v.(type) {
-		case *TableEncoder:
-			enc.title = val
-		case *ExpandedEncoder:
-			enc.title = val
-		case *TemplateEncoder:
-			enc.title = val
-		}
-		return nil
+		return empty
+	}
+	return option{
+		table: func(enc *TableEncoder) error {
+			enc.title = encode(enc.formatter, enc.empty)
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
+			enc.title = encode(enc.formatter, enc.empty)
+			return nil
+		},
+		template: func(enc *TemplateEncoder) error {
+			enc.title = encode(enc.formatter, enc.empty)
+			return nil
+		},
 	}
 }
 
 // WithEmpty is a encoder option to set the value used in empty (nil)
 // cells.
 func WithEmpty(empty string) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *TableEncoder:
-			cell := interface{}(empty)
-			v, err := enc.formatter.Format([]interface{}{&cell})
-			if err != nil {
-				return err
-			}
-			enc.empty = v[0]
-		case *ExpandedEncoder:
-			cell := interface{}(empty)
-			v, err := enc.formatter.Format([]interface{}{&cell})
-			if err != nil {
-				return err
-			}
-			enc.empty = v[0]
-		case *UnalignedEncoder:
-			cell := interface{}(empty)
-			v, err := enc.formatter.Format([]interface{}{&cell})
-			if err != nil {
-				return err
-			}
-			enc.empty = v[0]
-		case *TemplateEncoder:
-			cell := interface{}(empty)
-			v, err := enc.formatter.Format([]interface{}{&cell})
-			if err != nil {
-				return err
-			}
-			enc.empty = v[0]
+	encode := func(formatter Formatter) *Value {
+		z := new(interface{})
+		*z = empty
+		if v, err := formatter.Format([]interface{}{z}); err == nil {
+			return v[0]
 		}
-		return nil
+		panic(fmt.Sprintf("invalid empty value %q", empty))
+	}
+	return option{
+		table: func(enc *TableEncoder) error {
+			enc.empty = encode(enc.formatter)
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
+			enc.empty = encode(enc.formatter)
+			return nil
+		},
+		json: func(enc *JSONEncoder) error {
+			enc.empty = encode(enc.formatter)
+			return nil
+		},
+		unaligned: func(enc *UnalignedEncoder) error {
+			enc.empty = encode(enc.formatter)
+			return nil
+		},
+		template: func(enc *TemplateEncoder) error {
+			enc.empty = encode(enc.formatter)
+			return nil
+		},
 	}
 }
 
 // WithWidths is a encoder option to set (minimum) widths for a column.
 func WithWidths(widths ...int) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *TableEncoder:
+	return option{
+		table: func(enc *TableEncoder) error {
 			enc.widths = widths
-		case *ExpandedEncoder:
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
 			enc.widths = widths
-		}
-		return nil
-	}
-}
-
-// WithMinExpandWidth is a encoder option to set maximum width before switching
-// to expanded format.
-func WithMinExpandWidth(w int) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *TableEncoder:
-			enc.minExpandWidth = w
-		case *ExpandedEncoder:
-			enc.minExpandWidth = w
-		}
-		return nil
-	}
-}
-
-// WithMinPagerWidth is a encoder option to set maximum width before
-// redirecting output to pager.
-func WithMinPagerWidth(w int) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *TableEncoder:
-			enc.minPagerWidth = w
-		case *ExpandedEncoder:
-			enc.minPagerWidth = w
-		}
-		return nil
-	}
-}
-
-// WithMinPagerHeight is a encoder option to set maximum height before
-// redirecting output to pager.
-func WithMinPagerHeight(h int) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *TableEncoder:
-			enc.minPagerHeight = h
-		case *ExpandedEncoder:
-			enc.minPagerHeight = h
-		}
-		return nil
-	}
-}
-
-// WithPager is a encoder option to set the pager command.
-func WithPager(p string) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *TableEncoder:
-			enc.pagerCmd = p
-		case *ExpandedEncoder:
-			enc.pagerCmd = p
-		}
-		return nil
+			return nil
+		},
+		unaligned: func(enc *UnalignedEncoder) error {
+			// FIXME: unaligned encoder should be able to support minimum
+			// column widths
+			// enc.widths = widths
+			return nil
+		},
+		template: func(enc *TemplateEncoder) error {
+			// FIXME: template encoder should be able to support minimum column
+			// widths
+			// enc.widths = widths
+			return nil
+		},
 	}
 }
 
 // WithSeparator is a encoder option to set the field separator.
 func WithSeparator(sep rune) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *UnalignedEncoder:
+	return option{
+		unaligned: func(enc *UnalignedEncoder) error {
 			enc.sep = sep
-		}
-		return nil
+			return nil
+		},
 	}
 }
 
 // WithQuote is a encoder option to set the field quote.
 func WithQuote(quote rune) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *UnalignedEncoder:
+	return option{
+		unaligned: func(enc *UnalignedEncoder) error {
 			enc.quote = quote
-		}
-		return nil
+			return nil
+		},
 	}
 }
 
 // WithNewline is a encoder option to set the newline.
 func WithNewline(newline string) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *TableEncoder:
+	return option{
+		table: func(enc *TableEncoder) error {
 			enc.newline = []byte(newline)
-		case *ExpandedEncoder:
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
 			enc.newline = []byte(newline)
-		case *JSONEncoder:
+			return nil
+		},
+		json: func(enc *JSONEncoder) error {
 			enc.newline = []byte(newline)
-		case *UnalignedEncoder:
+			return nil
+		},
+		unaligned: func(enc *UnalignedEncoder) error {
 			enc.newline = []byte(newline)
-		case *TemplateEncoder:
+			return nil
+		},
+		template: func(enc *TemplateEncoder) error {
 			enc.newline = []byte(newline)
-		}
-		return nil
+			return nil
+		},
 	}
 }
 
 // WithBorder is a encoder option to set the border size.
 func WithBorder(border int) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *TableEncoder:
+	return option{
+		table: func(enc *TableEncoder) error {
 			enc.border = border
-		case *ExpandedEncoder:
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
 			enc.border = border
-		}
-		return nil
+			return nil
+		},
 	}
 }
 
 // WithTableAttributes is a encoder option to set the table attributes.
 func WithTableAttributes(a string) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *TemplateEncoder:
+	return option{
+		template: func(enc *TemplateEncoder) error {
 			enc.attributes = a
-		}
-		return nil
+			return nil
+		},
 	}
 }
 
 // WithExecutor is a encoder option to set the executor.
 func WithExecutor(executor func(io.Writer, interface{}) error) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *TemplateEncoder:
+	return option{
+		template: func(enc *TemplateEncoder) error {
 			enc.executor = executor
-		}
-		return nil
+			return nil
+		},
 	}
 }
 
 // WithRawTemplate is a encoder option to set a raw template of either "text"
 // or "html" type.
 func WithRawTemplate(text, typ string) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *TemplateEncoder:
+	return option{
+		template: func(enc *TemplateEncoder) error {
 			switch typ {
 			case "html":
 				tpl, err := htmltemplate.New("").Funcs(htmltemplate.FuncMap{
@@ -457,25 +480,24 @@ func WithRawTemplate(text, typ string) Option {
 					return err
 				}
 				enc.executor = tpl.Execute
+				return nil
 			case "text":
 				tpl, err := texttemplate.New("").Parse(text)
 				if err != nil {
 					return err
 				}
 				enc.executor = tpl.Execute
-			default:
-				return ErrInvalidTemplate
+				return nil
 			}
-		}
-		return nil
+			return ErrInvalidTemplate
+		},
 	}
 }
 
 // WithTemplate is a encoder option to set a named template.
 func WithTemplate(name string) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *TemplateEncoder:
+	return option{
+		template: func(enc *TemplateEncoder) error {
 			typ := "text"
 			if name == "html" {
 				typ = "html"
@@ -484,19 +506,76 @@ func WithTemplate(name string) Option {
 			if err != nil {
 				return err
 			}
-			return WithRawTemplate(string(buf), typ)(enc)
-		}
-		return nil
+			return WithRawTemplate(string(buf), typ).apply(enc)
+		},
+	}
+}
+
+// WithMinExpandWidth is a encoder option to set maximum width before switching
+// to expanded format.
+func WithMinExpandWidth(w int) Option {
+	return option{
+		table: func(enc *TableEncoder) error {
+			enc.minExpandWidth = w
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
+			enc.minExpandWidth = w
+			return nil
+		},
+	}
+}
+
+// WithMinPagerWidth is a encoder option to set maximum width before
+// redirecting output to pager.
+func WithMinPagerWidth(w int) Option {
+	return option{
+		table: func(enc *TableEncoder) error {
+			enc.minPagerWidth = w
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
+			enc.minPagerWidth = w
+			return nil
+		},
+	}
+}
+
+// WithMinPagerHeight is a encoder option to set maximum height before
+// redirecting output to pager.
+func WithMinPagerHeight(h int) Option {
+	return option{
+		table: func(enc *TableEncoder) error {
+			enc.minPagerHeight = h
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
+			enc.minPagerHeight = h
+			return nil
+		},
+	}
+}
+
+// WithPager is a encoder option to set the pager command.
+func WithPager(p string) Option {
+	return option{
+		table: func(enc *TableEncoder) error {
+			enc.pagerCmd = p
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
+			enc.pagerCmd = p
+			return nil
+		},
 	}
 }
 
 // withError is a encoder option to force an error.
 func withError(err error) Option {
-	return func(v interface{}) error {
-		switch enc := v.(type) {
-		case *errEncoder:
+	return option{
+		err: func(enc *errEncoder) error {
 			enc.err = err
-		}
-		return err
+			return err
+		},
 	}
 }

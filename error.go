@@ -1,7 +1,5 @@
 package tblfmt
 
-import "io"
-
 // Error is an  error.
 type Error string
 
@@ -43,29 +41,3 @@ const (
 	// result error.
 	ErrCrosstabSortColumnNotInResult Error = "crosstab sort column not in result"
 )
-
-// errEncoder provides a no-op encoder that always returns the wrapped error.
-type errEncoder struct {
-	err error
-}
-
-// Encode satisfies the Encoder interface.
-func (err errEncoder) Encode(io.Writer) error {
-	return err.err
-}
-
-// EncodeAll satisfies the Encoder interface.
-func (err errEncoder) EncodeAll(io.Writer) error {
-	return err.err
-}
-
-// newErrEncoder creates a no-op error encoder.
-func newErrEncoder(_ ResultSet, opts ...Option) (Encoder, error) {
-	enc := &errEncoder{}
-	for _, o := range opts {
-		if err := o(enc); err != nil {
-			return nil, err
-		}
-	}
-	return enc, enc.err
-}

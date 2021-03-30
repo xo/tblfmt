@@ -31,13 +31,13 @@ type TableEncoder struct {
 	newline []byte
 	// border is the display border size.
 	border int
-	// inline toggles drawing the column header names inline with the top line.
+	// inline toggles writing the column header names inline with the top line.
 	inline bool
 	// lineStyle is the table line style.
 	lineStyle LineStyle
 	// formatter handles formatting values prior to output.
 	formatter Formatter
-	// skipHeader allows to skip drawing header.
+	// skipHeader disables writing header.
 	skipHeader bool
 	// summary is the summary map.
 	summary map[int]func(io.Writer, int) (int, error)
@@ -92,7 +92,7 @@ func NewTableEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	}
 	// apply options
 	for _, o := range opts {
-		if err := o(enc); err != nil {
+		if err := o.apply(enc); err != nil {
 			return nil, err
 		}
 	}
@@ -837,7 +837,7 @@ func NewJSONEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 		},
 	}
 	for _, o := range opts {
-		if err := o(enc); err != nil {
+		if err := o.apply(enc); err != nil {
 			return nil, err
 		}
 	}
@@ -994,7 +994,7 @@ type UnalignedEncoder struct {
 	newline []byte
 	// formatter handles formatting values prior to output.
 	formatter Formatter
-	// skipHeader allows to skip drawing header.
+	// skipHeader disables writing header.
 	skipHeader bool
 	// empty is the empty value.
 	empty *Value
@@ -1015,7 +1015,7 @@ func NewUnalignedEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 		},
 	}
 	for _, o := range opts {
-		if err := o(enc); err != nil {
+		if err := o.apply(enc); err != nil {
 			return nil, err
 		}
 	}
@@ -1039,7 +1039,7 @@ func NewCSVEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 		},
 	}
 	for _, o := range opts {
-		if err := o(enc); err != nil {
+		if err := o.apply(enc); err != nil {
 			return nil, err
 		}
 	}
@@ -1166,6 +1166,8 @@ type TemplateEncoder struct {
 	title *Value
 	// empty is the empty value.
 	empty *Value
+	// skipHeader disables writing header.
+	skipHeader bool
 	// attributes are extra table attributes.
 	attributes string
 }
@@ -1182,7 +1184,7 @@ func NewTemplateEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 		},
 	}
 	for _, o := range opts {
-		if err := o(enc); err != nil {
+		if err := o.apply(enc); err != nil {
 			return nil, err
 		}
 	}
@@ -1252,10 +1254,11 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 		title = enc.empty
 	}
 	return enc.executor(w, map[string]interface{}{
-		"Title":      title,
 		"Attributes": enc.attributes,
 		"Headers":    headers,
 		"Rows":       rows,
+		"SkipHeader": enc.skipHeader,
+		"Title":      title,
 	})
 }
 
@@ -1287,4 +1290,30 @@ func (enc *TemplateEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) 
 		return nil, err
 	}
 	return enc.formatter.Format(vals)
+}
+
+// errEncoder provides a no-op encoder that always returns the wrapped error.
+type errEncoder struct {
+	err error
+}
+
+// Encode satisfies the Encoder interface.
+func (err *errEncoder) Encode(io.Writer) error {
+	return err.err
+}
+
+// EncodeAll satisfies the Encoder interface.
+func (err *errEncoder) EncodeAll(io.Writer) error {
+	return err.err
+}
+
+// newErrEncoder creates a no-op error encoder.
+func newErrEncoder(_ ResultSet, opts ...Option) (Encoder, error) {
+	enc := &errEncoder{}
+	for _, o := range opts {
+		if err := o.apply(enc); err != nil {
+			return nil, err
+		}
+	}
+	return enc, enc.err
 }
