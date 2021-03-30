@@ -5,14 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/xo/tblfmt/internal"
+	"github.com/xo/tblfmt/testdata"
 )
 
 func TestFromMap(t *testing.T) {
@@ -72,7 +71,7 @@ func TestFromMapFormats(t *testing.T) {
 		typ := typ
 		t.Run(typ, func(t *testing.T) {
 			t.Parallel()
-			buf, err := ioutil.ReadFile(filepath.Join("testdata", typ+".txt"))
+			buf, err := testdata.Testdata.ReadFile(typ + ".txt")
 			switch {
 			case err != nil && os.IsNotExist(err):
 				t.Skipf("skipping (testdata/%s.txt does not exist)", typ)
