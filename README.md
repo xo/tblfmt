@@ -131,7 +131,7 @@ $ go test -v
 
 1. add center alignment output
 2. allow user to override alignment
-3. finish template implementations for HTML, LaTeX, etc.
+3. Column encoder
 
 [go-project]: https://golang.org/project
 [goref-tblfmt]: https://pkg.go.dev/github.com/xo/tblfmt

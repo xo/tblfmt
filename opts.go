@@ -27,8 +27,8 @@ type option struct {
 	json      func(*JSONEncoder) error
 	unaligned func(*UnalignedEncoder) error
 	template  func(*TemplateEncoder) error
-	// crosstab  func(*CrosstabView) error
-	err func(*errEncoder) error
+	crosstab  func(*CrosstabView) error
+	err       func(*errEncoder) error
 }
 
 // apply applies the option.
@@ -59,13 +59,11 @@ func (opt option) apply(o interface{}) error {
 			return opt.template(v)
 		}
 		return nil
-		/*
-			case *CrosstabView:
-				if opt.crosstab != nil {
-					return opt.crosstab(v)
-				}
-				return nil
-		*/
+	case *CrosstabView:
+		if opt.crosstab != nil {
+			return opt.crosstab(v)
+		}
+		return nil
 	case *errEncoder:
 		if opt.err != nil {
 			return opt.err(v)
@@ -526,6 +524,30 @@ func WithTemplate(name string) Option {
 				return err
 			}
 			return WithRawTemplate(string(buf), typ).apply(enc)
+		},
+	}
+}
+
+// WithParams is a view option to set the column parameters.
+func WithParams(params ...string) Option {
+	return option{
+		crosstab: func(view *CrosstabView) error {
+			if len(params) > 4 {
+				return ErrInvalidColumnParams
+			}
+			if len(params) > 0 {
+				view.v = params[0]
+			}
+			if len(params) > 1 {
+				view.h = params[1]
+			}
+			if len(params) > 2 {
+				view.d = params[2]
+			}
+			if len(params) > 3 {
+				view.s = params[3]
+			}
+			return nil
 		},
 	}
 }

@@ -275,7 +275,7 @@ const lowerhex = "0123456789abcdef"
 
 // FormatBytes parses src, saving escaped (encoded) and unescaped runes to a
 // Value, along with tab and newline positions in the generated buf.
-func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isCSV bool, sep, quote rune) *Value {
+func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isRaw bool, sep, quote rune) *Value {
 	res := &Value{
 		Tabs: make([][][2]int, 1),
 	}
@@ -323,8 +323,8 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isCSV boo
 				continue
 			}
 		}
-		// handle csv encoding
-		if isCSV {
+		// handle raw encoding
+		if isRaw {
 			n := utf8.EncodeRune(tmp[:], r)
 			res.Buf = append(res.Buf, tmp[:n]...)
 			res.Width += runewidth.RuneWidth(r)

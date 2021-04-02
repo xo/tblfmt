@@ -98,6 +98,7 @@ var crosstabQueries = []string{
 	`select v,h,c from v_data order by 1 \crosstabview v h c`,                                                                 // example 1
 	`select v,h,c from v_data order by 1 desc \crosstabview v h c`,                                                            // example 2
 	`select v,h,c from v_data order by 2 \crosstabview v h c`,                                                                 // example 3
+	`select v,h,c,row_number() over(order by h) as hsort from v_data order by 1 \crosstabview v h c`,                          // no example
 	`select v,h,c,row_number() over(order by h) as hsort from v_data order by 1 \crosstabview v h c hsort`,                    // example 4
 	`select v,h,c,row_number() over(order by h desc) as hsort from v_data order by 1 \crosstabview v h c hsort`,               // example 5
 	`select v,to_char(d,'Mon') as m, c from v_data order by 1 \crosstabview v m c`,                                            // example 6

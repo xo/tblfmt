@@ -22,9 +22,15 @@ const (
 	ErrInvalidTemplate Error = "invalid template"
 	// ErrInvalidFieldSeparator is the invalid field separator error.
 	ErrInvalidFieldSeparator Error = "invalid field separator"
+	// ErrInvalidColumnParams is the invalid column params error.
+	ErrInvalidColumnParams Error = "invalid column params"
 	// ErrCrosstabResultMustHaveAtLeast3Columns is the crosstab result must
 	// have at least 3 columns error.
 	ErrCrosstabResultMustHaveAtLeast3Columns Error = "crosstab result must have at least 3 columns"
+	// ErrCrosstabDataColumnMustBeSpecifiedWhenQueryReturnsMoreThanThreeColumnsA
+	// is the data column must be specified when query returns more than three
+	// columns error.
+	ErrCrosstabDataColumnMustBeSpecifiedWhenQueryReturnsMoreThanThreeColumns Error = "data column must be specified when query returns more than three columns"
 	// ErrCrosstabVerticalAndHorizontalColumnsMustNotBeSame is the crosstab
 	// vertical and horizontal columns must not be same error.
 	ErrCrosstabVerticalAndHorizontalColumnsMustNotBeSame Error = "crosstab vertical and horizontal columns must not be same"
@@ -34,10 +40,16 @@ const (
 	// ErrCrosstabHorizontalColumnNotInResult is the crosstab horizontal column
 	// not in result error.
 	ErrCrosstabHorizontalColumnNotInResult Error = "crosstab horizontal column not in result"
-	// ErrCrosstabContentColumnNotInResult is the crosstab content column not
-	// in result error.
-	ErrCrosstabContentColumnNotInResult Error = "crosstab content column not in result"
-	// ErrCrosstabSortColumnNotInResult is the crosstab sort column not in
+	// ErrCrosstabDataColumnNotInResult is the crosstab data column not in
 	// result error.
-	ErrCrosstabSortColumnNotInResult Error = "crosstab sort column not in result"
+	ErrCrosstabDataColumnNotInResult Error = "crosstab data column not in result"
+	// ErrCrosstabHorizontalSortColumnNotInResult is the crosstab horizontal
+	// sort column not in result error.
+	ErrCrosstabHorizontalSortColumnNotInResult Error = "crosstab horizontal sort column not in result"
+	// ErrCrosstabDuplicateVerticalAndHorizontalValue is the crosstab duplicate
+	// vertical and horizontal value error.
+	ErrCrosstabDuplicateVerticalAndHorizontalValue Error = "crosstab duplicate vertical and horizontal value"
+	// ErrCrosstabHorizontalSortColumnIsNotANumber is the crosstab horizontal
+	// sort column is not a number error.
+	ErrCrosstabHorizontalSortColumnIsNotANumber Error = "crosstab horizontal sort column is not a number"
 )

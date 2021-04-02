@@ -50,6 +50,19 @@ v1|baz||foo|
 v2||bar||
 v0||||qux
 
+select v,h,c,row_number() over(order by h) as hsort from v_data order by 1 \crosstabview v h c
+--
+v|h|c|hsort
+v0|h4|qux|4
+v1|h0|baz|1
+v1|h2|foo|3
+v2|h1|bar|2
+--
+v|h4|h0|h2|h1
+v0|qux|||
+v1||baz|foo|
+v2||||bar
+
 select v,h,c,row_number() over(order by h) as hsort from v_data order by 1 \crosstabview v h c hsort
 --
 v|h|c|hsort

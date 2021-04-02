@@ -15,6 +15,14 @@ type Rset struct {
 	vals [][][]interface{}
 }
 
+// NewRset creates a new result set
+func NewRset(cols []string, vals ...[][]interface{}) *Rset {
+	return &Rset{
+		cols: cols,
+		vals: vals,
+	}
+}
+
 // NewRsetMulti creates a result set with multiple result sets.
 func NewRsetMulti() *Rset {
 	s, t := rset(14), rset(38)
