@@ -209,6 +209,8 @@ func (view *CrosstabView) Scan(v ...interface{}) error {
 	for i := 0; i < len(view.hkeys) && i < len(v)-1; i++ {
 		if z, ok := row[view.hkeys[i].v]; ok {
 			*(v[i+1].(*interface{})) = z
+		} else {
+			*(v[i+1].(*interface{})) = nil
 		}
 	}
 	return nil
