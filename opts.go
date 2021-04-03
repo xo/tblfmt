@@ -371,6 +371,10 @@ func WithEmpty(empty string) Option {
 			enc.empty = encode(enc.formatter)
 			return nil
 		},
+		crosstab: func(enc *CrosstabView) error {
+			enc.empty = encode(enc.formatter)
+			return nil
+		},
 	}
 }
 

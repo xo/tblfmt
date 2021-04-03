@@ -20,6 +20,8 @@ type CrosstabView struct {
 	resultSet ResultSet
 	// formatter is the formatter.
 	formatter Formatter
+	// empty is the empty value.
+	empty *Value
 	// v is the vertical header column.
 	v string
 	// h is the horizontal header column.
@@ -45,6 +47,9 @@ func NewCrosstabView(resultSet ResultSet, opts ...Option) (ResultSet, error) {
 	view := &CrosstabView{
 		resultSet: resultSet,
 		formatter: NewEscapeFormatter(WithIsRaw(true, 0, 0)),
+		empty: &Value{
+			Tabs: make([][][2]int, 1),
+		},
 	}
 	for _, o := range opts {
 		if err := o.apply(view); err != nil {
@@ -166,6 +171,12 @@ func (view *CrosstabView) fail(err error) error {
 
 // add processes and adds a val.
 func (view *CrosstabView) add(d interface{}, v, h, s *Value) error {
+	if v == nil {
+		v = view.empty
+	}
+	if h == nil {
+		h = view.empty
+	}
 	// determine sort value
 	var sval int
 	if s != nil {
