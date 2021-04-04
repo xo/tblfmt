@@ -1,0 +1,3 @@
+{{ $headers := .Headers }}{{ range $i, $r := .Rows }}*************************** {{ inc $i }}. row ***************************{{ range $j, $c := $r }}
+{{ index $headers $j }}: {{ $c }}{{ end }}
+{{ end -}}

@@ -1203,6 +1203,12 @@ func NewAsciiDocEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	return NewTemplateEncoder(resultSet, append([]Option{WithTemplate("asciidoc")}, opts...)...)
 }
 
+// NewVerticalEncoder creates a new vertical template encoder using the
+// provided options.
+func NewVerticalEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
+	return NewTemplateEncoder(resultSet, append([]Option{WithTemplate("vertical")}, opts...)...)
+}
+
 // Encode encodes a single result set to the writer using the formatting
 // options specified in the encoder.
 func (enc *TemplateEncoder) Encode(w io.Writer) error {

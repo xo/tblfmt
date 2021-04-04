@@ -114,7 +114,7 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			WithTitle(opts["title"]),
 			WithEmpty(opts["null"]),
 		}
-	case "html", "asciidoc", "latex", "latex-longtable", "troff-ms":
+	case "html", "asciidoc", "latex", "latex-longtable", "troff-ms", "vertical":
 		return NewTemplateEncoder, []Option{
 			WithTemplate(format),
 			WithTableAttributes(opts["tableattr"]),
@@ -491,11 +491,12 @@ func WithRawTemplate(text, typ string) Option {
 		template: func(enc *TemplateEncoder) error {
 			switch typ {
 			case "html":
-				tpl, err := htmltemplate.New("").Funcs(htmltemplate.FuncMap{
+				tpl, err := htmltemplate.New(typ).Funcs(htmltemplate.FuncMap{
 					"attr":    func(s string) htmltemplate.HTMLAttr { return htmltemplate.HTMLAttr(s) },
 					"safe":    func(s string) htmltemplate.HTML { return htmltemplate.HTML(s) },
 					"toLower": func(s string) htmltemplate.HTML { return htmltemplate.HTML(strings.ToLower(s)) },
 					"toUpper": func(s string) htmltemplate.HTML { return htmltemplate.HTML(strings.ToUpper(s)) },
+					"inc":     func(i int) int { return i + 1 },
 				}).Parse(text)
 				if err != nil {
 					return err
@@ -503,7 +504,9 @@ func WithRawTemplate(text, typ string) Option {
 				enc.executor = tpl.Execute
 				return nil
 			case "text":
-				tpl, err := texttemplate.New("").Parse(text)
+				tpl, err := texttemplate.New(typ).Funcs(texttemplate.FuncMap{
+					"inc": func(i int) int { return i + 1 },
+				}).Parse(text)
 				if err != nil {
 					return err
 				}
