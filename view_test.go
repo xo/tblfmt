@@ -78,8 +78,10 @@ func checkView(t *testing.T, testNum int, test viewTest, view ResultSet) {
 		for j := 0; j < len(vals[i]); j++ {
 			row[j] = *(vals[i][j].(*interface{}))
 		}
-		if !reflect.DeepEqual(row, test.expVals[i]) {
-			t.Errorf("test %d expected row %d to match result\ngot: %v\nexp: %v\n--", testNum, i, row, test.expVals[i])
+		rs := fmt.Sprintf("%v", row)
+		es := fmt.Sprintf("%v", test.expVals[i])
+		if rs != es {
+			t.Errorf("test %d expected row %d to match result\ngot: %v\nexp: %v", testNum, i, row, test.expVals[i])
 		}
 	}
 }

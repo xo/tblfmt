@@ -83,14 +83,21 @@ func psqlExec(ctx context.Context, dsn string, sqlstrs ...string) ([]byte, error
 }
 
 const (
-	dropsql   = `drop view if exists v_data`
-	createsql = `create view v_data as 
+	dropsql   = `drop view if exists v_data; drop view if exists my_table;`
+	createsql = `create view v_data as
 select * from (values
    ('v1','h2','foo', '2015-04-01'::date),
    ('v2','h1','bar', '2015-01-02'),
    ('v1','h0','baz', '2015-07-12'),
    ('v0','h4','qux', '2015-07-15')
- ) as l(v,h,c,d)`
+ ) as l(v,h,c,d);
+create view my_table as
+select * from (values
+  (1, 'one'),
+  (2, 'two'),
+  (3, 'three'),
+  (4, 'four')
+) as my_table(first, second);`
 )
 
 var crosstabQueries = []string{
@@ -105,4 +112,9 @@ var crosstabQueries = []string{
 	`select v,to_char(d,'Mon') as m, c from v_data order by d \crosstabview v m c`,                                            // example 7
 	`select v,to_char(d,'Mon') as m, c, extract(month from d) as mnum from v_data order by v \crosstabview v m c mnum`,        // example 8
 	`select v,to_char(d,'Mon') as m, c, -1*extract(month from d) as revnum from v_data order by v \crosstabview v m c revnum`, // example 9
+	// psql manual example 1
+	`SELECT first, second, first > 2 AS gt2 FROM my_table \crosstabview first second`,
+	// psql manual example 2
+	`SELECT t1.first as A, t2.first+100 AS B, t1.first*(t2.first+100) as AxB, row_number()` +
+		` over(order by t2.first) AS ord FROM my_table t1 CROSS JOIN my_table t2 ORDER BY 1 DESC \crosstabview A B AxB ord `,
 }
