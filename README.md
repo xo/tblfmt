@@ -1,4 +1,4 @@
-# About tblfmt [![Go Reference][goref-tblfmt-status]][goref-tblfmt]
+# About tblfmt
 
 Package `tblfmt` provides streaming table encoders for result sets (ie, from a
 database), creating tables like the following:
@@ -21,6 +21,9 @@ database), creating tables like the following:
 
 Additionally, there are standard encoders for JSON, CSV, HTML, unaligned and
 all display variants [available in `usql`][usql].
+
+[![Unit Tests][tblfmt-ci-status]][tblfmt-ci]
+[![Go Reference][goref-tblfmt-status]][goref-tblfmt]
 
 ## Installing
 
@@ -136,4 +139,6 @@ $ go test -v
 [go-project]: https://golang.org/project
 [goref-tblfmt]: https://pkg.go.dev/github.com/xo/tblfmt
 [goref-tblfmt-status]: https://pkg.go.dev/badge/github.com/xo/tblfmt.svg
+[tblfmt-ci]: https://github.com/xo/tblfmt/actions/workflows/test.yml
+[tblfmt-ci-status]: https://github.com/xo/tblfmt/actions/workflows/test.yml/badge.svg
 [usql]: https://github.com/xo/usql
