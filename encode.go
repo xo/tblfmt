@@ -498,8 +498,8 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 					width += v.Width
 				}
 				padding := enc.maxWidths[i] - width
-				// no padding for last cell if no border
-				if enc.border <= 1 && i == len(vals)-1 && (!rs.hasWrapping || l >= len(v.Newlines)) {
+				// no padding for last cell if no border and aligned left
+				if enc.border <= 1 && v.Align == AlignLeft && i == len(vals)-1 && (!rs.hasWrapping || l >= len(v.Newlines)) {
 					padding = 0
 				}
 				enc.writeAligned(v.Buf[start:end], rs.filler, v.Align, padding)
