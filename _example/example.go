@@ -1,4 +1,4 @@
-// _example/main.go
+// _example/example.go
 package main
 
 import (
@@ -16,12 +16,13 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	result, err := db.Query("select * from authors")
+	res, err := db.Query("select * from authors")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer result.Close()
-	enc, err := tblfmt.NewTableEncoder(result,
+	defer res.Close()
+	enc, err := tblfmt.NewTableEncoder(
+		res,
 		// force minimum column widths
 		tblfmt.WithWidths(20, 20),
 	)

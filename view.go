@@ -91,10 +91,10 @@ func (view *CrosstabView) build() error {
 		return view.fail(ErrCrosstabHorizontalColumnNotInResult)
 	}
 	view.h = cols[hindex]
-	// this complicated bit of code is used to find the 'unused' column for c
+	// this complicated bit of code is used to find the 'unused' column for d
 	// (ie, when number of columns == 3, and v and h are specified)
 	//
-	// psql manual states (colD == c):
+	// psql manual states (colD == d):
 	//
 	//   " If colD is not specified, then there must be exactly three columns
 	//   in the query result, and the column that is neither colV nor colH is

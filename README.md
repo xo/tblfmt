@@ -20,10 +20,18 @@ database), creating tables like the following:
 ```
 
 Additionally, there are standard encoders for JSON, CSV, HTML, unaligned and
-all display variants [available in `usql`][usql].
+other display variants [supported by `usql`][usql].
 
 [![Unit Tests][tblfmt-ci-status]][tblfmt-ci]
 [![Go Reference][goref-tblfmt-status]][goref-tblfmt]
+[![Discord Discussion][discord-status]][discord]
+
+[tblfmt-ci]: https://github.com/xo/tblfmt/actions/workflows/test.yml
+[tblfmt-ci-status]: https://github.com/xo/tblfmt/actions/workflows/test.yml/badge.svg
+[goref-tblfmt]: https://pkg.go.dev/github.com/xo/tblfmt
+[goref-tblfmt-status]: https://pkg.go.dev/badge/github.com/xo/tblfmt.svg
+[discord]: https://discord.gg/yJKEzc7prt (Discord Discussion)
+[discord-status]: https://img.shields.io/discord/829150509658013727.svg?label=Discord&logo=Discord&colorB=7289da&style=flat-square (Discord Discussion)
 
 ## Installing
 
@@ -53,7 +61,7 @@ type ResultSet interface {
 `tblfmt` can be used similar to the following:
 
 ```go
-// _example/main.go
+// _example/example.go
 package main
 
 import (
@@ -71,12 +79,13 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	result, err := db.Query("select * from authors")
+	res, err := db.Query("select * from authors")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer result.Close()
-	enc, err := tblfmt.NewTableEncoder(result,
+	defer res.Close()
+	enc, err := tblfmt.NewTableEncoder(
+		res,
 		// force minimum column widths
 		tblfmt.WithWidths(20, 20),
 	)
@@ -111,34 +120,5 @@ Run using standard `go test`:
 $ go test -v
 ```
 
-A few environment variables control how testing is done:
-
-- `PSQL_CONN=<connection>` - specify local connection string to use with the `psql` tool for compatibility testing
-- `DETERMINISTIC=1` - use a deterministic random seed for the big "random" test
-
-Used like the following:
-
-```sh
-# retrieve the latest postgres docker image
-$ docker pull postgres:latest
-
-# run a postgres database with docker
-$ docker run --rm -d -p 127.0.0.1:5432:5432 -e 'POSTGRES_PASSWORD=P4ssw0rd' --name postgres postgres
-
-# do determininstic test and using psql:
-$ export DETERMINISTIC=1 PSQL_CONN=postgres://postgres:P4ssw0rd@localhost/?sslmode=disable
-$ go test -v
-```
-
-## TODO
-
-1. add center alignment output
-2. allow user to override alignment
-3. Column encoder
-
 [go-project]: https://golang.org/project
-[goref-tblfmt]: https://pkg.go.dev/github.com/xo/tblfmt
-[goref-tblfmt-status]: https://pkg.go.dev/badge/github.com/xo/tblfmt.svg
-[tblfmt-ci]: https://github.com/xo/tblfmt/actions/workflows/test.yml
-[tblfmt-ci-status]: https://github.com/xo/tblfmt/actions/workflows/test.yml/badge.svg
 [usql]: https://github.com/xo/usql
