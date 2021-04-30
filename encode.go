@@ -446,7 +446,7 @@ func (enc *TableEncoder) tableHeight(rows [][]*Value) int {
 	for _, row := range rows {
 		largest := 1
 		for _, cell := range row {
-			if cell != nil {
+			if cell == nil {
 				cell = enc.empty
 			}
 			if len(cell.Newlines) > largest {
@@ -755,7 +755,7 @@ func (enc *ExpandedEncoder) tableHeight(rows [][]*Value) int {
 		// header
 		height++
 		for _, cell := range row {
-			if cell != nil {
+			if cell == nil {
 				cell = enc.empty
 			}
 			height += 1 + len(cell.Newlines)
