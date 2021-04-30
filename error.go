@@ -12,6 +12,8 @@ func (err Error) Error() string {
 const (
 	// ErrResultSetIsNil is the result set is nil error.
 	ErrResultSetIsNil Error = "result set is nil"
+	// ErrResultSetHasNoColumnTypes is the result set has no column types error.
+	ErrResultSetHasNoColumnTypes Error = "result set has no column types"
 	// ErrResultSetHasNoColumns is the result set has no columns error.
 	ErrResultSetHasNoColumns Error = "result set has no columns"
 	// ErrInvalidFormat is the invalid format error.

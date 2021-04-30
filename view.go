@@ -22,6 +22,8 @@ type CrosstabView struct {
 	formatter Formatter
 	// empty is the empty value.
 	empty *Value
+	// useColumnTypes indicates using the result's column types.
+	useColumnTypes bool
 	// v is the vertical header column.
 	v string
 	// h is the horizontal header column.
@@ -127,17 +129,17 @@ func (view *CrosstabView) build() error {
 	clen := len(cols)
 	// process results
 	for view.resultSet.Next() {
-		row := make([]interface{}, clen)
-		for i := 0; i < clen; i++ {
-			row[i] = new(interface{})
+		r, err := buildColumnTypes(view.resultSet, clen, view.useColumnTypes)
+		if err != nil {
+			return view.fail(err)
 		}
-		if err := view.resultSet.Scan(row...); err != nil {
+		if err := view.resultSet.Scan(r...); err != nil {
 			return view.fail(err)
 		}
 		// raw format values
-		vals := []interface{}{row[vindex], row[hindex]}
+		vals := []interface{}{r[vindex], r[hindex]}
 		if sindex != -1 {
-			vals = append(vals, row[sindex])
+			vals = append(vals, r[sindex])
 		}
 		v, err := view.formatter.Format(vals)
 		if err != nil {
@@ -147,7 +149,8 @@ func (view *CrosstabView) build() error {
 		if sindex != -1 {
 			s = v[2]
 		}
-		if err := view.add(*(row[dindex].(*interface{})), v[0], v[1], s); err != nil {
+		d := deref(r[dindex])
+		if err := view.add(d, v[0], v[1], s); err != nil {
 			return view.fail(err)
 		}
 	}

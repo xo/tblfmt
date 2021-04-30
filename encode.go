@@ -3,12 +3,15 @@ package tblfmt
 import (
 	"bufio"
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os/exec"
+	"reflect"
 	"strings"
+	"sync/atomic"
 	"syscall"
 
 	runewidth "github.com/mattn/go-runewidth"
@@ -69,7 +72,9 @@ type TableEncoder struct {
 	// if height or width is greater than minPagerHeight and minPagerWidth,
 	pagerCmd string
 	// scanCount is the number of scanned results in the result set.
-	scanCount int
+	scanCount int64
+	// useColumnTypes indicates using the result's column types.
+	useColumnTypes bool
 	// w is the undelying writer
 	w *bufio.Writer
 }
@@ -275,15 +280,19 @@ func (enc *TableEncoder) nextResults() ([][]*Value, error) {
 	if enc.count != 0 {
 		vals = make([][]*Value, 0, enc.count)
 	}
-	// set up storage for results
-	r := make([]interface{}, len(enc.headers))
-	for i := 0; i < len(enc.headers); i++ {
-		r[i] = new(interface{})
-	}
 	// read to count (or all)
 	var i int
+	var r []interface{}
 	for enc.resultSet.Next() {
-		v, err := enc.scanAndFormat(r)
+		if i == 0 {
+			// set up storage for results
+			var err error
+			r, err = buildColumnTypes(enc.resultSet, len(enc.headers), enc.useColumnTypes)
+			if err != nil {
+				return nil, err
+			}
+		}
+		v, err := scanAndFormat(enc.resultSet, r, enc.formatter, &enc.scanCount)
 		if err != nil {
 			return vals, err
 		}
@@ -382,18 +391,6 @@ func (enc TableEncoder) rowStyle(r [4]rune) rowStyle {
 	}
 }
 
-// scanAndFormat scans and formats values from the result set.
-func (enc *TableEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
-	if err := enc.resultSet.Err(); err != nil {
-		return nil, err
-	}
-	if err := enc.resultSet.Scan(vals...); err != nil {
-		return nil, err
-	}
-	enc.scanCount++
-	return enc.formatter.Format(vals)
-}
-
 // divider draws a divider.
 func (enc *TableEncoder) divider(rs rowStyle) {
 	// left
@@ -463,7 +460,7 @@ func (enc *TableEncoder) tableHeight(rows [][]*Value) int {
 		height++
 	}
 	// scanCount at this point is not the final value but this is better than nothing
-	if enc.summary != nil && enc.summary[-1] != nil || enc.summary[enc.scanCount] != nil {
+	if enc.summary != nil && enc.summary[-1] != nil || enc.summary[int(enc.scanCount)] != nil {
 		height++
 	}
 	return height
@@ -569,11 +566,11 @@ func (enc *TableEncoder) summarize(w io.Writer) error {
 	if z, ok := enc.summary[-1]; ok {
 		f = z
 	}
-	if z, ok := enc.summary[enc.scanCount]; ok {
+	if z, ok := enc.summary[int(enc.scanCount)]; ok {
 		f = z
 	}
 	if f != nil {
-		if _, err := f(enc.w, enc.scanCount); err != nil {
+		if _, err := f(enc.w, int(enc.scanCount)); err != nil {
 			return err
 		}
 		if _, err := enc.w.Write(enc.newline); err != nil {
@@ -769,7 +766,7 @@ func (enc *ExpandedEncoder) tableHeight(rows [][]*Value) int {
 		height++
 	}
 	// scanCount at this point is not the final value but this is better than nothing
-	if enc.summary != nil && enc.summary[-1] != nil || enc.summary[enc.scanCount] != nil {
+	if enc.summary != nil && enc.summary[-1] != nil || enc.summary[int(enc.scanCount)] != nil {
 		height++
 	}
 	return height
@@ -822,6 +819,8 @@ type JSONEncoder struct {
 	formatter Formatter
 	// empty is the empty value.
 	empty *Value
+	// useColumnTypes indicates using the result's column types.
+	useColumnTypes bool
 }
 
 // NewJSONEncoder creates a new JSON encoder using the provided options.
@@ -876,9 +875,9 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		cb[i] = append(cb[i], ':')
 	}
 	// set up storage for results
-	r := make([]interface{}, clen)
-	for i = 0; i < clen; i++ {
-		r[i] = new(interface{})
+	r, err := buildColumnTypes(enc.resultSet, clen, enc.useColumnTypes)
+	if err != nil {
+		return err
 	}
 	// start
 	if _, err = w.Write(start); err != nil {
@@ -887,15 +886,14 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 	// process
 	var v *Value
 	var vals []*Value
-	var count int
+	var count int64
 	for enc.resultSet.Next() {
 		if count != 0 {
 			if _, err = w.Write(cma); err != nil {
 				return err
 			}
 		}
-		count++
-		vals, err = enc.scanAndFormat(r)
+		vals, err = scanAndFormat(enc.resultSet, r, enc.formatter, &count)
 		if err != nil {
 			return err
 		}
@@ -964,17 +962,6 @@ func (enc *JSONEncoder) EncodeAll(w io.Writer) error {
 	return nil
 }
 
-// scanAndFormat scans and formats values from the result set.
-func (enc *JSONEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
-	if err := enc.resultSet.Err(); err != nil {
-		return nil, err
-	}
-	if err := enc.resultSet.Scan(vals...); err != nil {
-		return nil, err
-	}
-	return enc.formatter.Format(vals)
-}
-
 // UnalignedEncoder is an unbuffered, unaligned encoder for result sets.
 //
 // Provides a way of encoding unaligned result sets in formats such as
@@ -998,6 +985,8 @@ type UnalignedEncoder struct {
 	skipHeader bool
 	// empty is the empty value.
 	empty *Value
+	// useColumnTypes indicates using the result's column types.
+	useColumnTypes bool
 }
 
 // NewUnalignedEncoder creates a new unaligned encoder using the provided
@@ -1087,13 +1076,14 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 		}
 	}
 	// set up storage for results
-	r := make([]interface{}, clen)
-	for i := 0; i < clen; i++ {
-		r[i] = new(interface{})
+	r, err := buildColumnTypes(enc.resultSet, clen, enc.useColumnTypes)
+	if err != nil {
+		return err
 	}
 	// process
+	var count int64
 	for enc.resultSet.Next() {
-		vals, err := enc.scanAndFormat(r)
+		vals, err := scanAndFormat(enc.resultSet, r, enc.formatter, &count)
 		if err != nil {
 			return err
 		}
@@ -1141,17 +1131,6 @@ func (enc *UnalignedEncoder) EncodeAll(w io.Writer) error {
 	return nil
 }
 
-// scanAndFormat scans and formats values from the result set.
-func (enc *UnalignedEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
-	if err := enc.resultSet.Err(); err != nil {
-		return nil, err
-	}
-	if err := enc.resultSet.Scan(vals...); err != nil {
-		return nil, err
-	}
-	return enc.formatter.Format(vals)
-}
-
 // TemplateEncoder is an unbuffered template encoder for result sets.
 type TemplateEncoder struct {
 	// ResultSet is the result set to encode.
@@ -1170,6 +1149,8 @@ type TemplateEncoder struct {
 	skipHeader bool
 	// attributes are extra table attributes.
 	attributes string
+	// useColumnTypes indicates using the result's column types.
+	useColumnTypes bool
 }
 
 // NewTemplateEncoder creates a new template encoder using the provided options.
@@ -1234,14 +1215,15 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 		}
 	}
 	// set up storage for results
-	r := make([]interface{}, clen)
-	for i := 0; i < clen; i++ {
-		r[i] = new(interface{})
+	r, err := buildColumnTypes(enc.resultSet, clen, enc.useColumnTypes)
+	if err != nil {
+		return err
 	}
 	// process
 	var rows [][]*Value
+	var count int64
 	for enc.resultSet.Next() {
-		vals, err := enc.scanAndFormat(r)
+		vals, err := scanAndFormat(enc.resultSet, r, enc.formatter, &count)
 		if err != nil {
 			return err
 		}
@@ -1287,17 +1269,6 @@ func (enc *TemplateEncoder) EncodeAll(w io.Writer) error {
 	return nil
 }
 
-// scanAndFormat scans and formats values from the result set.
-func (enc *TemplateEncoder) scanAndFormat(vals []interface{}) ([]*Value, error) {
-	if err := enc.resultSet.Err(); err != nil {
-		return nil, err
-	}
-	if err := enc.resultSet.Scan(vals...); err != nil {
-		return nil, err
-	}
-	return enc.formatter.Format(vals)
-}
-
 // errEncoder provides a no-op encoder that always returns the wrapped error.
 type errEncoder struct {
 	err error
@@ -1322,4 +1293,41 @@ func newErrEncoder(_ ResultSet, opts ...Option) (Encoder, error) {
 		}
 	}
 	return enc, enc.err
+}
+
+// scanAndFormat scans and formats values from the result set.
+func scanAndFormat(resultSet ResultSet, vals []interface{}, formatter Formatter, count *int64) ([]*Value, error) {
+	if err := resultSet.Err(); err != nil {
+		return nil, err
+	}
+	if err := resultSet.Scan(vals...); err != nil {
+		return nil, err
+	}
+	atomic.AddInt64(count, 1)
+	return formatter.Format(vals)
+}
+
+// buildColumnTypes builds a []interface{} for storing scan results.
+func buildColumnTypes(resultSet ResultSet, n int, useColumnTypes bool) ([]interface{}, error) {
+	r := make([]interface{}, n)
+	if !useColumnTypes {
+		for i := 0; i < n; i++ {
+			r[i] = new(interface{})
+		}
+	} else {
+		z, ok := resultSet.(interface {
+			ColumnTypes() ([]*sql.ColumnType, error)
+		})
+		if !ok {
+			return nil, ErrResultSetHasNoColumnTypes
+		}
+		cols, err := z.ColumnTypes()
+		if err != nil {
+			return nil, err
+		}
+		for i := 0; i < n; i++ {
+			r[i] = reflect.New(cols[i].ScanType()).Interface()
+		}
+	}
+	return r, nil
 }

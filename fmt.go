@@ -2,8 +2,10 @@ package tblfmt
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -84,7 +86,7 @@ func NewEscapeFormatter(opts ...EscapeFormatterOption) *EscapeFormatter {
 func (f *EscapeFormatter) Header(headers []string) ([]*Value, error) {
 	n := len(headers)
 	res := make([]*Value, n)
-	useMask := strings.Contains(f.mask, "%")
+	useMask := strings.ContainsRune(f.mask, '%')
 	for i := 0; i < n; i++ {
 		s := strings.TrimSpace(headers[i])
 		if s == "" && useMask {
@@ -108,20 +110,11 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 	// TODO: allow configurable runes that can be escaped
 	// TODO: handler driver.Valuer
 	for i := 0; i < n; i++ {
-		switch v := (*(vals[i].(*interface{}))).(type) {
+		val := deref(vals[i])
+		switch v := val.(type) {
 		case nil:
 		case bool:
 			res[i] = newValue(strconv.FormatBool(v), AlignLeft, false)
-		case *bool:
-			if v != nil {
-				res[i] = newValue(strconv.FormatBool(*v), AlignLeft, false)
-			}
-		case uint8:
-			res[i] = &Value{Buf: []byte(string(rune(v))), Width: 1, Align: AlignRight, Raw: true}
-		case *uint8:
-			if v != nil {
-				res[i] = &Value{Buf: []byte(string(rune(*v))), Width: 1, Align: AlignRight, Raw: true}
-			}
 		case int:
 			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
 		case int8:
@@ -132,99 +125,58 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
 		case int64:
 			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
-		case *int:
-			if v != nil {
-				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
-			}
-		case *int8:
-			if v != nil {
-				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
-			}
-		case *int16:
-			if v != nil {
-				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
-			}
-		case *int32:
-			if v != nil {
-				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
-			}
-		case *int64:
-			if v != nil {
-				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
-			}
 		case uint:
 			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
+		case uint8:
+			res[i] = &Value{Buf: []byte(string(rune(v))), Width: 1, Align: AlignRight, Raw: true}
 		case uint16:
 			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
 		case uint32:
 			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
 		case uint64:
 			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
-		case *uint:
-			if v != nil {
-				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
-			}
-		case *uint16:
-			if v != nil {
-				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
-			}
-		case *uint32:
-			if v != nil {
-				res[i] = newValue(strconv.FormatInt(int64(*v), 10), AlignRight, true)
-			}
-		case *uint64:
-			if v != nil {
-				// int64 cannot hold uint64's max value
-				res[i] = newValue(strconv.FormatUint(uint64(*v), 10), AlignRight, true)
-			}
 		case uintptr:
 			res[i] = newValue(fmt.Sprintf("(0x%x)", v), AlignRight, true)
-		case *uintptr:
-			if v != nil {
-				res[i] = newValue(fmt.Sprintf("(0x%x)", v), AlignRight, true)
-			}
 		case float32:
 			res[i] = newValue(strconv.FormatFloat(float64(v), 'g', -1, 32), AlignRight, true)
 		case float64:
 			res[i] = newValue(strconv.FormatFloat(v, 'g', -1, 64), AlignRight, true)
-		case *float32:
-			if v != nil {
-				res[i] = newValue(strconv.FormatFloat(float64(*v), 'g', -1, 32), AlignRight, true)
-			}
-		case *float64:
-			if v != nil {
-				res[i] = newValue(strconv.FormatFloat(*v, 'g', -1, 64), AlignRight, true)
-			}
 		case complex64:
 			res[i] = newValue(fmt.Sprintf("%g", v), AlignRight, false)
 		case complex128:
 			res[i] = newValue(fmt.Sprintf("%g", v), AlignRight, false)
-		case *complex64:
-			if v != nil {
-				res[i] = newValue(fmt.Sprintf("%g", *v), AlignRight, false)
-			}
-		case *complex128:
-			if v != nil {
-				res[i] = newValue(fmt.Sprintf("%g", *v), AlignRight, false)
-			}
 		case []byte:
 			res[i] = FormatBytes(v, f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
-		case *[]byte:
-			if v != nil {
-				res[i] = FormatBytes(*v, f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
-			}
 		case string:
 			res[i] = FormatBytes([]byte(v), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
-		case *string:
-			if v != nil {
-				res[i] = FormatBytes([]byte(*v), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
-			}
 		case time.Time:
 			res[i] = newValue(v.Format(f.timeFormat), AlignLeft, false)
-		case *time.Time:
-			if v != nil {
-				res[i] = newValue(v.Format(f.timeFormat), AlignLeft, false)
+		case sql.NullBool:
+			if v.Valid {
+				res[i] = newValue(strconv.FormatBool(v.Bool), AlignLeft, false)
 			}
+		case sql.NullInt32:
+			if v.Valid {
+				res[i] = newValue(strconv.FormatInt(int64(v.Int32), 10), AlignRight, true)
+			}
+		case sql.NullInt64:
+			if v.Valid {
+				res[i] = newValue(strconv.FormatInt(v.Int64, 10), AlignRight, true)
+			}
+		case sql.NullFloat64:
+			if v.Valid {
+				res[i] = newValue(strconv.FormatFloat(v.Float64, 'g', -1, 64), AlignRight, true)
+			}
+		case sql.NullTime:
+			if v.Valid {
+				res[i] = newValue(v.Time.Format(f.timeFormat), AlignLeft, false)
+			}
+		case sql.NullString:
+			if v.Valid {
+				res[i] = FormatBytes([]byte(v.String), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
+			}
+		case sql.RawBytes:
+			res[i] = FormatBytes(v, f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
 		case fmt.Stringer:
 			res[i] = FormatBytes([]byte(v.String()), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
 		default:
@@ -558,4 +510,17 @@ func WithHeaderAlign(a Align) EscapeFormatterOption {
 	return func(f *EscapeFormatter) {
 		f.headerAlign = a
 	}
+}
+
+// deref dereferences a pointer to an interface.
+func deref(v interface{}) interface{} {
+	switch z := v.(type) {
+	case *interface{}:
+		return *z
+	}
+	val := reflect.ValueOf(v)
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+	return val.Interface()
 }

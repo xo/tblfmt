@@ -82,7 +82,9 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 	// unaligned, aligned, wrapped, html, asciidoc, latex, latex-longtable, troff-ms, json, csv
 	switch format := opts["format"]; format {
 	case "json":
-		return NewJSONEncoder, nil
+		return NewJSONEncoder, []Option{
+			WithUseColumnTypes(opts["use_column_types"] == "true"),
+		}
 	case "csv", "unaligned":
 		// determine separator, quote
 		sep, quote, field := '|', rune(0), "fieldsep"
@@ -113,6 +115,7 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			WithNewline(string(recordsep)),
 			WithTitle(opts["title"]),
 			WithEmpty(opts["null"]),
+			WithUseColumnTypes(opts["use_column_types"] == "true"),
 		}
 	case "html", "asciidoc", "latex", "latex-longtable", "troff-ms", "vertical":
 		return NewTemplateEncoder, []Option{
@@ -120,9 +123,12 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			WithTableAttributes(opts["tableattr"]),
 			WithTitle(opts["title"]),
 			WithEmpty(opts["null"]),
+			WithUseColumnTypes(opts["use_column_types"] == "true"),
 		}
 	case "aligned":
-		var tableOpts []Option
+		tableOpts := []Option{
+			WithUseColumnTypes(opts["use_column_types"] == "true"),
+		}
 		if s, ok := opts["border"]; ok {
 			border, _ := strconv.Atoi(s)
 			tableOpts = append(tableOpts, WithBorder(border))
@@ -531,6 +537,36 @@ func WithTemplate(name string) Option {
 				return err
 			}
 			return WithRawTemplate(string(buf), typ).apply(enc)
+		},
+	}
+}
+
+// WithUseColumnTypes is a encoder option to use the result set's column types.
+func WithUseColumnTypes(useColumnTypes bool) Option {
+	return option{
+		table: func(enc *TableEncoder) error {
+			enc.useColumnTypes = useColumnTypes
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
+			enc.useColumnTypes = useColumnTypes
+			return nil
+		},
+		json: func(enc *JSONEncoder) error {
+			enc.useColumnTypes = useColumnTypes
+			return nil
+		},
+		unaligned: func(enc *UnalignedEncoder) error {
+			enc.useColumnTypes = useColumnTypes
+			return nil
+		},
+		template: func(enc *TemplateEncoder) error {
+			enc.useColumnTypes = useColumnTypes
+			return nil
+		},
+		crosstab: func(view *CrosstabView) error {
+			view.useColumnTypes = useColumnTypes
+			return nil
 		},
 	}
 }
