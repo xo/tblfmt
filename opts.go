@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	texttemplate "text/template"
+	"time"
 
 	"github.com/nathan-fiscaletti/consolesize-go"
 	"github.com/xo/tblfmt/templates"
@@ -79,11 +80,16 @@ func (opt option) apply(o interface{}) error {
 // Note: this func is primarily a helper func to accommodate psql-like format
 // option names.
 func FromMap(opts map[string]string) (Builder, []Option) {
+	timeFormat := opts["time_format"]
+	if timeFormat == "" {
+		timeFormat = time.RFC3339
+	}
 	// unaligned, aligned, wrapped, html, asciidoc, latex, latex-longtable, troff-ms, json, csv
 	switch format := opts["format"]; format {
 	case "json":
 		return NewJSONEncoder, []Option{
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
+			WithFormatterOptions(WithTimeFormat(timeFormat)),
 		}
 	case "csv", "unaligned":
 		// determine separator, quote
@@ -116,6 +122,7 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			WithTitle(opts["title"]),
 			WithEmpty(opts["null"]),
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
+			WithFormatterOptions(WithTimeFormat(timeFormat)),
 		}
 	case "html", "asciidoc", "latex", "latex-longtable", "troff-ms", "vertical":
 		return NewTemplateEncoder, []Option{
@@ -124,10 +131,12 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			WithTitle(opts["title"]),
 			WithEmpty(opts["null"]),
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
+			WithFormatterOptions(WithTimeFormat(timeFormat)),
 		}
 	case "aligned":
 		tableOpts := []Option{
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
+			WithFormatterOptions(WithTimeFormat(timeFormat)),
 		}
 		if s, ok := opts["border"]; ok {
 			border, _ := strconv.Atoi(s)
@@ -255,6 +264,42 @@ func WithFormatter(formatter Formatter) Option {
 		template: func(enc *TemplateEncoder) error {
 			enc.formatter = formatter
 			return nil
+		},
+		crosstab: func(view *CrosstabView) error {
+			view.formatter = formatter
+			return nil
+		},
+	}
+}
+
+// WithFormatterOptions is a encoder option to add additional formatter
+// options.
+func WithFormatterOptions(opts ...EscapeFormatterOption) Option {
+	apply := func(formatter Formatter) error {
+		f := formatter.(*EscapeFormatter)
+		for _, o := range opts {
+			o(f)
+		}
+		return nil
+	}
+	return option{
+		table: func(enc *TableEncoder) error {
+			return apply(enc.formatter)
+		},
+		expanded: func(enc *ExpandedEncoder) error {
+			return apply(enc.formatter)
+		},
+		json: func(enc *JSONEncoder) error {
+			return apply(enc.formatter)
+		},
+		unaligned: func(enc *UnalignedEncoder) error {
+			return apply(enc.formatter)
+		},
+		template: func(enc *TemplateEncoder) error {
+			return apply(enc.formatter)
+		},
+		crosstab: func(view *CrosstabView) error {
+			return apply(view.formatter)
 		},
 	}
 }
