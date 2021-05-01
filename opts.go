@@ -121,6 +121,7 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			WithNewline(string(recordsep)),
 			WithTitle(opts["title"]),
 			WithEmpty(opts["null"]),
+			WithSkipHeader(opts["tuples_only"] == "on"),
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
 			WithFormatterOptions(WithTimeFormat(timeFormat)),
 		}
