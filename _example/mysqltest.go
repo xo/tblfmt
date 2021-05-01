@@ -24,6 +24,7 @@ func main() {
 
 func run(useColumnTypes bool) error {
 	db, err := dburl.Open("mysql://root:P4ssw0rd@localhost/testdb?parseTime=true")
+	// db, err := dburl.Open("mymysql://root:P4ssw0rd@localhost/testdb")
 	if err != nil {
 		return err
 	}
@@ -32,5 +33,5 @@ func run(useColumnTypes bool) error {
 		return err
 	}
 	defer res.Close()
-	return tblfmt.EncodeTableAll(os.Stdout, res, tblfmt.WithUseColumnTypes(useColumnTypes))
+	return tblfmt.EncodeTableAll(os.Stdout, res, tblfmt.WithUseColumnTypes(useColumnTypes), tblfmt.WithEmpty("stuff"))
 }

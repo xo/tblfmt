@@ -80,7 +80,7 @@ func (opt option) apply(o interface{}) error {
 // Note: this func is primarily a helper func to accommodate psql-like format
 // option names.
 func FromMap(opts map[string]string) (Builder, []Option) {
-	timeFormat := opts["time_format"]
+	timeFormat := opts["time"]
 	if timeFormat == "" {
 		timeFormat = time.RFC3339
 	}
