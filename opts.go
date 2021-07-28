@@ -88,6 +88,7 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 	switch format := opts["format"]; format {
 	case "json":
 		return NewJSONEncoder, []Option{
+			WithLowerColumnNames(opts["lower_column_names"] == "true"),
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
 			WithFormatterOptions(WithTimeFormat(timeFormat)),
 		}
@@ -122,6 +123,7 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			WithTitle(opts["title"]),
 			WithEmpty(opts["null"]),
 			WithSkipHeader(opts["tuples_only"] == "on"),
+			WithLowerColumnNames(opts["lower_column_names"] == "true"),
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
 			WithFormatterOptions(WithTimeFormat(timeFormat)),
 		}
@@ -131,11 +133,13 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			WithTableAttributes(opts["tableattr"]),
 			WithTitle(opts["title"]),
 			WithEmpty(opts["null"]),
+			WithLowerColumnNames(opts["lower_column_names"] == "true"),
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
 			WithFormatterOptions(WithTimeFormat(timeFormat)),
 		}
 	case "aligned":
 		tableOpts := []Option{
+			WithLowerColumnNames(opts["lower_column_names"] == "true"),
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
 			WithFormatterOptions(WithTimeFormat(timeFormat)),
 		}
@@ -583,6 +587,37 @@ func WithTemplate(name string) Option {
 				return err
 			}
 			return WithRawTemplate(string(buf), typ).apply(enc)
+		},
+	}
+}
+
+// WithLowerColumnNames is a encoder option to lower case column names when
+// column names are all caps.
+func WithLowerColumnNames(lowerColumnNames bool) Option {
+	return option{
+		table: func(enc *TableEncoder) error {
+			enc.lowerColumnNames = lowerColumnNames
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
+			enc.lowerColumnNames = lowerColumnNames
+			return nil
+		},
+		json: func(enc *JSONEncoder) error {
+			enc.lowerColumnNames = lowerColumnNames
+			return nil
+		},
+		unaligned: func(enc *UnalignedEncoder) error {
+			enc.lowerColumnNames = lowerColumnNames
+			return nil
+		},
+		template: func(enc *TemplateEncoder) error {
+			enc.lowerColumnNames = lowerColumnNames
+			return nil
+		},
+		crosstab: func(view *CrosstabView) error {
+			view.lowerColumnNames = lowerColumnNames
+			return nil
 		},
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"syscall"
+	"unicode"
 
 	runewidth "github.com/mattn/go-runewidth"
 )
@@ -56,8 +57,8 @@ type TableEncoder struct {
 	offsets []int
 	// widths are the user-supplied column widths.
 	widths []int
-	// maxWidths are calculated max column widths.
-	// They are at least as wide as user-supplied widths
+	// maxWidths are calculated max column widths. Max widths are at least as
+	// wide as user-supplied widths
 	maxWidths []int
 	// minExpandWidth of the table required to switch to the ExpandedEncoder
 	// zero disables switching
@@ -73,6 +74,9 @@ type TableEncoder struct {
 	pagerCmd string
 	// scanCount is the number of scanned results in the result set.
 	scanCount int64
+	// lowerColumnNames indicates lower casing the column names when column
+	// names are all caps.
+	lowerColumnNames bool
 	// useColumnTypes indicates using the result's column types.
 	useColumnTypes bool
 	// w is the undelying writer
@@ -129,12 +133,11 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		return ErrResultSetIsNil
 	}
 	// get and check columns
-	cols, err := enc.resultSet.Columns()
-	if err != nil {
+	clen, cols, err := buildColNames(enc.resultSet, enc.lowerColumnNames)
+	switch {
+	case err != nil:
 		return err
-	}
-	clen := len(cols)
-	if clen == 0 {
+	case clen == 0:
 		return ErrResultSetHasNoColumns
 	}
 	// setup offsets, widths
@@ -618,11 +621,11 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 		return ErrResultSetIsNil
 	}
 	// get and check columns
-	cols, err := enc.resultSet.Columns()
-	if err != nil {
+	clen, cols, err := buildColNames(enc.resultSet, enc.lowerColumnNames)
+	switch {
+	case err != nil:
 		return err
-	}
-	if len(cols) == 0 {
+	case clen == 0:
 		return ErrResultSetHasNoColumns
 	}
 	// setup offsets, widths
@@ -819,6 +822,9 @@ type JSONEncoder struct {
 	formatter Formatter
 	// empty is the empty value.
 	empty *Value
+	// lowerColumnNames indicates lower casing the column names when column
+	// names are all caps.
+	lowerColumnNames bool
 	// useColumnTypes indicates using the result's column types.
 	useColumnTypes bool
 }
@@ -859,12 +865,11 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		cma   = []byte{','}
 	)
 	// get and check columns
-	cols, err := enc.resultSet.Columns()
-	if err != nil {
+	clen, cols, err := buildColNames(enc.resultSet, enc.lowerColumnNames)
+	switch {
+	case err != nil:
 		return err
-	}
-	clen := len(cols)
-	if clen == 0 {
+	case clen == 0:
 		return ErrResultSetHasNoColumns
 	}
 	cb := make([][]byte, clen)
@@ -985,6 +990,9 @@ type UnalignedEncoder struct {
 	skipHeader bool
 	// empty is the empty value.
 	empty *Value
+	// lowerColumnNames indicates lower casing the column names when column
+	// names are all caps.
+	lowerColumnNames bool
 	// useColumnTypes indicates using the result's column types.
 	useColumnTypes bool
 }
@@ -1042,12 +1050,11 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 		return ErrResultSetIsNil
 	}
 	// get and check columns
-	cols, err := enc.resultSet.Columns()
-	if err != nil {
+	clen, cols, err := buildColNames(enc.resultSet, enc.lowerColumnNames)
+	switch {
+	case err != nil:
 		return err
-	}
-	clen := len(cols)
-	if clen == 0 {
+	case clen == 0:
 		return ErrResultSetHasNoColumns
 	}
 	sep, quote := []byte(string(enc.sep)), []byte(string(enc.quote))
@@ -1149,6 +1156,9 @@ type TemplateEncoder struct {
 	skipHeader bool
 	// attributes are extra table attributes.
 	attributes string
+	// lowerColumnNames indicates lower casing the column names when column
+	// names are all caps.
+	lowerColumnNames bool
 	// useColumnTypes indicates using the result's column types.
 	useColumnTypes bool
 }
@@ -1197,12 +1207,11 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 		return ErrResultSetIsNil
 	}
 	// get and check columns
-	cols, err := enc.resultSet.Columns()
-	if err != nil {
+	clen, cols, err := buildColNames(enc.resultSet, enc.lowerColumnNames)
+	switch {
+	case err != nil:
 		return err
-	}
-	clen := len(cols)
-	if clen == 0 {
+	case clen == 0:
 		return ErrResultSetHasNoColumns
 	}
 	headers, err := enc.formatter.Header(cols)
@@ -1305,6 +1314,25 @@ func scanAndFormat(resultSet ResultSet, vals []interface{}, formatter Formatter,
 	}
 	atomic.AddInt64(count, 1)
 	return formatter.Format(vals)
+}
+
+// buildColNames builds the column names for the result set.
+func buildColNames(resultSet ResultSet, lower bool) (int, []string, error) {
+	cols, err := resultSet.Columns()
+	if err != nil {
+		return 0, nil, err
+	}
+	clen := len(cols)
+	if lower {
+		for i, s := range cols {
+			if j := strings.IndexFunc(s, func(r rune) bool {
+				return unicode.IsLetter(r) && unicode.IsLower(r)
+			}); j == -1 {
+				cols[i] = strings.ToLower(s)
+			}
+		}
+	}
+	return clen, cols, nil
 }
 
 // buildColumnTypes builds a []interface{} for storing scan results.

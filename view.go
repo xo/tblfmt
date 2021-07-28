@@ -22,6 +22,9 @@ type CrosstabView struct {
 	formatter Formatter
 	// empty is the empty value.
 	empty *Value
+	// lowerColumnNames indicates lower casing the column names when column
+	// names are all caps.
+	lowerColumnNames bool
 	// useColumnTypes indicates using the result's column types.
 	useColumnTypes bool
 	// v is the vertical header column.
@@ -73,14 +76,13 @@ func (view *CrosstabView) build() error {
 	view.pos = -1
 	view.vals = make(map[string]map[string]interface{})
 	// get columns
-	cols, err := view.resultSet.Columns()
-	if err != nil {
+	clen, cols, err := buildColNames(view.resultSet, view.lowerColumnNames)
+	switch {
+	case err != nil:
 		return view.fail(err)
-	}
-	if len(cols) < 3 {
+	case clen < 3:
 		return view.fail(ErrCrosstabResultMustHaveAtLeast3Columns)
-	}
-	if len(cols) > 3 && view.d == "" {
+	case clen > 3 && view.d == "":
 		return view.fail(ErrCrosstabDataColumnMustBeSpecifiedWhenQueryReturnsMoreThanThreeColumns)
 	}
 	vindex := findIndex(cols, view.v, 0)
@@ -126,7 +128,6 @@ func (view *CrosstabView) build() error {
 			return view.fail(ErrCrosstabHorizontalSortColumnNotInResult)
 		}
 	}
-	clen := len(cols)
 	// process results
 	for view.resultSet.Next() {
 		r, err := buildColumnTypes(view.resultSet, clen, view.useColumnTypes)
