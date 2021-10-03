@@ -172,6 +172,10 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 			}
 			exp.offsets = make([]int, 2)
 			exp.maxWidths = make([]int, 2)
+			exp.headers, err = exp.formatter.Header(cols)
+			if err != nil {
+				return err
+			}
 			exp.calcWidth(vals)
 			if exp.pagerCmd != "" && cmd == nil &&
 				((exp.minPagerHeight != 0 && exp.tableHeight(vals) >= exp.minPagerHeight) ||
