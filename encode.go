@@ -274,9 +274,6 @@ func (enc *TableEncoder) EncodeAll(w io.Writer) error {
 			return err
 		}
 	}
-	if _, err := w.Write(enc.newline); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -719,9 +716,6 @@ func (enc *ExpandedEncoder) EncodeAll(w io.Writer) error {
 			return err
 		}
 	}
-	if _, err := w.Write(enc.newline); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -1136,9 +1130,6 @@ func (enc *UnalignedEncoder) EncodeAll(w io.Writer) error {
 			return err
 		}
 	}
-	if _, err := w.Write(enc.newline); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -1275,9 +1266,6 @@ func (enc *TemplateEncoder) EncodeAll(w io.Writer) error {
 		if err := enc.Encode(w); err != nil {
 			return err
 		}
-	}
-	if _, err := w.Write(enc.newline); err != nil {
-		return err
 	}
 	return nil
 }

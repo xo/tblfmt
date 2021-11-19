@@ -65,7 +65,6 @@ func TestEncodeTableAll(t *testing.T) {
 ║                      ║                           ║ ]                          ║
 ╚══════════════════════╩═══════════════════════════╩════════════════════════════╝
 (8 rows)
-
 `
 	buf := new(bytes.Buffer)
 	if err := EncodeTableAll(buf, internal.NewRsetMulti(), WithBorder(2), WithLineStyle(UnicodeDoubleLineStyle()), WithTitle("my table"), WithWidths(20, 20)); err != nil {
@@ -195,7 +194,6 @@ Row 7:
   "a",
   "b"
 ]"
-
 `
 	tpl := `{{ $headers := .Headers }}{{ range $i, $r := .Rows }}Row {{ $i }}:{{ range $j, $c := $r }}
   {{ index $headers $j }} = "{{ $c }}"{{ end }}
@@ -255,7 +253,6 @@ test
   "a",
   "b"
 ]
-
 `
 	buf := new(bytes.Buffer)
 	if err := EncodeUnalignedAll(buf, internal.NewRsetMulti()); err != nil {
@@ -312,7 +309,6 @@ test
   ""a"",
   ""b""
 ]"
-
 `
 	buf := new(bytes.Buffer)
 	if err := EncodeCSVAll(buf, internal.NewRsetMulti()); err != nil {
