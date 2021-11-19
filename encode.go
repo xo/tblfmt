@@ -1092,8 +1092,19 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 		return err
 	}
 	// process
-	var count int64
+	var (
+		count     int64
+		firstLine = true
+	)
 	for enc.resultSet.Next() {
+		if firstLine {
+			firstLine = false
+		} else {
+			if _, err := w.Write(enc.newline); err != nil {
+				return err
+			}
+		}
+
 		vals, err := scanAndFormat(enc.resultSet, r, enc.formatter, &count)
 		if err != nil {
 			return err
@@ -1115,9 +1126,6 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 			if _, err := w.Write(buf); err != nil {
 				return err
 			}
-		}
-		if _, err := w.Write(enc.newline); err != nil {
-			return err
 		}
 	}
 	return nil
