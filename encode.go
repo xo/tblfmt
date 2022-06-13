@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"unicode"
 
+	"github.com/google/shlex"
 	runewidth "github.com/mattn/go-runewidth"
 )
 
@@ -228,7 +229,11 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 }
 
 func startPager(pagerCmd string, w io.Writer) (*exec.Cmd, io.WriteCloser, error) {
-	cmd := exec.Command(pagerCmd)
+	pagerArgs, err := shlex.Split(pagerCmd)
+	if err != nil {
+		return nil, nil, err
+	}
+	cmd := exec.Command(pagerArgs[0], pagerArgs[1:]...)
 	cmd.Stdout = w
 	cmd.Stderr = w
 	cmdBuf, err := cmd.StdinPipe()
