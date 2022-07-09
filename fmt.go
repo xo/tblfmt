@@ -114,7 +114,7 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 		switch v := val.(type) {
 		case nil:
 		case bool:
-			res[i] = newValue(strconv.FormatBool(v), AlignLeft, false)
+			res[i] = newValue(strconv.FormatBool(v), AlignLeft, true)
 		case int:
 			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
 		case int8:
@@ -153,7 +153,7 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 			res[i] = newValue(v.Format(f.timeFormat), AlignLeft, false)
 		case sql.NullBool:
 			if v.Valid {
-				res[i] = newValue(strconv.FormatBool(v.Bool), AlignLeft, false)
+				res[i] = newValue(strconv.FormatBool(v.Bool), AlignLeft, true)
 			}
 		case sql.NullInt32:
 			if v.Valid {

@@ -1,9 +1,10 @@
 module github.com/xo/tblfmt
 
+go 1.18
+
 require (
 	github.com/mattn/go-runewidth v0.0.13
-	github.com/nathan-fiscaletti/consolesize-go v0.0.0-20210105204122-a87d9f614b9d
-	github.com/rivo/uniseg v0.2.0 // indirect
+	github.com/nathan-fiscaletti/consolesize-go v0.0.0-20220204101620-317176b6684d
 )
 
-go 1.17
+require github.com/rivo/uniseg v0.2.0 // indirect
