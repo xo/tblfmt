@@ -311,7 +311,7 @@ func (enc *TableEncoder) nextResults() ([][]*Value, error) {
 			break
 		}
 	}
-	return vals, nil
+	return vals, enc.resultSet.Err()
 }
 
 func (enc *TableEncoder) calcWidth(vals [][]*Value) {
@@ -943,6 +943,10 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 			return err
 		}
 	}
+	err = enc.resultSet.Err()
+	if err != nil {
+		return err
+	}
 	// end
 	_, err = w.Write(end)
 	return err
@@ -1119,7 +1123,7 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 			return err
 		}
 	}
-	return nil
+	return enc.resultSet.Err()
 }
 
 // EncodeAll encodes all result sets to the writer using the encoder settings.
