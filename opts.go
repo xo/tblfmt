@@ -161,6 +161,9 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			// use an empty summary map to skip drawing the footer
 			tableOpts = append(tableOpts, WithSummary(map[int]func(io.Writer, int) (int, error){}))
 		}
+		if s, ok := opts["extra_newline"]; ok && s != "true" {
+			tableOpts = append(tableOpts, WithExtraNewline(false))
+		}
 		if s, ok := opts["linestyle"]; ok {
 			switch s {
 			case "ascii":
@@ -741,6 +744,17 @@ func withError(err error) Option {
 		err: func(enc *errEncoder) error {
 			enc.err = err
 			return err
+		},
+	}
+}
+
+// WithExtraNewline is an encoder option to set whether the printed table is
+// followed by an empty line (e.g. for spacing).
+func WithExtraNewline(p bool) Option {
+	return option{
+		table: func(enc *TableEncoder) error {
+			enc.extraNewline = p
+			return nil
 		},
 	}
 }

@@ -65,9 +65,31 @@ func TestEncodeTableAll(t *testing.T) {
 ║                      ║                           ║ ]                          ║
 ╚══════════════════════╩═══════════════════════════╩════════════════════════════╝
 (8 rows)
+
 `
 	buf := new(bytes.Buffer)
 	if err := EncodeTableAll(buf, internal.NewRsetMulti(), WithBorder(2), WithLineStyle(UnicodeDoubleLineStyle()), WithTitle("my table"), WithWidths(20, 20)); err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	actual := buf.String()
+	if actual != exp {
+		t.Errorf("expected:\n%q\n---\ngot:\n%q", exp, actual)
+	}
+}
+
+func TestEncodeTable(t *testing.T) {
+	t.Parallel()
+	exp := `my table
+╔═══╗
+║ z ║
+╠═══╣
+║ x ║
+╚═══╝
+(1 row)
+
+`
+	buf := new(bytes.Buffer)
+	if err := EncodeTableAll(buf, internal.NewRsetTiny(), WithBorder(2), WithLineStyle(UnicodeDoubleLineStyle()), WithTitle("my table"), WithExtraNewline(true)); err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 	actual := buf.String()

@@ -79,6 +79,9 @@ type TableEncoder struct {
 	lowerColumnNames bool
 	// useColumnTypes indicates using the result's column types.
 	useColumnTypes bool
+	// extraNewline indicates whether the printed table is followed by an
+	// empty line (e.g. for spacing).
+	extraNewline bool
 	// w is the undelying writer
 	w *bufio.Writer
 }
@@ -98,6 +101,7 @@ func NewTableEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 		empty: &Value{
 			Tabs: make([][][2]int, 1),
 		},
+		extraNewline: true,
 	}
 	// apply options
 	for _, o := range opts {
@@ -217,6 +221,11 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 	if err := enc.summarize(w); err != nil {
 		return err
 	}
+	if enc.extraNewline {
+		if _, err := enc.w.Write(enc.newline); err != nil {
+			return err
+		}
+	}
 	if err := enc.w.Flush(); err != nil {
 		return checkErr(err, cmd)
 	}
@@ -267,9 +276,6 @@ func (enc *TableEncoder) EncodeAll(w io.Writer) error {
 		return err
 	}
 	for enc.resultSet.NextResultSet() {
-		if _, err := w.Write(enc.newline); err != nil {
-			return err
-		}
 		if err := enc.Encode(w); err != nil {
 			return err
 		}
