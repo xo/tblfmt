@@ -5,13 +5,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Install Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v3
       with:
-        go-version: 1.16.x
+        go-version: 1.19.x
     - name: Configure Git
       run: |
         git config --global core.autocrlf input
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
     - name: Test
       run: go test -v -coverprofile=coverage.out -bench=. -benchmem
