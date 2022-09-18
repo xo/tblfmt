@@ -13,6 +13,9 @@ import (
 	"unicode/utf8"
 
 	runewidth "github.com/mattn/go-runewidth"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
+	"golang.org/x/text/number"
 )
 
 // Formatter is the common interface for formatting values.
@@ -26,9 +29,9 @@ type Formatter interface {
 // EscapeFormatter is an escaping formatter, that handles formatting the
 // standard Go types.
 //
-// If Marshaler is not nil, then it will be passed any map[string]interface{}
-// and []interface{} values encountered. If nil, then the standard
-// encoding/json.Encoder will be used instead.
+// When the encoder is not nil, then it will be passed any
+// map[string]interface{} and []interface{} values encountered, otherwise the
+// stdlib's encoding/json.Encoder will be used.
 type EscapeFormatter struct {
 	// mask is used to format header values when the formatted value (after
 	// trimming spaces) is the empty string.
@@ -37,18 +40,18 @@ type EscapeFormatter struct {
 	mask string
 	// timeFormat is the format to use for time values.
 	timeFormat string
-	// marshaler will be used to marshal map[string]interface{} and
-	// []interface{} types.
+	// encoder will be used to encode map[string]interface{} and []interface{}
+	// types.
 	//
 	// If nil, the standard encoding/json.Encoder will be used instead.
-	marshaler func(interface{}) ([]byte, error)
-	// prefix is indent prefix used by the JSON encoder when Marshaler is nil.
+	encoder func(interface{}) ([]byte, error)
+	// prefix is indent prefix used by the JSON encoder when encoder is nil.
 	prefix string
-	// indent is the indent used by the JSON encoder when Marshaler is nil.
+	// indent is the indent used by the JSON encoder when encoder is nil.
 	indent string
 	// isJSON sets escaping JSON characters.
 	isJSON bool
-	// escapeHTML sets the JSON encoder used when Marshaler is nil to escape HTML
+	// escapeHTML sets the JSON encoder used when encoder is nil to escape HTML
 	// characters.
 	escapeHTML bool
 	// isRaw sets raw escaping.
@@ -63,11 +66,13 @@ type EscapeFormatter struct {
 	invalidWidth int
 	// headerAlign is the default header values alignment
 	headerAlign Align
+	// printer is the numeric locale printer.
+	printer *message.Printer
 }
 
 // NewEscapeFormatter creates a escape formatter to handle basic Go values,
 // such as []byte, string, time.Time. Formatting for map[string]interface{} and
-// []interface{} will be passed to a marshaler provided by WithMarshaler,
+// []interface{} will be passed to a marshaler provided by WithEncoder,
 // otherwise the standard encoding/json.Encoder will be used to marshal those
 // values.
 func NewEscapeFormatter(opts ...EscapeFormatterOption) *EscapeFormatter {
@@ -115,32 +120,33 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 		case nil:
 		case bool:
 			res[i] = newValue(strconv.FormatBool(v), AlignLeft, true)
-		case int:
-			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
-		case int8:
-			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
-		case int16:
-			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
-		case int32:
-			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
-		case int64:
-			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
-		case uint:
-			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
-		case uint8:
-			res[i] = &Value{Buf: []byte(string(rune(v))), Width: 1, Align: AlignRight, Raw: true}
-		case uint16:
-			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
-		case uint32:
-			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
-		case uint64:
-			res[i] = newValue(strconv.FormatInt(int64(v), 10), AlignRight, true)
+		case int, int8, int16, int32, int64,
+			uint, uint8, uint16, uint32, uint64:
+			var s string
+			if f.printer != nil {
+				s = f.printer.Sprintf("%v", number.Decimal(v))
+			} else {
+				s = fmt.Sprintf("%d", v)
+			}
+			res[i] = newValue(s, AlignRight, true)
+		case float32:
+			var s string
+			if f.printer != nil {
+				s = f.printer.Sprintf("%v", number.Decimal(v, number.MinFractionDigits(1)))
+			} else {
+				s = strconv.FormatFloat(float64(v), 'g', -1, 32)
+			}
+			res[i] = newValue(s, AlignRight, true)
+		case float64:
+			var s string
+			if f.printer != nil {
+				s = f.printer.Sprintf("%v", number.Decimal(v, number.MinFractionDigits(1)))
+			} else {
+				s = strconv.FormatFloat(v, 'g', -1, 64)
+			}
+			res[i] = newValue(s, AlignRight, true)
 		case uintptr:
 			res[i] = newValue(fmt.Sprintf("(0x%x)", v), AlignRight, true)
-		case float32:
-			res[i] = newValue(strconv.FormatFloat(float64(v), 'g', -1, 32), AlignRight, true)
-		case float64:
-			res[i] = newValue(strconv.FormatFloat(v, 'g', -1, 64), AlignRight, true)
 		case complex64:
 			res[i] = newValue(fmt.Sprintf("%g", v), AlignRight, false)
 		case complex128:
@@ -157,15 +163,33 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 			}
 		case sql.NullInt32:
 			if v.Valid {
-				res[i] = newValue(strconv.FormatInt(int64(v.Int32), 10), AlignRight, true)
+				var s string
+				if f.printer != nil {
+					s = f.printer.Sprintf("%v", number.Decimal(v.Int32))
+				} else {
+					s = strconv.FormatInt(int64(v.Int32), 10)
+				}
+				res[i] = newValue(s, AlignRight, true)
 			}
 		case sql.NullInt64:
 			if v.Valid {
-				res[i] = newValue(strconv.FormatInt(v.Int64, 10), AlignRight, true)
+				var s string
+				if f.printer != nil {
+					s = f.printer.Sprintf("%v", number.Decimal(v.Int64))
+				} else {
+					s = strconv.FormatInt(v.Int64, 10)
+				}
+				res[i] = newValue(s, AlignRight, true)
 			}
 		case sql.NullFloat64:
 			if v.Valid {
-				res[i] = newValue(strconv.FormatFloat(v.Float64, 'g', -1, 64), AlignRight, true)
+				var s string
+				if f.printer != nil {
+					s = f.printer.Sprintf("%v", number.Decimal(v.Float64))
+				} else {
+					s = strconv.FormatFloat(v.Float64, 'g', -1, 64)
+				}
+				res[i] = newValue(s, AlignRight, true)
 			}
 		case sql.NullTime:
 			if v.Valid {
@@ -181,8 +205,8 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 			res[i] = FormatBytes([]byte(v.String()), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
 		default:
 			// TODO: pool
-			if f.marshaler != nil {
-				buf, err := f.marshaler(v)
+			if f.encoder != nil {
+				buf, err := f.encoder(v)
 				if err != nil {
 					return nil, err
 				}
@@ -462,11 +486,11 @@ func WithTimeFormat(timeFormat string) EscapeFormatterOption {
 	}
 }
 
-// WithMarshaler is an escape formatter option to set a standard Go encoder to
+// WithEncoder is an escape formatter option to set a standard Go encoder to
 // use for encoding the value.
-func WithMarshaler(marshaler func(interface{}) ([]byte, error)) EscapeFormatterOption {
+func WithEncoder(encoder func(interface{}) ([]byte, error)) EscapeFormatterOption {
 	return func(f *EscapeFormatter) {
-		f.marshaler = marshaler
+		f.encoder = encoder
 	}
 }
 
@@ -509,6 +533,19 @@ func WithInvalid(invalid string) EscapeFormatterOption {
 func WithHeaderAlign(a Align) EscapeFormatterOption {
 	return func(f *EscapeFormatter) {
 		f.headerAlign = a
+	}
+}
+
+// WithNumericLocale sets the numeric locale printer.
+func WithNumericLocale(enable bool, locale string) EscapeFormatterOption {
+	return func(f *EscapeFormatter) {
+		if enable {
+			tag := language.English
+			if t, err := language.Parse(locale); err == nil {
+				tag = t
+			}
+			f.printer = message.NewPrinter(tag)
+		}
 	}
 }
 

@@ -80,10 +80,17 @@ func (opt option) apply(o interface{}) error {
 // Note: this func is primarily a helper func to accommodate psql-like format
 // option names.
 func FromMap(opts map[string]string) (Builder, []Option) {
+	// time format
 	timeFormat := opts["time"]
 	if timeFormat == "" {
 		timeFormat = time.RFC3339
 	}
+	// numeric locale
+	locale := opts["locale"]
+	if locale == "" {
+		locale = "en-US"
+	}
+	numericLocale := opts["numericlocale"] == "true" || opts["numericlocale"] == "on"
 	// unaligned, aligned, wrapped, html, asciidoc, latex, latex-longtable, troff-ms, json, csv
 	switch format := opts["format"]; format {
 	case "json":
@@ -125,7 +132,7 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			WithSkipHeader(opts["tuples_only"] == "on"),
 			WithLowerColumnNames(opts["lower_column_names"] == "true"),
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
-			WithFormatterOptions(WithTimeFormat(timeFormat)),
+			WithFormatterOptions(WithTimeFormat(timeFormat), WithNumericLocale(numericLocale, locale)),
 		}
 	case "html", "asciidoc", "latex", "latex-longtable", "troff-ms", "vertical":
 		return NewTemplateEncoder, []Option{
@@ -135,13 +142,13 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			WithEmpty(opts["null"]),
 			WithLowerColumnNames(opts["lower_column_names"] == "true"),
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
-			WithFormatterOptions(WithTimeFormat(timeFormat)),
+			WithFormatterOptions(WithTimeFormat(timeFormat), WithNumericLocale(numericLocale, locale)),
 		}
 	case "aligned":
 		tableOpts := []Option{
 			WithLowerColumnNames(opts["lower_column_names"] == "true"),
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
-			WithFormatterOptions(WithTimeFormat(timeFormat)),
+			WithFormatterOptions(WithTimeFormat(timeFormat), WithNumericLocale(numericLocale, locale)),
 		}
 		if s, ok := opts["border"]; ok {
 			border, _ := strconv.Atoi(s)
@@ -214,9 +221,8 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			}
 		}
 		return builder, tableOpts
-	default:
-		return newErrEncoder, []Option{withError(ErrInvalidFormat)}
 	}
+	return newErrEncoder, []Option{withError(ErrInvalidFormat)}
 }
 
 // WithCount is a encoder option to set the buffered line count.
