@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"reflect"
 	"strings"
 	"testing"
@@ -80,7 +79,7 @@ func TestFromMapFormats(t *testing.T) {
 			if err != nil {
 				t.Fatalf("expected no error, got: %v", err)
 			}
-			buf, err := ioutil.ReadAll(r)
+			buf, err := io.ReadAll(r)
 			if err != nil {
 				t.Fatalf("expected no error, got: %v", err)
 			}

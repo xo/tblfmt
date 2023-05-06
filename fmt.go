@@ -161,6 +161,36 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 			if v.Valid {
 				res[i] = newValue(strconv.FormatBool(v.Bool), AlignLeft, true)
 			}
+		case sql.NullByte:
+			if v.Valid {
+				var s string
+				if f.printer != nil {
+					s = f.printer.Sprintf("%v", number.Decimal(v.Byte))
+				} else {
+					s = fmt.Sprintf("%d", v.Byte)
+				}
+				res[i] = newValue(s, AlignRight, true)
+			}
+		case sql.NullFloat64:
+			if v.Valid {
+				var s string
+				if f.printer != nil {
+					s = f.printer.Sprintf("%v", number.Decimal(v.Float64))
+				} else {
+					s = strconv.FormatFloat(v.Float64, 'g', -1, 64)
+				}
+				res[i] = newValue(s, AlignRight, true)
+			}
+		case sql.NullInt16:
+			if v.Valid {
+				var s string
+				if f.printer != nil {
+					s = f.printer.Sprintf("%v", number.Decimal(v.Int16))
+				} else {
+					s = strconv.FormatInt(int64(v.Int16), 10)
+				}
+				res[i] = newValue(s, AlignRight, true)
+			}
 		case sql.NullInt32:
 			if v.Valid {
 				var s string
@@ -181,23 +211,13 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 				}
 				res[i] = newValue(s, AlignRight, true)
 			}
-		case sql.NullFloat64:
+		case sql.NullString:
 			if v.Valid {
-				var s string
-				if f.printer != nil {
-					s = f.printer.Sprintf("%v", number.Decimal(v.Float64))
-				} else {
-					s = strconv.FormatFloat(v.Float64, 'g', -1, 64)
-				}
-				res[i] = newValue(s, AlignRight, true)
+				res[i] = FormatBytes([]byte(v.String), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
 			}
 		case sql.NullTime:
 			if v.Valid {
 				res[i] = newValue(v.Time.Format(f.timeFormat), AlignLeft, false)
-			}
-		case sql.NullString:
-			if v.Valid {
-				res[i] = FormatBytes([]byte(v.String), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
 			}
 		case sql.RawBytes:
 			res[i] = FormatBytes(v, f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)

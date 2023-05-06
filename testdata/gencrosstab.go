@@ -1,4 +1,4 @@
-// +build ignore
+//go:build ignore
 
 package main
 
@@ -9,7 +9,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -58,7 +57,7 @@ func run(ctx context.Context, dsn, out string) error {
 		return err
 	}
 	b := bytes.TrimRightFunc(buf.Bytes(), unicode.IsSpace)
-	if err := ioutil.WriteFile(out, append(b, '\n'), 0644); err != nil {
+	if err := os.WriteFile(out, append(b, '\n'), 0644); err != nil {
 		return err
 	}
 	return nil

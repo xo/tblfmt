@@ -1,4 +1,4 @@
-// +build ignore
+//go:build ignore
 
 package main
 
@@ -7,7 +7,6 @@ import (
 	"compress/gzip"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -77,7 +76,7 @@ func run(seed int64) error {
 		if err := w.Close(); err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(k+".gz", out.Bytes(), 0644); err != nil {
+		if err := os.WriteFile(k+".gz", out.Bytes(), 0644); err != nil {
 			return err
 		}
 	}
