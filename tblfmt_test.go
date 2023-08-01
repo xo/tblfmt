@@ -104,6 +104,35 @@ func TestEncodeJSONAll(t *testing.T) {
 	}
 }
 
+func TestEncodeJSONLAll(t *testing.T) {
+	t.Parallel()
+	exp := `{"author_id":14,"name":"a\tb\tc\td","z":"x"}
+{"author_id":15,"name":"aoeu\ntest\n","z":null}
+{"author_id":16,"name":"foo\bbar","z":null}
+{"author_id":17,"name":"袈\t袈\t\t袈","z":null}
+{"author_id":18,"name":"a\tb\t\r\n\ta","z":"a\n"}
+{"author_id":19,"name":"袈\t袈\t\t袈\n","z":null}
+{"author_id":20,"name":"javascript","z":{"test21":"a value","test22":"foo\u0008bar"}}
+{"author_id":23,"name":"slice","z":["a","b"]}
+{"author_id":38,"name":"a\tb\tc\td","z":"x"}
+{"author_id":39,"name":"aoeu\ntest\n","z":null}
+{"author_id":40,"name":"foo\bbar","z":null}
+{"author_id":41,"name":"袈\t袈\t\t袈","z":null}
+{"author_id":42,"name":"a\tb\t\r\n\ta","z":"a\n"}
+{"author_id":43,"name":"袈\t袈\t\t袈\n","z":null}
+{"author_id":44,"name":"javascript","z":{"test45":"a value","test46":"foo\u0008bar"}}
+{"author_id":47,"name":"slice","z":["a","b"]}
+`
+	buf := new(bytes.Buffer)
+	if err := EncodeJSONLAll(buf, internal.NewRsetMulti()); err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	actual := buf.String()
+	if actual != exp {
+		t.Errorf("expected:\n%q\n---\ngot:\n%q", exp, actual)
+	}
+}
+
 func TestEncodeTemplateAll(t *testing.T) {
 	t.Parallel()
 	exp := `Row 0:

@@ -103,6 +103,26 @@ func EncodeJSONAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.EncodeAll(w)
 }
 
+// EncodeJSONL encodes the result set to the writer as JSON-line using the supplied
+// encoding options.
+func EncodeJSONL(w io.Writer, resultSet ResultSet, opts ...Option) error {
+	enc, err := NewJSONLEncoder(resultSet, opts...)
+	if err != nil {
+		return err
+	}
+	return enc.Encode(w)
+}
+
+// EncodeJSONLAll encodes all result sets to the writer as JSON-line using the
+// supplied encoding options.
+func EncodeJSONLAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
+	enc, err := NewJSONLEncoder(resultSet, opts...)
+	if err != nil {
+		return err
+	}
+	return enc.EncodeAll(w)
+}
+
 // EncodeUnaligned encodes the result set to the writer unaligned using the
 // supplied encoding options.
 func EncodeUnaligned(w io.Writer, resultSet ResultSet, opts ...Option) error {

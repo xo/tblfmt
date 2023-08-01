@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"unicode"
 
-	runewidth "github.com/mattn/go-runewidth"
+	"github.com/mattn/go-runewidth"
 )
 
 // TableEncoder is a buffered, lookahead table encoder for result sets.
@@ -825,6 +825,8 @@ type JSONEncoder struct {
 	lowerColumnNames bool
 	// useColumnTypes indicates using the result's column types.
 	useColumnTypes bool
+	// jsonl indicates whether json-line format
+	jsonl bool
 }
 
 // NewJSONEncoder creates a new JSON encoder using the provided options.
@@ -838,6 +840,28 @@ func NewJSONEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 			Tabs: make([][][2]int, 1),
 			Raw:  true,
 		},
+		jsonl: false,
+	}
+	for _, o := range opts {
+		if err := o.apply(enc); err != nil {
+			return nil, err
+		}
+	}
+	return enc, nil
+}
+
+// NewJSONLEncoder creates a new JSON encoder using the provided options.
+func NewJSONLEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
+	enc := &JSONEncoder{
+		resultSet: resultSet,
+		newline:   newline,
+		formatter: NewEscapeFormatter(WithIsJSONL(true)),
+		empty: &Value{
+			Buf:  []byte("null"),
+			Tabs: make([][][2]int, 0),
+			Raw:  true,
+		},
+		jsonl: true,
 	}
 	for _, o := range opts {
 		if err := o.apply(enc); err != nil {
@@ -862,6 +886,11 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		q     = []byte{'"'}
 		cma   = []byte{','}
 	)
+	sep := cma
+	if enc.jsonl {
+		sep = enc.newline
+	}
+
 	// get and check columns
 	clen, cols, err := buildColNames(enc.resultSet, enc.lowerColumnNames)
 	switch {
@@ -883,16 +912,19 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		return err
 	}
 	// start
-	if _, err = w.Write(start); err != nil {
-		return err
+	if !enc.jsonl {
+		if _, err = w.Write(start); err != nil {
+			return err
+		}
 	}
+
 	// process
 	var v *Value
 	var vals []*Value
 	var count int64
 	for enc.resultSet.Next() {
 		if count != 0 {
-			if _, err = w.Write(cma); err != nil {
+			if _, err = w.Write(sep); err != nil {
 				return err
 			}
 		}
@@ -943,7 +975,9 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		return err
 	}
 	// end
-	_, err = w.Write(end)
+	if !enc.jsonl {
+		_, err = w.Write(end)
+	}
 	return err
 }
 
@@ -953,8 +987,10 @@ func (enc *JSONEncoder) EncodeAll(w io.Writer) error {
 		return err
 	}
 	for enc.resultSet.NextResultSet() {
-		if _, err := w.Write([]byte{','}); err != nil {
-			return err
+		if !enc.jsonl {
+			if _, err := w.Write([]byte{','}); err != nil {
+				return err
+			}
 		}
 		if _, err := w.Write(enc.newline); err != nil {
 			return err
