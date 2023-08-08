@@ -4,6 +4,7 @@ package tblfmt
 
 import (
 	"io"
+	"runtime"
 )
 
 // Encoder is the shared interface for encoders.
@@ -221,4 +222,15 @@ func EncodeVerticalAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 		return err
 	}
 	return enc.EncodeAll(w)
+}
+
+// newline is the default newline used by the system.
+var newline []byte
+
+func init() {
+	if runtime.GOOS == "windows" {
+		newline = []byte("\r\n")
+	} else {
+		newline = []byte("\n")
+	}
 }
