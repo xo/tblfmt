@@ -15,7 +15,7 @@ type result struct {
 	vals [][]interface{}
 }
 
-// Columns  satisfies the tblfmt.ResultSet interface.
+// Columns satisfies the tblfmt.ResultSet interface.
 func (res *result) Columns() ([]string, error) {
 	return res.cols, nil
 }
