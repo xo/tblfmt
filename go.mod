@@ -1,6 +1,6 @@
 module github.com/xo/tblfmt
 
-go 1.21
+go 1.22
 
 require (
 	github.com/mattn/go-runewidth v0.0.15

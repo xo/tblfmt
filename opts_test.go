@@ -68,7 +68,6 @@ func TestFromMapFormats(t *testing.T) {
 		"tiny",
 		"wide",
 	} {
-		typ := typ
 		t.Run(typ, func(t *testing.T) {
 			t.Parallel()
 			z, err := testdata.Testdata.ReadFile(typ + ".gz")
