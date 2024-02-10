@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/nathan-fiscaletti/consolesize-go"
+
 	"github.com/xo/tblfmt/templates"
 )
 
@@ -87,6 +88,12 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			WithLowerColumnNames(opts["lower_column_names"] == "true"),
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
 			FormatterOptionFromMap(opts),
+		}
+	case "jsonl":
+		return NewJSONLEncoder, []Option{
+			WithLowerColumnNames(opts["lower_column_names"] == "true"),
+			WithUseColumnTypes(opts["use_column_types"] == "true"),
+			WithFormatterOptions(WithTimeFormat(timeFormat)),
 		}
 	case "csv", "unaligned":
 		// determine separator, quote

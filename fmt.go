@@ -12,7 +12,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	runewidth "github.com/mattn/go-runewidth"
+	"github.com/mattn/go-runewidth"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 	"golang.org/x/text/number"
@@ -519,6 +519,16 @@ func WithEncoder(encoder func(interface{}) ([]byte, error)) EscapeFormatterOptio
 func WithIsJSON(isJSON bool) EscapeFormatterOption {
 	return func(f *EscapeFormatter) {
 		f.isJSON = isJSON
+	}
+}
+
+// WithIsJSONL is an escape formatter option to enable special escaping for JSONL
+// characters in non-complex values.
+func WithIsJSONL(isJSONL bool) EscapeFormatterOption {
+	return func(f *EscapeFormatter) {
+		f.isJSON = isJSONL
+		f.prefix = ""
+		f.indent = ""
 	}
 }
 
