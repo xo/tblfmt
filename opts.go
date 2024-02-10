@@ -80,24 +80,13 @@ func (opt option) apply(o interface{}) error {
 // Note: this func is primarily a helper func to accommodate psql-like format
 // option names.
 func FromMap(opts map[string]string) (Builder, []Option) {
-	// time format
-	timeFormat := opts["time"]
-	if timeFormat == "" {
-		timeFormat = time.RFC3339
-	}
-	// numeric locale
-	locale := opts["locale"]
-	if locale == "" {
-		locale = "en-US"
-	}
-	numericLocale := opts["numericlocale"] == "true" || opts["numericlocale"] == "on"
 	// unaligned, aligned, wrapped, html, asciidoc, latex, latex-longtable, troff-ms, json, csv
 	switch format := opts["format"]; format {
 	case "json":
 		return NewJSONEncoder, []Option{
 			WithLowerColumnNames(opts["lower_column_names"] == "true"),
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
-			WithFormatterOptions(WithTimeFormat(timeFormat)),
+			FormatterOptionFromMap(opts),
 		}
 	case "csv", "unaligned":
 		// determine separator, quote
@@ -132,7 +121,7 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			WithSkipHeader(opts["tuples_only"] == "on"),
 			WithLowerColumnNames(opts["lower_column_names"] == "true"),
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
-			WithFormatterOptions(WithTimeFormat(timeFormat), WithNumericLocale(numericLocale, locale)),
+			FormatterOptionFromMap(opts),
 		}
 	case "html", "asciidoc", "latex", "latex-longtable", "troff-ms", "vertical":
 		return NewTemplateEncoder, []Option{
@@ -142,13 +131,13 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			WithEmpty(opts["null"]),
 			WithLowerColumnNames(opts["lower_column_names"] == "true"),
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
-			WithFormatterOptions(WithTimeFormat(timeFormat), WithNumericLocale(numericLocale, locale)),
+			FormatterOptionFromMap(opts),
 		}
 	case "aligned":
 		tableOpts := []Option{
 			WithLowerColumnNames(opts["lower_column_names"] == "true"),
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
-			WithFormatterOptions(WithTimeFormat(timeFormat), WithNumericLocale(numericLocale, locale)),
+			FormatterOptionFromMap(opts),
 		}
 		if s, ok := opts["border"]; ok {
 			border, _ := strconv.Atoi(s)
@@ -223,6 +212,23 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 		return builder, tableOpts
 	}
 	return newErrEncoder, []Option{withError(ErrInvalidFormat)}
+}
+
+// FormatterOptionFromMap builds formatter encoding options from the named
+// options.
+func FormatterOptionFromMap(opts map[string]string) Option {
+	// time format
+	timeFormat := opts["time"]
+	if timeFormat == "" {
+		timeFormat = time.RFC3339
+	}
+	// numeric locale
+	locale := opts["locale"]
+	if locale == "" {
+		locale = "en-US"
+	}
+	numericLocale := opts["numericlocale"] == "true" || opts["numericlocale"] == "on"
+	return WithFormatterOptions(WithTimeFormat(timeFormat), WithNumericLocale(numericLocale, locale))
 }
 
 // WithCount is a encoder option to set the buffered line count.

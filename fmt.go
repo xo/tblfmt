@@ -66,8 +66,8 @@ type EscapeFormatter struct {
 	invalidWidth int
 	// headerAlign is the default header values alignment
 	headerAlign Align
-	// printer is the numeric locale printer.
-	printer *message.Printer
+	// numericLocalePrinter is the numeric locale printer.
+	numericLocalePrinter *message.Printer
 }
 
 // NewEscapeFormatter creates a escape formatter to handle basic Go values,
@@ -91,12 +91,12 @@ func NewEscapeFormatter(opts ...EscapeFormatterOption) *EscapeFormatter {
 func (f *EscapeFormatter) Header(headers []string) ([]*Value, error) {
 	n := len(headers)
 	res := make([]*Value, n)
-	useMask := strings.ContainsRune(f.mask, '%')
 	for i := 0; i < n; i++ {
 		s := strings.TrimSpace(headers[i])
-		if s == "" && useMask {
+		switch {
+		case s == "" && strings.ContainsRune(f.mask, '%'):
 			s = fmt.Sprintf(f.mask, i+1)
-		} else if s == "" {
+		case s == "":
 			s = f.mask
 		}
 		res[i] = FormatBytes([]byte(s), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
@@ -123,24 +123,24 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 		case int, int8, int16, int32, int64,
 			uint, uint8, uint16, uint32, uint64:
 			var s string
-			if f.printer != nil {
-				s = f.printer.Sprintf("%v", number.Decimal(v))
+			if f.numericLocalePrinter != nil {
+				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v))
 			} else {
 				s = fmt.Sprintf("%d", v)
 			}
 			res[i] = newValue(s, AlignRight, true)
 		case float32:
 			var s string
-			if f.printer != nil {
-				s = f.printer.Sprintf("%v", number.Decimal(v, number.MinFractionDigits(1)))
+			if f.numericLocalePrinter != nil {
+				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v, number.MinFractionDigits(1)))
 			} else {
 				s = strconv.FormatFloat(float64(v), 'g', -1, 32)
 			}
 			res[i] = newValue(s, AlignRight, true)
 		case float64:
 			var s string
-			if f.printer != nil {
-				s = f.printer.Sprintf("%v", number.Decimal(v, number.MinFractionDigits(1)))
+			if f.numericLocalePrinter != nil {
+				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v, number.MinFractionDigits(1)))
 			} else {
 				s = strconv.FormatFloat(v, 'g', -1, 64)
 			}
@@ -164,8 +164,8 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 		case sql.NullByte:
 			if v.Valid {
 				var s string
-				if f.printer != nil {
-					s = f.printer.Sprintf("%v", number.Decimal(v.Byte))
+				if f.numericLocalePrinter != nil {
+					s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Byte))
 				} else {
 					s = fmt.Sprintf("%d", v.Byte)
 				}
@@ -174,8 +174,8 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 		case sql.NullFloat64:
 			if v.Valid {
 				var s string
-				if f.printer != nil {
-					s = f.printer.Sprintf("%v", number.Decimal(v.Float64))
+				if f.numericLocalePrinter != nil {
+					s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Float64))
 				} else {
 					s = strconv.FormatFloat(v.Float64, 'g', -1, 64)
 				}
@@ -184,8 +184,8 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 		case sql.NullInt16:
 			if v.Valid {
 				var s string
-				if f.printer != nil {
-					s = f.printer.Sprintf("%v", number.Decimal(v.Int16))
+				if f.numericLocalePrinter != nil {
+					s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Int16))
 				} else {
 					s = strconv.FormatInt(int64(v.Int16), 10)
 				}
@@ -194,8 +194,8 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 		case sql.NullInt32:
 			if v.Valid {
 				var s string
-				if f.printer != nil {
-					s = f.printer.Sprintf("%v", number.Decimal(v.Int32))
+				if f.numericLocalePrinter != nil {
+					s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Int32))
 				} else {
 					s = strconv.FormatInt(int64(v.Int32), 10)
 				}
@@ -204,8 +204,8 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 		case sql.NullInt64:
 			if v.Valid {
 				var s string
-				if f.printer != nil {
-					s = f.printer.Sprintf("%v", number.Decimal(v.Int64))
+				if f.numericLocalePrinter != nil {
+					s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Int64))
 				} else {
 					s = strconv.FormatInt(v.Int64, 10)
 				}
@@ -564,7 +564,7 @@ func WithNumericLocale(enable bool, locale string) EscapeFormatterOption {
 			if t, err := language.Parse(locale); err == nil {
 				tag = t
 			}
-			f.printer = message.NewPrinter(tag)
+			f.numericLocalePrinter = message.NewPrinter(tag)
 		}
 	}
 }

@@ -159,11 +159,12 @@ func parseViewTest(buf []byte) ([]string, [][]interface{}, error) {
 	for _, line := range lines[1:] {
 		var row []interface{}
 		for _, c := range strings.Split(line, "|") {
-			if i, err := strconv.Atoi(c); err == nil {
+			switch i, err := strconv.Atoi(c); {
+			case err == nil:
 				row = append(row, i)
-			} else if c == "" {
+			case c == "":
 				row = append(row, nil)
-			} else {
+			default:
 				row = append(row, c)
 			}
 		}
