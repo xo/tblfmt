@@ -3,13 +3,11 @@ package tblfmt
 import (
 	"bufio"
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os/exec"
-	"reflect"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -77,8 +75,8 @@ type TableEncoder struct {
 	// lowerColumnNames indicates lower casing the column names when column
 	// names are all caps.
 	lowerColumnNames bool
-	// useColumnTypes indicates using the result's column types.
-	useColumnTypes bool
+	// columnTypes is used to build column types for a result set.
+	columnTypes func(ResultSet, []interface{}, int) error
 	// w is the undelying writer
 	w *bufio.Writer
 }
@@ -291,7 +289,7 @@ func (enc *TableEncoder) nextResults() ([][]*Value, error) {
 		if i == 0 {
 			// set up storage for results
 			var err error
-			r, err = buildColumnTypes(enc.resultSet, len(enc.headers), enc.useColumnTypes)
+			r, err = buildColumnTypes(enc.resultSet, len(enc.headers), enc.columnTypes)
 			if err != nil {
 				return nil, err
 			}
@@ -823,8 +821,8 @@ type JSONEncoder struct {
 	// lowerColumnNames indicates lower casing the column names when column
 	// names are all caps.
 	lowerColumnNames bool
-	// useColumnTypes indicates using the result's column types.
-	useColumnTypes bool
+	// columnTypes is used to build column types for a result set.
+	columnTypes func(ResultSet, []interface{}, int) error
 }
 
 // NewJSONEncoder creates a new JSON encoder using the provided options.
@@ -878,7 +876,7 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		cb[i] = append(cb[i], ':')
 	}
 	// set up storage for results
-	r, err := buildColumnTypes(enc.resultSet, clen, enc.useColumnTypes)
+	r, err := buildColumnTypes(enc.resultSet, clen, enc.columnTypes)
 	if err != nil {
 		return err
 	}
@@ -995,8 +993,8 @@ type UnalignedEncoder struct {
 	// lowerColumnNames indicates lower casing the column names when column
 	// names are all caps.
 	lowerColumnNames bool
-	// useColumnTypes indicates using the result's column types.
-	useColumnTypes bool
+	// columnTypes is used to build column types for a result set.
+	columnTypes func(ResultSet, []interface{}, int) error
 }
 
 // NewUnalignedEncoder creates a new unaligned encoder using the provided
@@ -1085,7 +1083,7 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 		}
 	}
 	// set up storage for results
-	r, err := buildColumnTypes(enc.resultSet, clen, enc.useColumnTypes)
+	r, err := buildColumnTypes(enc.resultSet, clen, enc.columnTypes)
 	if err != nil {
 		return err
 	}
@@ -1158,8 +1156,8 @@ type TemplateEncoder struct {
 	// lowerColumnNames indicates lower casing the column names when column
 	// names are all caps.
 	lowerColumnNames bool
-	// useColumnTypes indicates using the result's column types.
-	useColumnTypes bool
+	// columnTypes is used to build column types for a result set.
+	columnTypes func(ResultSet, []interface{}, int) error
 }
 
 // NewTemplateEncoder creates a new template encoder using the provided options.
@@ -1223,7 +1221,7 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 		}
 	}
 	// set up storage for results
-	r, err := buildColumnTypes(enc.resultSet, clen, enc.useColumnTypes)
+	r, err := buildColumnTypes(enc.resultSet, clen, enc.columnTypes)
 	if err != nil {
 		return err
 	}
@@ -1332,26 +1330,16 @@ func buildColNames(resultSet ResultSet, lower bool) (int, []string, error) {
 }
 
 // buildColumnTypes builds a []interface{} for storing scan results.
-func buildColumnTypes(resultSet ResultSet, n int, useColumnTypes bool) ([]interface{}, error) {
+func buildColumnTypes(resultSet ResultSet, n int, columnTypes func(ResultSet, []interface{}, int) error) ([]interface{}, error) {
 	r := make([]interface{}, n)
-	if !useColumnTypes {
-		for i := 0; i < n; i++ {
-			r[i] = new(interface{})
-		}
-	} else {
-		z, ok := resultSet.(interface {
-			ColumnTypes() ([]*sql.ColumnType, error)
-		})
-		if !ok {
-			return nil, ErrResultSetHasNoColumnTypes
-		}
-		cols, err := z.ColumnTypes()
-		if err != nil {
+	if columnTypes != nil {
+		if err := columnTypes(resultSet, r, n); err != nil {
 			return nil, err
 		}
-		for i := 0; i < n; i++ {
-			r[i] = reflect.New(cols[i].ScanType()).Interface()
-		}
+		return r, nil
+	}
+	for i := 0; i < n; i++ {
+		r[i] = new(interface{})
 	}
 	return r, nil
 }

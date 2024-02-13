@@ -1,9 +1,11 @@
 package tblfmt
 
 import (
+	"database/sql"
 	"fmt"
 	htmltemplate "html/template"
 	"io"
+	"reflect"
 	"strconv"
 	"strings"
 	texttemplate "text/template"
@@ -321,7 +323,7 @@ func WithFormatterOptions(opts ...EscapeFormatterOption) Option {
 	}
 }
 
-// WithSummary is a encoder option to set a summary callback map.
+// WithSummary is a encoder option to set a summary map.
 func WithSummary(summary map[int]func(io.Writer, int) (int, error)) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
@@ -634,34 +636,69 @@ func WithLowerColumnNames(lowerColumnNames bool) Option {
 	}
 }
 
-// WithUseColumnTypes is a encoder option to use the result set's column types.
-func WithUseColumnTypes(useColumnTypes bool) Option {
+// WithColumnTypes is a encoder option to set a func to use for building column
+// types.
+func WithColumnTypes(columnTypes func(ResultSet, []interface{}, int) error) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
-			enc.useColumnTypes = useColumnTypes
+			enc.columnTypes = columnTypes
 			return nil
 		},
 		expanded: func(enc *ExpandedEncoder) error {
-			enc.useColumnTypes = useColumnTypes
+			enc.columnTypes = columnTypes
 			return nil
 		},
 		json: func(enc *JSONEncoder) error {
-			enc.useColumnTypes = useColumnTypes
+			enc.columnTypes = columnTypes
 			return nil
 		},
 		unaligned: func(enc *UnalignedEncoder) error {
-			enc.useColumnTypes = useColumnTypes
+			enc.columnTypes = columnTypes
 			return nil
 		},
 		template: func(enc *TemplateEncoder) error {
-			enc.useColumnTypes = useColumnTypes
+			enc.columnTypes = columnTypes
 			return nil
 		},
 		crosstab: func(view *CrosstabView) error {
-			view.useColumnTypes = useColumnTypes
+			view.columnTypes = columnTypes
 			return nil
 		},
 	}
+}
+
+// WithUseColumnTypes is a encoder option to use the result set's column types.
+func WithUseColumnTypes(useColumnTypes bool) Option {
+	if !useColumnTypes {
+		return WithColumnTypes(nil)
+	}
+	return WithColumnTypes(func(resultSet ResultSet, r []interface{}, n int) error {
+		cols, err := resultSetColumns(resultSet, n)
+		if err != nil {
+			return err
+		}
+		for i := 0; i < n; i++ {
+			r[i] = reflect.New(cols[i].ScanType()).Interface()
+		}
+		return nil
+	})
+}
+
+// WithColumnTypesFunc is a encoder option to set a func to build each column's
+// type.
+func WithColumnTypesFunc(f func(*sql.ColumnType) (interface{}, error)) Option {
+	return WithColumnTypes(func(resultSet ResultSet, r []interface{}, n int) error {
+		cols, err := resultSetColumns(resultSet, n)
+		if err != nil {
+			return err
+		}
+		for i := 0; i < n; i++ {
+			if r[i], err = f(cols[i]); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // WithParams is a view option to set the column parameters.
@@ -755,4 +792,23 @@ func withError(err error) Option {
 			return err
 		},
 	}
+}
+
+// resultSetColumns retrieves the columns from a result set and checks the
+// length.
+func resultSetColumns(resultSet ResultSet, n int) ([]*sql.ColumnType, error) {
+	rs, ok := resultSet.(interface {
+		ColumnTypes() ([]*sql.ColumnType, error)
+	})
+	if !ok {
+		return nil, ErrResultSetHasNoColumnTypes
+	}
+	cols, err := rs.ColumnTypes()
+	switch {
+	case err != nil:
+		return nil, err
+	case len(cols) != n:
+		return nil, ErrResultSetReturnedInvalidColumnTypes
+	}
+	return cols, nil
 }

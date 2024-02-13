@@ -25,8 +25,8 @@ type CrosstabView struct {
 	// lowerColumnNames indicates lower casing the column names when column
 	// names are all caps.
 	lowerColumnNames bool
-	// useColumnTypes indicates using the result's column types.
-	useColumnTypes bool
+	// columnTypes is used to build column types for a result set.
+	columnTypes func(ResultSet, []interface{}, int) error
 	// v is the vertical header column.
 	v string
 	// h is the horizontal header column.
@@ -130,7 +130,7 @@ func (view *CrosstabView) build() error {
 	}
 	// process results
 	for view.resultSet.Next() {
-		r, err := buildColumnTypes(view.resultSet, clen, view.useColumnTypes)
+		r, err := buildColumnTypes(view.resultSet, clen, view.columnTypes)
 		if err != nil {
 			return view.fail(err)
 		}

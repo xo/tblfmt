@@ -23,10 +23,11 @@ type ResultSet interface {
 	NextResultSet() bool
 }
 
-// Encode encodes the result set to the writer using the supplied map options.
-func Encode(w io.Writer, resultSet ResultSet, options map[string]string) error {
-	f, opts := FromMap(options)
-	enc, err := f(resultSet, opts...)
+// Encode encodes the result set to the writer using the supplied map params
+// and any additional options.
+func Encode(w io.Writer, resultSet ResultSet, params map[string]string, options ...Option) error {
+	f, opts := FromMap(params)
+	enc, err := f(resultSet, append(opts, options...)...)
 	if err != nil {
 		return err
 	}
@@ -34,10 +35,10 @@ func Encode(w io.Writer, resultSet ResultSet, options map[string]string) error {
 }
 
 // EncodeAll encodes all result sets to the writer using the supplied map
-// options.
-func EncodeAll(w io.Writer, resultSet ResultSet, options map[string]string) error {
-	f, opts := FromMap(options)
-	enc, err := f(resultSet, opts...)
+// params and any additional options.
+func EncodeAll(w io.Writer, resultSet ResultSet, params map[string]string, options ...Option) error {
+	f, opts := FromMap(params)
+	enc, err := f(resultSet, append(opts, options...)...)
 	if err != nil {
 		return err
 	}
@@ -240,6 +241,8 @@ const (
 	ErrResultSetHasNoColumnTypes Error = "result set has no column types"
 	// ErrResultSetHasNoColumns is the result set has no columns error.
 	ErrResultSetHasNoColumns Error = "result set has no columns"
+	// ErrResultSetReturnedInvalidColumnTypes is the result set returned invalid column types error.
+	ErrResultSetReturnedInvalidColumnTypes Error = "result set returned invalid column types"
 	// ErrInvalidFormat is the invalid format error.
 	ErrInvalidFormat Error = "invalid format"
 	// ErrInvalidLineStyle is the invalid line style error.
