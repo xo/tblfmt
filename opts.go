@@ -97,10 +97,15 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			sep, quote, field = ',', '"', "csv_fieldsep"
 		}
 		if s, ok := opts[field]; ok {
-			if len(s) != 1 {
-				return newErrEncoder, []Option{withError(ErrInvalidFieldSeparator)}
+			r := []rune(s)
+			if len(r) != 1 {
+				err := ErrInvalidFieldSeparator
+				if format == "csv" {
+					err = ErrInvalidCSVFieldSeparator
+				}
+				return newErrEncoder, []Option{withError(err)}
 			}
-			sep = []rune(s)[0]
+			sep = r[0]
 		}
 		if format != "csv" && opts["fieldsep_zero"] == "on" {
 			sep = 0

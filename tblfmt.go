@@ -251,6 +251,8 @@ const (
 	ErrInvalidTemplate Error = "invalid template"
 	// ErrInvalidFieldSeparator is the invalid field separator error.
 	ErrInvalidFieldSeparator Error = "invalid field separator"
+	// ErrInvalidCSVFieldSeparator is the invalid csv field separator error.
+	ErrInvalidCSVFieldSeparator Error = "invalid csv field separator"
 	// ErrInvalidColumnParams is the invalid column params error.
 	ErrInvalidColumnParams Error = "invalid column params"
 	// ErrCrosstabResultMustHaveAtLeast3Columns is the crosstab result must
