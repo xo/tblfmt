@@ -67,7 +67,7 @@ func TestEncodeTableAll(t *testing.T) {
 (8 rows)
 `
 	buf := new(bytes.Buffer)
-	if err := EncodeTableAll(buf, internal.NewRsetMulti(), WithBorder(2), WithLineStyle(UnicodeDoubleLineStyle()), WithTitle("my table"), WithWidths(20, 20)); err != nil {
+	if err := EncodeTableAll(buf, internal.Multi(), WithBorder(2), WithLineStyle(UnicodeDoubleLineStyle()), WithTitle("my table"), WithWidths(20, 20)); err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 	actual := buf.String()
@@ -95,7 +95,7 @@ func TestEncodeJSONAll(t *testing.T) {
 ]}]
 `
 	buf := new(bytes.Buffer)
-	if err := EncodeJSONAll(buf, internal.NewRsetMulti()); err != nil {
+	if err := EncodeJSONAll(buf, internal.Multi()); err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 	actual := buf.String()
@@ -199,7 +199,7 @@ Row 7:
   {{ index $headers $j }} = "{{ $c }}"{{ end }}
 {{ end }}`
 	buf := new(bytes.Buffer)
-	if err := EncodeTemplateAll(buf, internal.NewRsetMulti(), WithRawTemplate(tpl, "text"), WithEmpty("<nil>")); err != nil {
+	if err := EncodeTemplateAll(buf, internal.Multi(), WithRawTemplate(tpl, "text"), WithEmpty("<nil>")); err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 	actual := buf.String()
@@ -215,6 +215,7 @@ func TestEncodeUnalignedAll(t *testing.T) {
 15|aoeu
 test
 |
+(2 rows)
 
 author_id|name|z
 16|foo` + "\b" + `bar|
@@ -232,6 +233,7 @@ author_id|name|z
   "a",
   "b"
 ]
+(6 rows)
 
 author_id|name|z
 38|a	b	c	d|x
@@ -253,9 +255,10 @@ test
   "a",
   "b"
 ]
+(8 rows)
 `
 	buf := new(bytes.Buffer)
-	if err := EncodeUnalignedAll(buf, internal.NewRsetMulti()); err != nil {
+	if err := EncodeUnalignedAll(buf, internal.Multi()); err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 	actual := buf.String()
@@ -311,7 +314,7 @@ test
 ]"
 `
 	buf := new(bytes.Buffer)
-	if err := EncodeCSVAll(buf, internal.NewRsetMulti()); err != nil {
+	if err := EncodeCSVAll(buf, internal.Multi()); err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 	actual := buf.String()

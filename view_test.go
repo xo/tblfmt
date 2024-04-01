@@ -130,8 +130,8 @@ type viewTest struct {
 	expVals [][]interface{}
 }
 
-func (test viewTest) Rset() *internal.Rset {
-	return internal.NewRset(test.cols, test.vals)
+func (test viewTest) Rset() *internal.RS {
+	return internal.New(test.cols, test.vals)
 }
 
 var azRE = regexp.MustCompile(`[^0-9\-]`)

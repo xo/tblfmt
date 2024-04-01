@@ -8,4 +8,4 @@ require (
 	golang.org/x/text v0.14.0
 )
 
-require github.com/rivo/uniseg v0.4.4 // indirect
+require github.com/rivo/uniseg v0.4.7 // indirect

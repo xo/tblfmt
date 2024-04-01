@@ -39,7 +39,7 @@ func TestFromMap(t *testing.T) {
 			opts: map[string]string{
 				"format": "csv",
 			},
-			exp: NewUnalignedEncoder,
+			exp: NewCSVEncoder,
 		},
 		"any": {
 			opts: map[string]string{
@@ -88,13 +88,13 @@ func TestFromMapFormats(t *testing.T) {
 				var resultSet ResultSet
 				switch typ {
 				case "big":
-					resultSet = internal.NewRsetBig(1549508725559526476)
+					resultSet = internal.Big(1549508725559526476)
 				case "multi":
-					resultSet = internal.NewRsetMulti()
+					resultSet = internal.Multi()
 				case "tiny":
-					resultSet = internal.NewRsetTiny()
+					resultSet = internal.Tiny()
 				case "wide":
-					resultSet = internal.NewRsetWide()
+					resultSet = internal.Wide()
 				}
 				var optMap map[string]string
 				var exp []byte

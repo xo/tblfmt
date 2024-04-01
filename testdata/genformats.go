@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/xo/tblfmt"
 	"github.com/xo/tblfmt/internal"
@@ -24,38 +25,41 @@ func main() {
 }
 
 func run(seed int64) error {
-	bufMap := make(map[string]*bytes.Buffer)
-	for _, config := range buildConfigs() {
+	if seed == 0 {
+		seed = time.Now().UnixNano()
+	}
+	m := make(map[string]*bytes.Buffer)
+	for _, cfg := range configs() {
 		for _, data := range []struct {
-			resultSet tblfmt.ResultSet
-			desc      string
+			name string
+			rs   tblfmt.ResultSet
 		}{
-			{internal.NewRsetBig(seed), "big"},
-			{internal.NewRsetMulti(), "multi"},
-			{internal.NewRsetTiny(), "tiny"},
-			{internal.NewRsetWide(), "wide"},
+			{"big", internal.Big(seed)},
+			{"multi", internal.Multi()},
+			{"tiny", internal.Tiny()},
+			{"wide", internal.Wide()},
 		} {
-			buf := bufMap[data.desc]
+			buf := m[data.name]
 			if buf == nil {
 				buf = new(bytes.Buffer)
-				bufMap[data.desc] = buf
+				m[data.name] = buf
 			}
 			optdesc := ""
-			if len(config.desc) != 0 {
-				optdesc = "\n" + strings.Join(config.desc, "\n")
+			if len(cfg.desc) != 0 {
+				optdesc = "\n" + strings.Join(cfg.desc, "\n")
 			}
 			_, err := fmt.Fprintf(
 				buf,
 				"%s\nformat: %s%s\n%s\n",
 				internal.Divider,
-				config.format,
+				cfg.format,
 				optdesc,
 				internal.Divider,
 			)
 			if err != nil {
 				return err
 			}
-			enc, err := config.f(data.resultSet, config.opts...)
+			enc, err := cfg.f(data.rs, cfg.opts...)
 			if err != nil {
 				return err
 			}
@@ -64,7 +68,7 @@ func run(seed int64) error {
 			}
 		}
 	}
-	for k, buf := range bufMap {
+	for name, buf := range m {
 		out := new(bytes.Buffer)
 		w := gzip.NewWriter(out)
 		if _, err := w.Write(buf.Bytes()); err != nil {
@@ -76,7 +80,7 @@ func run(seed int64) error {
 		if err := w.Close(); err != nil {
 			return err
 		}
-		if err := os.WriteFile(k+".gz", out.Bytes(), 0644); err != nil {
+		if err := os.WriteFile(name+".gz", out.Bytes(), 0644); err != nil {
 			return err
 		}
 	}
@@ -90,7 +94,7 @@ type config struct {
 	desc   []string
 }
 
-func buildConfigs() []config {
+func configs() []config {
 	type opt struct {
 		opts []tblfmt.Option
 		desc []string
@@ -115,9 +119,9 @@ func buildConfigs() []config {
 			})
 		}
 	}
-	var configs []config
+	var v []config
 	for _, o := range opts {
-		configs = append(configs, config{
+		v = append(v, config{
 			f:      tblfmt.NewTableEncoder,
 			opts:   o.opts[:],
 			format: "aligned",
@@ -125,15 +129,14 @@ func buildConfigs() []config {
 		})
 	}
 	for _, o := range opts {
-		configs = append(configs, config{
+		v = append(v, config{
 			f:      tblfmt.NewExpandedEncoder,
 			opts:   o.opts[:],
 			format: "expanded",
 			desc:   o.desc,
 		})
 	}
-	return append(
-		configs,
+	return append(v,
 		config{f: tblfmt.NewJSONEncoder, format: "json"},
 		config{f: tblfmt.NewUnalignedEncoder, format: "unaligned"},
 		config{f: tblfmt.NewCSVEncoder, format: "csv"},

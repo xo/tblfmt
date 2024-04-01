@@ -12,32 +12,31 @@ import (
 //
 // Tables generally look like the following:
 //
-//    +-----------+---------------------------+---+
-//    | author_id |           name            | z |
-//    +-----------+---------------------------+---+
-//    |        14 | a       b       c       d |   |
-//    |        15 | aoeu                     +|   |
-//    |           | test                     +|   |
-//    |           |                           |   |
-//    +-----------+---------------------------+---+
+//	+-----------+---------------------------+---+
+//	| author_id |           name            | z |
+//	+-----------+---------------------------+---+
+//	|        14 | a       b       c       d |   |
+//	|        15 | aoeu                     +|   |
+//	|           | test                     +|   |
+//	|           |                           |   |
+//	+-----------+---------------------------+---+
 //
 // When border is 0, then no surrounding borders will be shown:
 //
-//    author_id           name            z
-//    --------- ------------------------- -
-//           14 a       b       c       d
-//           15 aoeu                     +
-//              test                     +
+//	author_id           name            z
+//	--------- ------------------------- -
+//	       14 a       b       c       d
+//	       15 aoeu                     +
+//	          test                     +
 //
 // When border is 1, then a border between columns will be shown:
 //
-//     author_id |           name            | z
-//    -----------+---------------------------+---
-//            14 | a       b       c       d |
-//            15 | aoeu                     +|
-//               | test                     +|
-//               |                           |
-//
+//	 author_id |           name            | z
+//	-----------+---------------------------+---
+//	        14 | a       b       c       d |
+//	        15 | aoeu                     +|
+//	           | test                     +|
+//	           |                           |
 type LineStyle struct {
 	Top  [4]rune
 	Mid  [4]rune
@@ -50,15 +49,14 @@ type LineStyle struct {
 //
 // Tables using this style will look like the following:
 //
-//    +-----------+---------------------------+---+
-//    | author_id |           name            | z |
-//    +-----------+---------------------------+---+
-//    |        14 | a       b       c       d |   |
-//    |        15 | aoeu                     +|   |
-//    |           | test                     +|   |
-//    |           |                           |   |
-//    +-----------+---------------------------+---+
-//
+//	+-----------+---------------------------+---+
+//	| author_id |           name            | z |
+//	+-----------+---------------------------+---+
+//	|        14 | a       b       c       d |   |
+//	|        15 | aoeu                     +|   |
+//	|           | test                     +|   |
+//	|           |                           |   |
+//	+-----------+---------------------------+---+
 func ASCIILineStyle() LineStyle {
 	return LineStyle{
 		// left char sep right
@@ -74,15 +72,14 @@ func ASCIILineStyle() LineStyle {
 //
 // Tables using this style will look like the following:
 //
-//    +-----------+---------------------------+---+
-//    | author_id |           name            | z |
-//    +-----------+---------------------------+---+
-//    |        14 | a       b       c       d |   |
-//    |        15 | aoeu                      |   |
-//    |           : test                          |
-//    |           :                               |
-//    +-----------+---------------------------+---+
-//
+//	+-----------+---------------------------+---+
+//	| author_id |           name            | z |
+//	+-----------+---------------------------+---+
+//	|        14 | a       b       c       d |   |
+//	|        15 | aoeu                      |   |
+//	|           : test                          |
+//	|           :                               |
+//	+-----------+---------------------------+---+
 func OldASCIILineStyle() LineStyle {
 	s := ASCIILineStyle()
 	s.Wrap[1], s.Wrap[2] = ' ', ':'
@@ -93,15 +90,14 @@ func OldASCIILineStyle() LineStyle {
 //
 // Tables using this style will look like the following:
 //
-//    ┌───────────┬───────────────────────────┬───┐
-//    │ author_id │           name            │ z │
-//    ├───────────┼───────────────────────────┼───┤
-//    │        14 │ a       b       c       d │   │
-//    │        15 │ aoeu                     ↵│   │
-//    │           │ test                     ↵│   │
-//    │           │                           │   │
-//    └───────────┴───────────────────────────┴───┘
-//
+//	┌───────────┬───────────────────────────┬───┐
+//	│ author_id │           name            │ z │
+//	├───────────┼───────────────────────────┼───┤
+//	│        14 │ a       b       c       d │   │
+//	│        15 │ aoeu                     ↵│   │
+//	│           │ test                     ↵│   │
+//	│           │                           │   │
+//	└───────────┴───────────────────────────┴───┘
 func UnicodeLineStyle() LineStyle {
 	return LineStyle{
 		// left char sep right
@@ -117,15 +113,14 @@ func UnicodeLineStyle() LineStyle {
 //
 // Tables using this style will look like the following:
 //
-//    ╔═══════════╦═══════════════════════════╦═══╗
-//    ║ author_id ║           name            ║ z ║
-//    ╠═══════════╬═══════════════════════════╬═══╣
-//    ║        14 ║ a       b       c       d ║   ║
-//    ║        15 ║ aoeu                     ↵║   ║
-//    ║           ║ test                     ↵║   ║
-//    ║           ║                           ║   ║
-//    ╚═══════════╩═══════════════════════════╩═══╝
-//
+//	╔═══════════╦═══════════════════════════╦═══╗
+//	║ author_id ║           name            ║ z ║
+//	╠═══════════╬═══════════════════════════╬═══╣
+//	║        14 ║ a       b       c       d ║   ║
+//	║        15 ║ aoeu                     ↵║   ║
+//	║           ║ test                     ↵║   ║
+//	║           ║                           ║   ║
+//	╚═══════════╩═══════════════════════════╩═══╝
 func UnicodeDoubleLineStyle() LineStyle {
 	return LineStyle{
 		// left char sep right
@@ -141,9 +136,8 @@ func UnicodeDoubleLineStyle() LineStyle {
 //
 // Default table summaries look like the following:
 //
-//    (3 rows)
-//
-func DefaultTableSummary() map[int]func(io.Writer, int) (int, error) {
+//	(3 rows)
+func DefaultTableSummary() Summary {
 	return map[int]func(io.Writer, int) (int, error){
 		1: func(w io.Writer, count int) (int, error) {
 			return fmt.Fprintf(w, "(%d row)", count)

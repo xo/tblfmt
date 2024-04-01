@@ -42,7 +42,7 @@ type TableEncoder struct {
 	// skipHeader disables writing header.
 	skipHeader bool
 	// summary is the summary map.
-	summary map[int]func(io.Writer, int) (int, error)
+	summary Summary
 	// isCustomSummary when summary has been set via options
 	isCustomSummary bool
 	// title is the title value.
@@ -212,7 +212,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		}
 	}
 	// add summary
-	if err := enc.summarize(w); err != nil {
+	if err := summarize(enc.w, enc.summary, enc.scanCount); err != nil {
 		return err
 	}
 	if err := enc.w.Flush(); err != nil {
@@ -558,30 +558,6 @@ func (enc *TableEncoder) writeAligned(b, filler []byte, a Align, padding int) {
 	}
 }
 
-// summarize writes the table scan count summary.
-func (enc *TableEncoder) summarize(w io.Writer) error {
-	// do summary
-	if enc.summary == nil {
-		return nil
-	}
-	var f func(io.Writer, int) (int, error)
-	if z, ok := enc.summary[-1]; ok {
-		f = z
-	}
-	if z, ok := enc.summary[int(enc.scanCount)]; ok {
-		f = z
-	}
-	if f != nil {
-		if _, err := f(enc.w, int(enc.scanCount)); err != nil {
-			return err
-		}
-		if _, err := enc.w.Write(enc.newline); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // rowStyle is the row style for a row, as arrays of bytes to print.
 type rowStyle struct {
 	left, right, middle, filler, wrapper []byte
@@ -671,7 +647,9 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 		}
 	}
 	// add summary
-	enc.summarize(w)
+	if err := summarize(w, enc.summary, enc.scanCount); err != nil {
+		return err
+	}
 	if err := enc.w.Flush(); err != nil {
 		return checkErr(err, cmd)
 	}
@@ -988,6 +966,8 @@ type UnalignedEncoder struct {
 	formatter Formatter
 	// skipHeader disables writing header.
 	skipHeader bool
+	// summary is the summary map.
+	summary map[int]func(io.Writer, int) (int, error)
 	// empty is the empty value.
 	empty *Value
 	// lowerColumnNames indicates lower casing the column names when column
@@ -1007,6 +987,7 @@ func NewUnalignedEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 		quote:     quote,
 		newline:   newline,
 		formatter: NewEscapeFormatter(WithIsRaw(true, sep, quote)),
+		summary:   DefaultTableSummary(),
 		empty: &Value{
 			Tabs: make([][][2]int, 1),
 		},
@@ -1031,6 +1012,7 @@ func NewCSVEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 		quote:     quote,
 		newline:   newline,
 		formatter: NewEscapeFormatter(WithIsRaw(true, sep, quote)),
+		summary:   Summary{},
 		empty: &Value{
 			Tabs: make([][][2]int, 1),
 		},
@@ -1115,6 +1097,9 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 		if _, err := w.Write(enc.newline); err != nil {
 			return err
 		}
+	}
+	if err := summarize(w, enc.summary, count); err != nil {
+		return err
 	}
 	return enc.resultSet.Err()
 }
@@ -1342,4 +1327,28 @@ func buildColumnTypes(resultSet ResultSet, n int, columnTypes func(ResultSet, []
 		r[i] = new(interface{})
 	}
 	return r, nil
+}
+
+// summarize writes the table scan count summary.
+func summarize(w io.Writer, summary Summary, count int64) error {
+	// do summary
+	if summary == nil {
+		return nil
+	}
+	var f func(io.Writer, int) (int, error)
+	if z, ok := summary[-1]; ok {
+		f = z
+	}
+	if z, ok := summary[int(count)]; ok {
+		f = z
+	}
+	if f != nil {
+		if _, err := f(w, int(count)); err != nil {
+			return err
+		}
+		if _, err := w.Write(newline); err != nil {
+			return err
+		}
+	}
+	return nil
 }

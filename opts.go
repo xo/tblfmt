@@ -18,6 +18,9 @@ import (
 // Builder is the shared builder interface.
 type Builder = func(ResultSet, ...Option) (Encoder, error)
 
+// Summary is the interface for a summary map.
+type Summary = map[int]func(io.Writer, int) (int, error)
+
 // Option is a Encoder option.
 type Option interface {
 	apply(interface{}) error
@@ -92,9 +95,9 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 		}
 	case "csv", "unaligned":
 		// determine separator, quote
-		sep, quote, field := '|', rune(0), "fieldsep"
+		enc, sep, quote, field := NewUnalignedEncoder, '|', rune(0), "fieldsep"
 		if format == "csv" {
-			sep, quote, field = ',', '"', "csv_fieldsep"
+			enc, sep, quote, field = NewCSVEncoder, ',', '"', "csv_fieldsep"
 		}
 		if s, ok := opts[field]; ok {
 			r := []rune(s)
@@ -118,7 +121,7 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 		if opts["recordsep_zero"] == "on" {
 			recordsep = []byte{0}
 		}
-		return NewUnalignedEncoder, []Option{
+		tableOpts := []Option{
 			WithSeparator(sep),
 			WithQuote(quote),
 			WithFormatter(NewEscapeFormatter(WithIsRaw(true, sep, quote))),
@@ -130,6 +133,11 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
 			FormatterOptionFromMap(opts),
 		}
+		if s, ok := opts["footer"]; ok && s == "off" {
+			// use an empty summary map to skip drawing the footer
+			tableOpts = append(tableOpts, WithSummary(Summary{}))
+		}
+		return enc, tableOpts
 	case "html", "asciidoc", "latex", "latex-longtable", "troff-ms", "vertical":
 		return NewTemplateEncoder, []Option{
 			WithTemplate(format),
@@ -162,7 +170,7 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 		}
 		if s, ok := opts["footer"]; ok && s == "off" {
 			// use an empty summary map to skip drawing the footer
-			tableOpts = append(tableOpts, WithSummary(map[int]func(io.Writer, int) (int, error){}))
+			tableOpts = append(tableOpts, WithSummary(Summary{}))
 		}
 		if s, ok := opts["linestyle"]; ok {
 			switch s {
@@ -328,8 +336,8 @@ func WithFormatterOptions(opts ...EscapeFormatterOption) Option {
 	}
 }
 
-// WithSummary is a encoder option to set a summary map.
-func WithSummary(summary map[int]func(io.Writer, int) (int, error)) Option {
+// WithSummary is a encoder option to set a table summary.
+func WithSummary(summary Summary) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
 			enc.summary = summary
@@ -346,6 +354,7 @@ func WithSummary(summary map[int]func(io.Writer, int) (int, error)) Option {
 			return nil
 		},
 		unaligned: func(enc *UnalignedEncoder) error {
+			enc.summary = summary
 			return nil
 		},
 		template: func(enc *TemplateEncoder) error {

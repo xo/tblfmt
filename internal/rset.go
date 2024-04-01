@@ -7,26 +7,26 @@ import (
 	"time"
 )
 
-// Rset is a result set.
-type Rset struct {
+// RS is a result set.
+type RS struct {
 	rs   int
 	pos  int
 	cols []string
 	vals [][][]interface{}
 }
 
-// NewRset creates a new result set
-func NewRset(cols []string, vals ...[][]interface{}) *Rset {
-	return &Rset{
+// New creates a new result set
+func New(cols []string, vals ...[][]interface{}) *RS {
+	return &RS{
 		cols: cols,
 		vals: vals,
 	}
 }
 
-// NewRsetMulti creates a result set with multiple result sets.
-func NewRsetMulti() *Rset {
+// Multi creates a result set with multiple result sets.
+func Multi() *RS {
 	s, t := rset(14), rset(38)
-	r := &Rset{
+	r := &RS{
 		cols: []string{"author_id", "name", "z"},
 		vals: [][][]interface{}{
 			s[:2], s[2:], t,
@@ -35,8 +35,8 @@ func NewRsetMulti() *Rset {
 	return r
 }
 
-// NewRsetBig creates a random, big result set using the provided seed.
-func NewRsetBig(seed int64) *Rset {
+// Big creates a random, big result set using the provided seed.
+func Big(seed int64) *RS {
 	src := rand.New(rand.NewSource(seed))
 	count := src.Intn(1000)
 	// generate rows
@@ -45,15 +45,15 @@ func NewRsetBig(seed int64) *Rset {
 		p := newRrow(src)
 		vals[i] = []interface{}{i + 1, p.name, p.dob, p.f, p.hash, p.char, p.z}
 	}
-	return &Rset{
+	return &RS{
 		cols: []string{"id", "name", "dob", "float", "hash", "", "z"},
 		vals: [][][]interface{}{vals},
 	}
 }
 
-// NewRsetTiny creates a tiny result set.
-func NewRsetTiny() *Rset {
-	return &Rset{
+// Tiny creates a tiny result set.
+func Tiny() *RS {
+	return &RS{
 		cols: []string{"z"},
 		vals: [][][]interface{}{
 			{
@@ -63,9 +63,9 @@ func NewRsetTiny() *Rset {
 	}
 }
 
-// NewRsetWide creates a wide result set.
-func NewRsetWide() *Rset {
-	return &Rset{
+// Wide creates a wide result set.
+func Wide() *RS {
+	return &RS{
 		cols: []string{
 			"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 			"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -87,27 +87,27 @@ func NewRsetWide() *Rset {
 }
 
 // Err satisfies the ResultSet interface.
-func (*Rset) Err() error {
+func (*RS) Err() error {
 	return nil
 }
 
 // Err satisfies the ResultSet interface.
-func (*Rset) Close() error {
+func (*RS) Close() error {
 	return nil
 }
 
 // Err satisfies the ResultSet interface.
-func (r *Rset) Columns() ([]string, error) {
+func (r *RS) Columns() ([]string, error) {
 	return r.cols, nil
 }
 
 // Err satisfies the ResultSet interface.
-func (r *Rset) Next() bool {
+func (r *RS) Next() bool {
 	return r.pos < len(r.vals[r.rs])
 }
 
 // Err satisfies the ResultSet interface.
-func (r *Rset) Scan(vals ...interface{}) error {
+func (r *RS) Scan(vals ...interface{}) error {
 	for i := range vals {
 		x, ok := vals[i].(*interface{})
 		if !ok {
@@ -120,13 +120,13 @@ func (r *Rset) Scan(vals ...interface{}) error {
 }
 
 // Err satisfies the ResultSet interface.
-func (r *Rset) NextResultSet() bool {
+func (r *RS) NextResultSet() bool {
 	r.rs, r.pos = r.rs+1, 0
 	return r.rs < len(r.vals)
 }
 
 // Reset resets the rset so that it can be used repeatedly.
-func (r *Rset) Reset() {
+func (r *RS) Reset() {
 	r.pos, r.rs = 0, 0
 }
 
