@@ -237,13 +237,24 @@ func FormatterOptionFromMap(opts map[string]string) Option {
 	if timeFormat == "" {
 		timeFormat = time.RFC3339
 	}
+	// time location
+	var timeLocation *time.Location
+	if tz := opts["timezone"]; tz != "" {
+		if loc, err := time.LoadLocation(tz); err == nil {
+			timeLocation = loc
+		}
+	}
 	// numeric locale
 	locale := opts["locale"]
 	if locale == "" {
 		locale = "en-US"
 	}
 	numericLocale := opts["numericlocale"] == "true" || opts["numericlocale"] == "on"
-	return WithFormatterOptions(WithTimeFormat(timeFormat), WithNumericLocale(numericLocale, locale))
+	return WithFormatterOptions(
+		WithTimeFormat(timeFormat),
+		WithTimeLocation(timeLocation),
+		WithNumericLocale(numericLocale, locale),
+	)
 }
 
 // WithCount is a encoder option to set the buffered line count.

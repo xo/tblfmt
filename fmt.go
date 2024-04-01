@@ -40,6 +40,8 @@ type EscapeFormatter struct {
 	mask string
 	// timeFormat is the format to use for time values.
 	timeFormat string
+	// timeLocation is the location to use for time values.
+	timeLocation *time.Location
 	// encoder will be used to encode map[string]interface{} and []interface{}
 	// types.
 	//
@@ -71,10 +73,10 @@ type EscapeFormatter struct {
 }
 
 // NewEscapeFormatter creates a escape formatter to handle basic Go values,
-// such as []byte, string, time.Time. Formatting for map[string]interface{} and
-// []interface{} will be passed to a marshaler provided by WithEncoder,
-// otherwise the standard encoding/json.Encoder will be used to marshal those
-// values.
+// such as []byte, string, time.Time, and sql.Null*. Formatting for
+// map[string]interface{} and []interface{} will be passed to a marshaler
+// provided by [WithEncoder], otherwise the standard [encoding/json.Encoder]
+// will be used to marshal those values.
 func NewEscapeFormatter(opts ...EscapeFormatterOption) *EscapeFormatter {
 	f := &EscapeFormatter{
 		mask:       "%d",
@@ -156,7 +158,11 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 		case string:
 			res[i] = FormatBytes([]byte(v), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
 		case time.Time:
-			res[i] = newValue(v.Format(f.timeFormat), AlignLeft, false)
+			t := v
+			if f.timeLocation != nil {
+				t = t.In(f.timeLocation)
+			}
+			res[i] = newValue(t.Format(f.timeFormat), AlignLeft, false)
 		case sql.NullBool:
 			if v.Valid {
 				res[i] = newValue(strconv.FormatBool(v.Bool), AlignLeft, true)
@@ -217,7 +223,11 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 			}
 		case sql.NullTime:
 			if v.Valid {
-				res[i] = newValue(v.Time.Format(f.timeFormat), AlignLeft, false)
+				t := v.Time
+				if f.timeLocation != nil {
+					t = t.In(f.timeLocation)
+				}
+				res[i] = newValue(t.Format(f.timeFormat), AlignLeft, false)
 			}
 		case sql.RawBytes:
 			res[i] = FormatBytes(v, f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
@@ -503,6 +513,14 @@ func WithMask(mask string) EscapeFormatterOption {
 func WithTimeFormat(timeFormat string) EscapeFormatterOption {
 	return func(f *EscapeFormatter) {
 		f.timeFormat = timeFormat
+	}
+}
+
+// WithTimeLocation is an escape formatter option to set the time location used
+// for time values.
+func WithTimeLocation(timeLocation *time.Location) EscapeFormatterOption {
+	return func(f *EscapeFormatter) {
+		f.timeLocation = timeLocation
 	}
 }
 
