@@ -126,6 +126,7 @@ func TestFormatJSON(t *testing.T) {
 			"👀",
 			"🤰",
 			"foo",
+			"15\u00f8C",
 		},
 		";",
 	)
@@ -138,7 +139,7 @@ func TestFormatJSON(t *testing.T) {
 	v := FormatBytes([]byte(s), nil, 0, true, false, 0, 0)
 	t.Logf("v  : %q", v)
 	if b := []byte(v.String()); !slices.Equal(b, exp) {
-		t.Errorf("expected: %q, got: %q", string(exp), string(b))
+		t.Errorf("\nexpected:\n%q\ngot:\n%q", string(exp), string(b))
 	}
 }
 
