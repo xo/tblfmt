@@ -301,6 +301,11 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isRaw boo
 				res.Buf = append(res.Buf, invalid...)
 				res.Width += invalidWidth
 				res.Quoted = true
+			} else if isJSON {
+				res.Buf = append(res.Buf, '\\', 'u')
+				for s := 12; s >= 0; s -= 4 {
+					res.Buf = append(res.Buf, lowerhex[r>>uint(s)&0xf])
+				}
 			} else {
 				res.Buf = append(res.Buf, '\\', 'x', lowerhex[src[0]>>4], lowerhex[src[0]&0xf])
 				res.Width += 4
@@ -311,20 +316,36 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isRaw boo
 		// handle json encoding
 		if isJSON {
 			switch r {
-			case '\t':
-				res.Buf = append(res.Buf, '\\', 't')
+			case '\a':
+				res.Buf = append(res.Buf, '\\', 'u', '0', '0', '0', '7')
+				res.Width += 6
+				continue
+			case '\b':
+				res.Buf = append(res.Buf, '\\', 'b')
+				res.Width += 2
+				continue
+			case '\f':
+				res.Buf = append(res.Buf, '\\', 'f')
 				res.Width += 2
 				continue
 			case '\n':
 				res.Buf = append(res.Buf, '\\', 'n')
 				res.Width += 2
 				continue
-			case '\\':
-				res.Buf = append(res.Buf, '\\', '\\')
+			case '\r':
+				res.Buf = append(res.Buf, '\\', 'r')
+				res.Width += 2
+				continue
+			case '\t':
+				res.Buf = append(res.Buf, '\\', 't')
 				res.Width += 2
 				continue
 			case '"':
 				res.Buf = append(res.Buf, '\\', '"')
+				res.Width += 2
+				continue
+			case '\\':
+				res.Buf = append(res.Buf, '\\', '\\')
 				res.Width += 2
 				continue
 			}
@@ -386,7 +407,7 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isRaw boo
 		default:
 			switch {
 			// escape as \x00
-			case r < ' ':
+			case r < ' ' && !isJSON:
 				res.Buf = append(res.Buf, '\\', 'x', lowerhex[byte(r)>>4], lowerhex[byte(r)&0xf])
 				res.Width += 4
 			// escape as \u0000

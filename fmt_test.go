@@ -1,8 +1,10 @@
 package tblfmt
 
 import (
+	"encoding/json"
 	"reflect"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -100,6 +102,43 @@ func TestFormatBytesComplex(t *testing.T) {
 	v := FormatBytes([]byte(s), nil, 0, false, false, 0, 0)
 	if w := v.MaxWidth(0, 8); w != 39 {
 		t.Errorf("expected width of 39, got: %d", w)
+	}
+}
+
+func TestFormatJSON(t *testing.T) {
+	s := strings.Join(
+		[]string{
+			"\a",
+			"\b",
+			"\f",
+			"\n",
+			"\r",
+			"\t",
+			"\x1a",
+			"\x2b",
+			"\x3f",
+			"\\",
+			" ",
+			"\x9f",
+			"\xaf",
+			"\xff",
+			"\u1998",
+			"👀",
+			"🤰",
+			"foo",
+		},
+		";",
+	)
+	exp, err := json.Marshal(s)
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	exp = exp[1 : len(exp)-1]
+	t.Logf("exp: %q", string(exp))
+	v := FormatBytes([]byte(s), nil, 0, true, false, 0, 0)
+	t.Logf("v  : %q", v)
+	if b := []byte(v.String()); !slices.Equal(b, exp) {
+		t.Errorf("expected: %q, got: %q", string(exp), string(b))
 	}
 }
 
