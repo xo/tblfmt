@@ -26,7 +26,7 @@ func init() {
 // ResultSet is the shared interface for a result set.
 type ResultSet interface {
 	Next() bool
-	Scan(...interface{}) error
+	Scan(...any) error
 	Columns() ([]string, error)
 	Close() error
 	Err() error
@@ -60,7 +60,7 @@ func PsqlEncode(w io.Writer, resultSet ResultSet, params map[string]string, dsn 
 	var vals string
 	var i int
 	for resultSet.Next() {
-		var id, name, z interface{}
+		var id, name, z any
 		if err := resultSet.Scan(&id, &name, &z); err != nil {
 			return err
 		}
@@ -113,7 +113,7 @@ func psqlEsc(s string) string {
 }
 
 // psqlEnc encodes v based on n.
-func psqlEnc(n string, v interface{}) string {
+func psqlEnc(n string, v any) string {
 	if n != "javascript" && n != "slice" {
 		return "NULL"
 	}

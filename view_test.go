@@ -55,11 +55,11 @@ func checkView(t *testing.T, testNum int, test viewTest, view ResultSet) {
 		t.Errorf("test %d expected columns to be %v, got: %v", testNum, test.expCols, cols)
 	}
 	clen := len(cols)
-	var vals [][]interface{}
+	var vals [][]any
 	for view.Next() {
-		r := make([]interface{}, clen)
-		for i := 0; i < clen; i++ {
-			r[i] = new(interface{})
+		r := make([]any, clen)
+		for i := range clen {
+			r[i] = new(any)
 		}
 		if err := view.Scan(r...); err != nil {
 			t.Fatalf("test %d expected no error, got: %v", testNum, err)
@@ -74,9 +74,9 @@ func checkView(t *testing.T, testNum int, test viewTest, view ResultSet) {
 		t.Fatalf("test %d expected len(vals) == len(test.expVals): %d != %d", testNum, len(vals), len(test.expVals))
 	}
 	for i := 0; i < len(test.expVals); i++ {
-		row := make([]interface{}, len(vals[i]))
+		row := make([]any, len(vals[i]))
 		for j := 0; j < len(vals[i]); j++ {
-			row[j] = *(vals[i][j].(*interface{}))
+			row[j] = *(vals[i][j].(*any))
 		}
 		rs := fmt.Sprintf("%v", row)
 		es := fmt.Sprintf("%v", test.expVals[i])
@@ -125,9 +125,9 @@ type viewTest struct {
 	q       string
 	params  []string
 	cols    []string
-	vals    [][]interface{}
+	vals    [][]any
 	expCols []string
-	expVals [][]interface{}
+	expVals [][]any
 }
 
 func (test viewTest) Rset() *internal.RS {
@@ -152,12 +152,12 @@ func (test viewTest) PsqlQuery() string {
 	return fmt.Sprintf(`select * from (values %s) as t (%s)`, strings.Join(vals, ", "), strings.Join(test.cols, ", "))
 }
 
-func parseViewTest(buf []byte) ([]string, [][]interface{}, error) {
+func parseViewTest(buf []byte) ([]string, [][]any, error) {
 	lines := strings.Split(strings.TrimSpace(string(buf)), "\n")
 	cols := strings.Split(lines[0], "|")
-	var vals [][]interface{}
+	var vals [][]any
 	for _, line := range lines[1:] {
-		var row []interface{}
+		var row []any
 		for _, c := range strings.Split(line, "|") {
 			switch i, err := strconv.Atoi(c); {
 			case err == nil:

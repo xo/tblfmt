@@ -23,7 +23,7 @@ type Formatter interface {
 	// Header returns a slice of formatted values for the provided headers.
 	Header([]string) ([]*Value, error)
 	// Format returns a slice of formatted value the provided row values.
-	Format([]interface{}) ([]*Value, error)
+	Format([]any) ([]*Value, error)
 }
 
 // EscapeFormatter is an escaping formatter, that handles formatting the
@@ -46,7 +46,7 @@ type EscapeFormatter struct {
 	// types.
 	//
 	// If nil, the standard encoding/json.Encoder will be used instead.
-	encoder func(interface{}) ([]byte, error)
+	encoder func(any) ([]byte, error)
 	// prefix is indent prefix used by the JSON encoder when encoder is nil.
 	prefix string
 	// indent is the indent used by the JSON encoder when encoder is nil.
@@ -93,7 +93,7 @@ func NewEscapeFormatter(opts ...EscapeFormatterOption) *EscapeFormatter {
 func (f *EscapeFormatter) Header(headers []string) ([]*Value, error) {
 	n := len(headers)
 	res := make([]*Value, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		s := strings.TrimSpace(headers[i])
 		switch {
 		case s == "" && strings.ContainsRune(f.mask, '%'):
@@ -108,7 +108,7 @@ func (f *EscapeFormatter) Header(headers []string) ([]*Value, error) {
 }
 
 // Format satisfies the Formatter interface.
-func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
+func (f *EscapeFormatter) Format(vals []any) ([]*Value, error) {
 	n := len(vals)
 	res := make([]*Value, n)
 	// TODO: change time to v.AppendFormat() + pool
@@ -116,7 +116,7 @@ func (f *EscapeFormatter) Format(vals []interface{}) ([]*Value, error) {
 	// TODO: use pool
 	// TODO: allow configurable runes that can be escaped
 	// TODO: handler driver.Valuer
-	for i := 0; i < n; i++ {
+	for i := range n {
 		val := deref(vals[i])
 		switch v := val.(type) {
 		case nil:
@@ -510,7 +510,7 @@ func (a Align) String() string {
 func tabwidth(tabs [][2]int, offset, tab int) int {
 	// log.Printf("tabs: %v, offset: %d, tab: %d", tabs, offset, tab)
 	width := offset
-	for i := 0; i < len(tabs); i++ {
+	for i := range tabs {
 		width += tabs[i][1]
 		width += (tab - width%tab)
 	}
@@ -547,7 +547,7 @@ func WithTimeLocation(timeLocation *time.Location) EscapeFormatterOption {
 
 // WithEncoder is an escape formatter option to set a standard Go encoder to
 // use for encoding the value.
-func WithEncoder(encoder func(interface{}) ([]byte, error)) EscapeFormatterOption {
+func WithEncoder(encoder func(any) ([]byte, error)) EscapeFormatterOption {
 	return func(f *EscapeFormatter) {
 		f.encoder = encoder
 	}
@@ -609,9 +609,9 @@ func WithNumericLocale(enable bool, locale string) EscapeFormatterOption {
 }
 
 // deref dereferences a pointer to an interface.
-func deref(v interface{}) interface{} {
+func deref(v any) any {
 	switch z := v.(type) {
-	case *interface{}:
+	case *any:
 		return *z
 	}
 	val := reflect.ValueOf(v)

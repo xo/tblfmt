@@ -12,11 +12,11 @@ type RS struct {
 	rs   int
 	pos  int
 	cols []string
-	vals [][][]interface{}
+	vals [][][]any
 }
 
 // New creates a new result set
-func New(cols []string, vals ...[][]interface{}) *RS {
+func New(cols []string, vals ...[][]any) *RS {
 	return &RS{
 		cols: cols,
 		vals: vals,
@@ -28,7 +28,7 @@ func Multi() *RS {
 	s, t := rset(14), rset(38)
 	r := &RS{
 		cols: []string{"author_id", "name", "z"},
-		vals: [][][]interface{}{
+		vals: [][][]any{
 			s[:2], s[2:], t,
 		},
 	}
@@ -40,14 +40,14 @@ func Big(seed int64) *RS {
 	src := rand.New(rand.NewSource(seed))
 	count := src.Intn(1000)
 	// generate rows
-	vals := make([][]interface{}, count)
-	for i := 0; i < count; i++ {
+	vals := make([][]any, count)
+	for i := range count {
 		p := newRrow(src)
-		vals[i] = []interface{}{i + 1, p.name, p.dob, p.f, p.hash, p.char, p.z}
+		vals[i] = []any{i + 1, p.name, p.dob, p.f, p.hash, p.char, p.z}
 	}
 	return &RS{
 		cols: []string{"id", "name", "dob", "float", "hash", "", "z"},
-		vals: [][][]interface{}{vals},
+		vals: [][][]any{vals},
 	}
 }
 
@@ -55,7 +55,7 @@ func Big(seed int64) *RS {
 func Tiny() *RS {
 	return &RS{
 		cols: []string{"z"},
-		vals: [][][]interface{}{
+		vals: [][][]any{
 			{
 				{"x"},
 			},
@@ -78,7 +78,7 @@ func Wide() *RS {
 			"iiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
 			"jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj",
 		},
-		vals: [][][]interface{}{
+		vals: [][][]any{
 			{
 				{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
 			},
@@ -107,9 +107,9 @@ func (r *RS) Next() bool {
 }
 
 // Err satisfies the ResultSet interface.
-func (r *RS) Scan(vals ...interface{}) error {
+func (r *RS) Scan(vals ...any) error {
 	for i := range vals {
-		x, ok := vals[i].(*interface{})
+		x, ok := vals[i].(*any)
 		if !ok {
 			return fmt.Errorf("scan for col %d expected *interface{}, got: %T", i, vals[i])
 		}
@@ -137,7 +137,7 @@ type rrow struct {
 	f    float64
 	hash []byte
 	char []byte
-	z    interface{}
+	z    any
 }
 
 // newRrow creates a new random row using the rand source.
@@ -147,19 +147,19 @@ func newRrow(src *rand.Rand) rrow {
 	if src.Intn(2) == 1 {
 		char = []byte{byte(int('a') + src.Intn(26))}
 	}
-	var z interface{}
+	var z any
 	switch src.Intn(4) {
 	case 0, 1:
 	case 2:
 		c := 1 + src.Intn(5)
-		m := make(map[string]interface{}, c)
-		for i := 0; i < c; i++ {
+		m := make(map[string]any, c)
+		for range c {
 			r := []rune(rstr(src))
 			m[string(r[0:3])] = string(r[3:])
 		}
 		z = m
 	case 3:
-		y := make([]interface{}, 1+src.Intn(5))
+		y := make([]any, 1+src.Intn(5))
 		for i := range y {
 			r := []rune(rstr(src))
 			y[i] = string(r[0 : 1+src.Intn(6)])
@@ -170,7 +170,7 @@ func newRrow(src *rand.Rand) rrow {
 		name: rstr(src),
 		dob:  rtime(src),
 		f:    src.Float64(),
-		hash: []byte(fmt.Sprintf("%x", hash[:])),
+		hash: fmt.Appendf(nil, "%x", hash[:]),
 		char: char,
 		z:    z,
 	}
@@ -182,7 +182,7 @@ var glyphs = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456
 func rstr(src *rand.Rand) string {
 	l := 6 + src.Intn(32)
 	r := make([]rune, l)
-	for i := 0; i < l; i++ {
+	for i := range l {
 		r[i] = glyphs[src.Intn(len(glyphs))]
 	}
 	return string(r)
@@ -197,15 +197,15 @@ func rtime(src *rand.Rand) time.Time {
 }
 
 // rset returns predefined record set values.
-func rset(i int) [][]interface{} {
-	return [][]interface{}{
+func rset(i int) [][]any {
+	return [][]any{
 		{float64(i), "a\tb\tc\td", "x"},
 		{float64(i + 1), "aoeu\ntest\n", nil},
 		{float64(i + 2), "foo\bbar", nil},
 		{float64(i + 3), "袈\t袈\t\t袈", nil},
 		{float64(i + 4), "a\tb\t\r\n\ta", "a\n"},
 		{float64(i + 5), "袈\t袈\t\t袈\n", nil},
-		{float64(i + 6), "javascript", map[string]interface{}{
+		{float64(i + 6), "javascript", map[string]any{
 			fmt.Sprintf("test%d", i+7): "a value",
 			fmt.Sprintf("test%d", i+8): "foo\bbar",
 		}},

@@ -16,7 +16,7 @@ type Encoder interface {
 // ResultSet is the shared interface for a result set.
 type ResultSet interface {
 	Next() bool
-	Scan(...interface{}) error
+	Scan(...any) error
 	Columns() ([]string, error)
 	Close() error
 	Err() error

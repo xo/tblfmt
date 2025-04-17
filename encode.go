@@ -76,7 +76,7 @@ type TableEncoder struct {
 	// names are all caps.
 	lowerColumnNames bool
 	// columnTypes is used to build column types for a result set.
-	columnTypes func(ResultSet, []interface{}, int) error
+	columnTypes func(ResultSet, []any, int) error
 	// w is the undelying writer
 	w *bufio.Writer
 }
@@ -247,7 +247,7 @@ func checkErr(err error, cmd *exec.Cmd) error {
 func (enc *TableEncoder) encodeVals(vals [][]*Value) error {
 	rs := enc.rowStyle(enc.lineStyle.Row)
 	// print buffered vals
-	for i := 0; i < len(vals); i++ {
+	for i := range vals {
 		enc.row(vals[i], rs)
 		if i+1%1000 == 0 {
 			// check error every 1k rows
@@ -284,7 +284,7 @@ func (enc *TableEncoder) nextResults() ([][]*Value, error) {
 	}
 	// read to count (or all)
 	var i int
-	var r []interface{}
+	var r []any
 	for enc.resultSet.Next() {
 		if i == 0 {
 			// set up storage for results
@@ -321,7 +321,7 @@ func (enc *TableEncoder) calcWidth(vals [][]*Value) {
 		// header's widths are the minimum
 		enc.maxWidths[i] = max(enc.maxWidths[i], h.MaxWidth(offset, enc.tab))
 		// from top to bottom, find max column width
-		for j := 0; j < len(vals); j++ {
+		for j := range vals {
 			cell := vals[j][i]
 			if cell == nil {
 				cell = enc.empty
@@ -663,7 +663,7 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 func (enc *ExpandedEncoder) encodeVals(vals [][]*Value) error {
 	rs := enc.rowStyle(enc.lineStyle.Row)
 	// print buffered vals
-	for i := 0; i < len(vals); i++ {
+	for i := range vals {
 		enc.record(i, vals[i], rs)
 		if i+1%1000 == 0 {
 			// check error every 1k rows
@@ -800,7 +800,7 @@ type JSONEncoder struct {
 	// names are all caps.
 	lowerColumnNames bool
 	// columnTypes is used to build column types for a result set.
-	columnTypes func(ResultSet, []interface{}, int) error
+	columnTypes func(ResultSet, []any, int) error
 }
 
 // NewJSONEncoder creates a new JSON encoder using the provided options.
@@ -879,7 +879,7 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		if _, err = w.Write(open); err != nil {
 			return err
 		}
-		for i = 0; i < clen; i++ {
+		for i = range clen {
 			v = vals[i]
 			if v == nil {
 				v = enc.empty
@@ -974,7 +974,7 @@ type UnalignedEncoder struct {
 	// names are all caps.
 	lowerColumnNames bool
 	// columnTypes is used to build column types for a result set.
-	columnTypes func(ResultSet, []interface{}, int) error
+	columnTypes func(ResultSet, []any, int) error
 }
 
 // NewUnalignedEncoder creates a new unaligned encoder using the provided
@@ -1046,7 +1046,7 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 		if err != nil {
 			return err
 		}
-		for i := 0; i < clen; i++ {
+		for i := range clen {
 			if i != 0 {
 				if _, err := w.Write(sep); err != nil {
 					return err
@@ -1076,7 +1076,7 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 		if err != nil {
 			return err
 		}
-		for i := 0; i < clen; i++ {
+		for i := range clen {
 			if i != 0 {
 				if _, err := w.Write(sep); err != nil {
 					return err
@@ -1125,7 +1125,7 @@ type TemplateEncoder struct {
 	// ResultSet is the result set to encode.
 	resultSet ResultSet
 	// executor is the template executor function.
-	executor func(io.Writer, interface{}) error
+	executor func(io.Writer, any) error
 	// newline is the record separator to use.
 	newline []byte
 	// formatter handles formatting values prior to output.
@@ -1142,14 +1142,14 @@ type TemplateEncoder struct {
 	// names are all caps.
 	lowerColumnNames bool
 	// columnTypes is used to build column types for a result set.
-	columnTypes func(ResultSet, []interface{}, int) error
+	columnTypes func(ResultSet, []any, int) error
 }
 
 // NewTemplateEncoder creates a new template encoder using the provided options.
 func NewTemplateEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	enc := &TemplateEncoder{
 		resultSet: resultSet,
-		executor:  func(io.Writer, interface{}) error { return ErrInvalidTemplate },
+		executor:  func(io.Writer, any) error { return ErrInvalidTemplate },
 		newline:   newline,
 		formatter: NewEscapeFormatter(),
 		empty: &Value{
@@ -1200,7 +1200,7 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	for i := 0; i < clen; i++ {
+	for i := range clen {
 		if headers[i] == nil {
 			headers[i] = enc.empty
 		}
@@ -1218,7 +1218,7 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 		if err != nil {
 			return err
 		}
-		for i := 0; i < clen; i++ {
+		for i := range clen {
 			if vals[i] == nil {
 				vals[i] = enc.empty
 			}
@@ -1232,7 +1232,7 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 	if title == nil {
 		title = enc.empty
 	}
-	return enc.executor(w, map[string]interface{}{
+	return enc.executor(w, map[string]any{
 		"Attributes": enc.attributes,
 		"Headers":    headers,
 		"Rows":       rows,
@@ -1284,7 +1284,7 @@ func newErrEncoder(_ ResultSet, opts ...Option) (Encoder, error) {
 }
 
 // scanAndFormat scans and formats values from the result set.
-func scanAndFormat(resultSet ResultSet, vals []interface{}, formatter Formatter, count *int64) ([]*Value, error) {
+func scanAndFormat(resultSet ResultSet, vals []any, formatter Formatter, count *int64) ([]*Value, error) {
 	if err := resultSet.Err(); err != nil {
 		return nil, err
 	}
@@ -1315,16 +1315,16 @@ func buildColNames(resultSet ResultSet, lower bool) (int, []string, error) {
 }
 
 // buildColumnTypes builds a []interface{} for storing scan results.
-func buildColumnTypes(resultSet ResultSet, n int, columnTypes func(ResultSet, []interface{}, int) error) ([]interface{}, error) {
-	r := make([]interface{}, n)
+func buildColumnTypes(resultSet ResultSet, n int, columnTypes func(ResultSet, []any, int) error) ([]any, error) {
+	r := make([]any, n)
 	if columnTypes != nil {
 		if err := columnTypes(resultSet, r, n); err != nil {
 			return nil, err
 		}
 		return r, nil
 	}
-	for i := 0; i < n; i++ {
-		r[i] = new(interface{})
+	for i := range n {
+		r[i] = new(any)
 	}
 	return r, nil
 }

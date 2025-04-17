@@ -12,7 +12,7 @@ import (
 type result struct {
 	pos  int
 	cols []string
-	vals [][]interface{}
+	vals [][]any
 }
 
 // Columns satisfies the tblfmt.ResultSet interface.
@@ -26,9 +26,9 @@ func (res *result) Next() bool {
 }
 
 // Scan satisfies the tblfmt.ResultSet interface.
-func (res *result) Scan(vals ...interface{}) error {
+func (res *result) Scan(vals ...any) error {
 	for i := range vals {
-		x, ok := vals[i].(*interface{})
+		x, ok := vals[i].(*any)
 		if !ok {
 			return fmt.Errorf("scan for col %d expected *interface{}, got: %T", i, vals[i])
 		}
@@ -58,7 +58,7 @@ func (res *result) NextResultSet() bool {
 func getDatabaseResults() tblfmt.ResultSet {
 	return &result{
 		cols: []string{"author_id", "name", "z"},
-		vals: [][]interface{}{
+		vals: [][]any{
 			{14, "a\tb\tc\td", nil},
 			{15, "aoeu\ntest\n", nil},
 			{2, "袈\t袈\t\t袈", nil},

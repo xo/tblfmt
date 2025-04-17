@@ -23,7 +23,7 @@ type Summary = map[int]func(io.Writer, int) (int, error)
 
 // Option is a Encoder option.
 type Option interface {
-	apply(interface{}) error
+	apply(any) error
 }
 
 // option wraps setting an option on an encoder.
@@ -38,7 +38,7 @@ type option struct {
 }
 
 // apply applies the option.
-func (opt option) apply(o interface{}) error {
+func (opt option) apply(o any) error {
 	switch v := o.(type) {
 	case *TableEncoder:
 		if opt.table != nil {
@@ -438,9 +438,9 @@ func WithTitle(title string) Option {
 // cells.
 func WithEmpty(empty string) Option {
 	encode := func(formatter Formatter) *Value {
-		z := new(interface{})
+		z := new(any)
 		*z = empty
-		if v, err := formatter.Format([]interface{}{z}); err == nil {
+		if v, err := formatter.Format([]any{z}); err == nil {
 			return v[0]
 		}
 		panic(fmt.Sprintf("invalid empty value %q", empty))
@@ -570,7 +570,7 @@ func WithTableAttributes(a string) Option {
 }
 
 // WithExecutor is a encoder option to set the executor.
-func WithExecutor(executor func(io.Writer, interface{}) error) Option {
+func WithExecutor(executor func(io.Writer, any) error) Option {
 	return option{
 		template: func(enc *TemplateEncoder) error {
 			enc.executor = executor
@@ -663,7 +663,7 @@ func WithLowerColumnNames(lowerColumnNames bool) Option {
 
 // WithColumnTypes is a encoder option to set a func to use for building column
 // types.
-func WithColumnTypes(columnTypes func(ResultSet, []interface{}, int) error) Option {
+func WithColumnTypes(columnTypes func(ResultSet, []any, int) error) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
 			enc.columnTypes = columnTypes
@@ -697,12 +697,12 @@ func WithUseColumnTypes(useColumnTypes bool) Option {
 	if !useColumnTypes {
 		return WithColumnTypes(nil)
 	}
-	return WithColumnTypes(func(resultSet ResultSet, r []interface{}, n int) error {
+	return WithColumnTypes(func(resultSet ResultSet, r []any, n int) error {
 		cols, err := resultSetColumns(resultSet, n)
 		if err != nil {
 			return err
 		}
-		for i := 0; i < n; i++ {
+		for i := range n {
 			r[i] = reflect.New(cols[i].ScanType()).Interface()
 		}
 		return nil
@@ -711,13 +711,13 @@ func WithUseColumnTypes(useColumnTypes bool) Option {
 
 // WithColumnTypesFunc is a encoder option to set a func to build each column's
 // type.
-func WithColumnTypesFunc(f func(*sql.ColumnType) (interface{}, error)) Option {
-	return WithColumnTypes(func(resultSet ResultSet, r []interface{}, n int) error {
+func WithColumnTypesFunc(f func(*sql.ColumnType) (any, error)) Option {
+	return WithColumnTypes(func(resultSet ResultSet, r []any, n int) error {
 		cols, err := resultSetColumns(resultSet, n)
 		if err != nil {
 			return err
 		}
-		for i := 0; i < n; i++ {
+		for i := range n {
 			if r[i], err = f(cols[i]); err != nil {
 				return err
 			}

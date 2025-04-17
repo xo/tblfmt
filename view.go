@@ -1,6 +1,7 @@
 package tblfmt
 
 import (
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -26,7 +27,7 @@ type CrosstabView struct {
 	// names are all caps.
 	lowerColumnNames bool
 	// columnTypes is used to build column types for a result set.
-	columnTypes func(ResultSet, []interface{}, int) error
+	columnTypes func(ResultSet, []any, int) error
 	// v is the vertical header column.
 	v string
 	// h is the horizontal header column.
@@ -40,7 +41,7 @@ type CrosstabView struct {
 	// hmap is the map of horizontal columns.
 	hkeys []hkey
 	// vals are the result values.
-	vals map[string]map[string]interface{}
+	vals map[string]map[string]any
 	// pos is the index for the result.
 	pos int
 	// err is the last encountered error.
@@ -74,7 +75,7 @@ func NewCrosstabView(resultSet ResultSet, opts ...Option) (ResultSet, error) {
 func (view *CrosstabView) build() error {
 	// reset
 	view.pos = -1
-	view.vals = make(map[string]map[string]interface{})
+	view.vals = make(map[string]map[string]any)
 	// get columns
 	clen, cols, err := buildColNames(view.resultSet, view.lowerColumnNames)
 	switch {
@@ -109,7 +110,7 @@ func (view *CrosstabView) build() error {
 			vindex: true,
 			hindex: true,
 		}
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			if !used[i] {
 				ddef = i
 			}
@@ -138,7 +139,7 @@ func (view *CrosstabView) build() error {
 			return view.fail(err)
 		}
 		// raw format values
-		vals := []interface{}{r[vindex], r[hindex]}
+		vals := []any{r[vindex], r[hindex]}
 		if sindex != -1 {
 			vals = append(vals, r[sindex])
 		}
@@ -174,7 +175,7 @@ func (view *CrosstabView) fail(err error) error {
 }
 
 // add processes and adds a val.
-func (view *CrosstabView) add(d interface{}, v, h, s *Value) error {
+func (view *CrosstabView) add(d any, v, h, s *Value) error {
 	if v == nil {
 		v = view.empty
 	}
@@ -196,7 +197,7 @@ func (view *CrosstabView) add(d interface{}, v, h, s *Value) error {
 	view.hkeys = hkeyAppend(view.hkeys, hkey{v: hk, s: sval})
 	// store
 	if _, ok := view.vals[vk]; !ok {
-		view.vals[vk] = make(map[string]interface{})
+		view.vals[vk] = make(map[string]any)
 	}
 	if _, ok := view.vals[vk][hk]; ok {
 		return ErrCrosstabDuplicateVerticalAndHorizontalValue
@@ -215,17 +216,17 @@ func (view *CrosstabView) Next() bool {
 }
 
 // Scan satisfies the ResultSet interface.
-func (view *CrosstabView) Scan(v ...interface{}) error {
+func (view *CrosstabView) Scan(v ...any) error {
 	vkey := view.vkeys[view.pos]
 	if len(v) > 0 {
-		*(v[0].(*interface{})) = vkey
+		*(v[0].(*any)) = vkey
 	}
 	row := view.vals[vkey]
 	for i := 0; i < len(view.hkeys) && i < len(v)-1; i++ {
 		if z, ok := row[view.hkeys[i].v]; ok {
-			*(v[i+1].(*interface{})) = z
+			*(v[i+1].(*any)) = z
 		} else {
-			*(v[i+1].(*interface{})) = nil
+			*(v[i+1].(*any)) = nil
 		}
 	}
 	return nil
@@ -262,10 +263,8 @@ func (view *CrosstabView) NextResultSet() bool {
 // vkeyAppend determines if k is in v, if so it returns the unmodified v.
 // Otherwise, appends k to v.
 func vkeyAppend(v []string, k string) []string {
-	for _, z := range v {
-		if z == k {
-			return v
-		}
+	if slices.Contains(v, k) {
+		return v
 	}
 	return append(v, k)
 }
