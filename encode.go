@@ -71,7 +71,7 @@ type TableEncoder struct {
 	// if height or width is greater than minPagerHeight and minPagerWidth,
 	pagerCmd string
 	// scanCount is the number of scanned results in the result set.
-	scanCount int64
+	scanCount atomic.Int64
 	// lowerColumnNames indicates lower casing the column names when column
 	// names are all caps.
 	lowerColumnNames bool
@@ -125,7 +125,7 @@ func NewTableEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 // options specified in the encoder.
 func (enc *TableEncoder) Encode(w io.Writer) error {
 	// reset scan count
-	enc.scanCount = 0
+	enc.scanCount.Store(0)
 	enc.w = bufio.NewWriterSize(w, 2048)
 	if enc.resultSet == nil {
 		return ErrResultSetIsNil
@@ -185,12 +185,12 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 				exp.w = bufio.NewWriterSize(cmdBuf, 2048)
 			}
 			if err := exp.encodeVals(vals); err != nil {
-				return checkErr(err, cmd)
+							return checkErr(err, cmd)
 			}
 			continue
 		}
 		if enc.pagerCmd != "" && cmd == nil &&
-			((enc.minPagerHeight != 0 && enc.tableHeight(vals) >= enc.minPagerHeight) ||
+			((enc.minPagerHeight != 0 && enc.tableHeight(vals, enc.scanCount.Load()) >= enc.minPagerHeight) ||
 				(enc.minPagerWidth != 0 && enc.tableWidth() >= enc.minPagerWidth)) {
 			cmd, cmdBuf, err = startPager(enc.pagerCmd, w)
 			if err != nil {
@@ -200,6 +200,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		}
 		// print header if not already done
 		if !wroteHeader {
+
 			wroteHeader = true
 			enc.header()
 		}
@@ -212,7 +213,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		}
 	}
 	// add summary
-	if err := summarize(enc.w, enc.summary, enc.scanCount); err != nil {
+	if err := summarize(enc.w, enc.summary, enc.scanCount.Load()); err != nil {
 		return err
 	}
 	if err := enc.w.Flush(); err != nil {
@@ -223,6 +224,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		return cmd.Wait()
 	}
 	return nil
+
 }
 
 func startPager(pagerCmd string, w io.Writer) (*exec.Cmd, io.WriteCloser, error) {
@@ -430,42 +432,42 @@ func (enc *TableEncoder) tableWidth() int {
 }
 
 // tableHeight calculates total table height.
-func (enc *TableEncoder) tableHeight(rows [][]*Value) int {
-	height := 0
-	if enc.title != nil && enc.title.Width != 0 {
-		height += strings.Count(string(enc.title.Buf), "\n")
-	}
-	// top border
-	if enc.border >= 2 && !enc.inline {
-		height++
-	}
-	// header
-	height++
-	// mid divider
-	if enc.inline {
-		height++
-	}
-	for _, row := range rows {
-		largest := 1
-		for _, cell := range row {
-			if cell == nil {
-				cell = enc.empty
-			}
-			if len(cell.Newlines) > largest {
-				largest = len(cell.Newlines)
-			}
-		}
-		height += largest
-	}
-	// end border
-	if enc.border >= 2 {
-		height++
-	}
-	// scanCount at this point is not the final value but this is better than nothing
-	if enc.summary != nil && enc.summary[-1] != nil || enc.summary[int(enc.scanCount)] != nil {
-		height++
-	}
-	return height
+func (enc *TableEncoder) tableHeight(rows [][]*Value, scanCount int64) int {
+  height := 0
+  if enc.title != nil && enc.title.Width != 0 {
+    height += strings.Count(string(enc.title.Buf), "\n")
+  }
+  // top border
+  if enc.border >= 2 && !enc.inline {
+    height++
+  }
+  // header
+  height++
+  // mid divider
+  if enc.inline {
+    height++
+  }
+  for _, row := range rows {
+	  largest := 1
+	  for _, cell := range row {
+	    if cell == nil {
+        cell = enc.empty
+	    }
+	    if len(cell.Newlines) > largest {
+        largest = len(cell.Newlines)
+	    }
+	  }
+	  height += largest
+  }
+  // end border
+  if enc.border >= 2 {
+    height++
+  }
+  // scanCount at this point is not the final value but this is better than nothing
+  if enc.summary != nil && enc.summary[-1] != nil || enc.summary[int(scanCount)] != nil {
+    height++
+  }
+  return height
 }
 
 // row draws the a table row.
@@ -590,7 +592,7 @@ func NewExpandedEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 // options specified in the encoder.
 func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 	// reset scan count
-	enc.scanCount = 0
+	enc.scanCount.Store(0)
 	enc.w = bufio.NewWriterSize(w, 2048)
 	if enc.resultSet == nil {
 		return ErrResultSetIsNil
@@ -647,7 +649,7 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 		}
 	}
 	// add summary
-	if err := summarize(w, enc.summary, enc.scanCount); err != nil {
+	if err := summarize(w, enc.summary, enc.scanCount.Load()); err != nil {
 		return err
 	}
 	if err := enc.w.Flush(); err != nil {
@@ -673,7 +675,7 @@ func (enc *ExpandedEncoder) encodeVals(vals [][]*Value) error {
 		}
 	}
 	// draw end border
-	if enc.border >= 2 && enc.scanCount != 0 {
+	if enc.border >= 2 && enc.scanCount.Load() != 0 {
 		enc.divider(enc.rowStyle(enc.lineStyle.End))
 	}
 	return nil
@@ -739,11 +741,11 @@ func (enc *ExpandedEncoder) tableHeight(rows [][]*Value) int {
 		}
 	}
 	// end border
-	if enc.border >= 2 {
+	if enc.border >= 2 && enc.scanCount.Load() != 0 {
 		height++
 	}
 	// scanCount at this point is not the final value but this is better than nothing
-	if enc.summary != nil && enc.summary[-1] != nil || enc.summary[int(enc.scanCount)] != nil {
+	if enc.summary != nil && (enc.summary[-1] != nil || enc.summary[int(enc.scanCount.Load())] != nil) {
 		height++
 	}
 	return height
@@ -865,9 +867,9 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 	// process
 	var v *Value
 	var vals []*Value
-	var count int64
+	var count atomic.Int64
 	for enc.resultSet.Next() {
-		if count != 0 {
+		if count.Load() != 0 {
 			if _, err = w.Write(cma); err != nil {
 				return err
 			}
@@ -1070,7 +1072,7 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 		return err
 	}
 	// process
-	var count int64
+	var count atomic.Int64
 	for enc.resultSet.Next() {
 		vals, err := scanAndFormat(enc.resultSet, r, enc.formatter, &count)
 		if err != nil {
@@ -1098,7 +1100,7 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 			return err
 		}
 	}
-	if err := summarize(w, enc.summary, count); err != nil {
+	if err := summarize(w, enc.summary, count.Load()); err != nil {
 		return err
 	}
 	return enc.resultSet.Err()
@@ -1212,7 +1214,7 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 	}
 	// process
 	var rows [][]*Value
-	var count int64
+	var count atomic.Int64
 	for enc.resultSet.Next() {
 		vals, err := scanAndFormat(enc.resultSet, r, enc.formatter, &count)
 		if err != nil {
@@ -1284,14 +1286,14 @@ func newErrEncoder(_ ResultSet, opts ...Option) (Encoder, error) {
 }
 
 // scanAndFormat scans and formats values from the result set.
-func scanAndFormat(resultSet ResultSet, vals []any, formatter Formatter, count *int64) ([]*Value, error) {
+func scanAndFormat(resultSet ResultSet, vals []any, formatter Formatter, count *atomic.Int64) ([]*Value, error) {
 	if err := resultSet.Err(); err != nil {
 		return nil, err
 	}
 	if err := resultSet.Scan(vals...); err != nil {
 		return nil, err
 	}
-	atomic.AddInt64(count, 1)
+	count.Add(1)
 	return formatter.Format(vals)
 }
 
