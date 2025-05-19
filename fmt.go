@@ -173,7 +173,7 @@ func (f *EscapeFormatter) Format(vals []any) ([]*Value, error) {
 				if f.numericLocalePrinter != nil {
 					s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Byte))
 				} else {
-					s = fmt.Sprintf("%d", v.Byte)
+					s = strconv.FormatUint(uint64(v.Byte), 10)
 				}
 				res[i] = newValue(s, AlignRight, true)
 			}
@@ -297,16 +297,17 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isRaw boo
 		// invalid rune decoded
 		if w == 1 && r == utf8.RuneError {
 			// replace with invalid (if set), otherwise hex encode
-			if invalid != nil {
+			switch {
+			case invalid != nil:
 				res.Buf = append(res.Buf, invalid...)
 				res.Width += invalidWidth
 				res.Quoted = true
-			} else if isJSON {
+			case isJSON:
 				res.Buf = append(res.Buf, '\\', 'u')
 				for s := 12; s >= 0; s -= 4 {
 					res.Buf = append(res.Buf, lowerhex[r>>uint(s)&0xf])
 				}
-			} else {
+			default:
 				res.Buf = append(res.Buf, '\\', 'x', lowerhex[src[0]>>4], lowerhex[src[0]&0xf])
 				res.Width += 4
 				res.Quoted = true
@@ -452,7 +453,7 @@ type Value struct {
 	Quoted bool
 }
 
-func (v Value) String() string {
+func (v *Value) String() string {
 	return string(v.Buf)
 }
 
@@ -476,7 +477,7 @@ func (v *Value) LineWidth(l, offset, tab int) int {
 func (v *Value) MaxWidth(offset, tab int) int {
 	// simple values do not have tabulations
 	width := v.Width
-	for l := 0; l < len(v.Tabs); l++ {
+	for l := range len(v.Tabs) {
 		width = max(width, v.LineWidth(l, offset, tab))
 	}
 	return width

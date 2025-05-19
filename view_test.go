@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	// _ "github.com/lib/pq"
+	//	_ "github.com/lib/pq"
 	"github.com/xo/tblfmt/internal"
 	"github.com/xo/tblfmt/testdata"
 )
@@ -47,6 +47,7 @@ func TestNewCrosstabView_psql(t *testing.T) {
 */
 
 func checkView(t *testing.T, testNum int, test viewTest, view ResultSet) {
+	t.Helper()
 	cols, err := view.Columns()
 	if err != nil {
 		t.Fatalf("test %d expected no error, got: %v", testNum, err)
@@ -73,9 +74,9 @@ func checkView(t *testing.T, testNum int, test viewTest, view ResultSet) {
 	if len(vals) != len(test.expVals) {
 		t.Fatalf("test %d expected len(vals) == len(test.expVals): %d != %d", testNum, len(vals), len(test.expVals))
 	}
-	for i := 0; i < len(test.expVals); i++ {
+	for i := range len(test.expVals) {
 		row := make([]any, len(vals[i]))
-		for j := 0; j < len(vals[i]); j++ {
+		for j := range len(vals[i]) {
 			row[j] = *(vals[i][j].(*any))
 		}
 		rs := fmt.Sprintf("%v", row)
@@ -87,6 +88,7 @@ func checkView(t *testing.T, testNum int, test viewTest, view ResultSet) {
 }
 
 func loadViewTests(t *testing.T, name string) []viewTest {
+	t.Helper()
 	buf, err := testdata.Testdata.ReadFile(name + ".txt")
 	if err != nil {
 		t.Fatal(err)
@@ -101,14 +103,8 @@ func loadViewTests(t *testing.T, name string) []viewTest {
 		if len(s) != 2 {
 			t.Fatalf("s should be len 2, got: %d", len(s))
 		}
-		cols, vals, err := parseViewTest(z[1])
-		if err != nil {
-			t.Fatalf("expected no error, got: %v", err)
-		}
-		expCols, expVals, err := parseViewTest(z[2])
-		if err != nil {
-			t.Fatalf("expected no error, got: %v", err)
-		}
+		cols, vals := parseViewTest(z[1])
+		expCols, expVals := parseViewTest(z[2])
 		tests = append(tests, viewTest{
 			q:       strings.TrimSpace(string(z[0])),
 			params:  strings.Split(strings.TrimSpace(s[1]), " "),
@@ -152,7 +148,7 @@ func (test viewTest) PsqlQuery() string {
 	return fmt.Sprintf(`select * from (values %s) as t (%s)`, strings.Join(vals, ", "), strings.Join(test.cols, ", "))
 }
 
-func parseViewTest(buf []byte) ([]string, [][]any, error) {
+func parseViewTest(buf []byte) ([]string, [][]any) {
 	lines := strings.Split(strings.TrimSpace(string(buf)), "\n")
 	cols := strings.Split(lines[0], "|")
 	var vals [][]any
@@ -170,5 +166,5 @@ func parseViewTest(buf []byte) ([]string, [][]any, error) {
 		}
 		vals = append(vals, row)
 	}
-	return cols, vals, nil
+	return cols, vals
 }

@@ -62,6 +62,7 @@ func TestFromMap(t *testing.T) {
 }
 
 func TestFromMapFormats(t *testing.T) {
+	t.Parallel()
 	for _, typ := range []string{
 		"big",
 		"multi",
@@ -100,7 +101,7 @@ func TestFromMapFormats(t *testing.T) {
 				var exp []byte
 				buf, optMap, exp, err = readFromOpts(buf)
 				switch {
-				case err != nil && err == io.EOF:
+				case errors.Is(err, io.EOF):
 					break loop
 				case err != nil:
 					t.Fatalf("test %s (%d) expected no error, got: %v", typ, i, err)
@@ -138,7 +139,7 @@ func readFromOpts(buf []byte) ([]byte, map[string]string, []byte, error) {
 	}
 	optMap, err := parseOpts(buf[:end])
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to parse opts: %v", err)
+		return nil, nil, nil, fmt.Errorf("unable to parse opts: %w", err)
 	}
 	buf = buf[end+len(divider):]
 	if end = bytes.Index(buf, divider); end == -1 {

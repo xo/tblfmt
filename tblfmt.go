@@ -175,8 +175,8 @@ func EncodeHTML(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.Encode(w)
 }
 
-// EncodeHTML encodes the result set to the writer using the html template and
-// the supplied encoding options.
+// EncodeHTMLAll encodes the result set to the writer using the html template
+// and the supplied encoding options.
 func EncodeHTMLAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewHTMLEncoder(resultSet, opts...)
 	if err != nil {
@@ -195,7 +195,7 @@ func EncodeAsciiDoc(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.Encode(w)
 }
 
-// EncodeAsciiDoc encodes the result set to the writer using the asciidoc
+// EncodeAsciiDocAll encodes the result set to the writer using the asciidoc
 // template and the supplied encoding options.
 func EncodeAsciiDocAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewAsciiDocEncoder(resultSet, opts...)
@@ -215,7 +215,7 @@ func EncodeVertical(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.Encode(w)
 }
 
-// EncodeVertical encodes the result set to the writer using the vertical
+// EncodeVerticalAll encodes the result set to the writer using the vertical
 // template and the supplied encoding options.
 func EncodeVerticalAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewVerticalEncoder(resultSet, opts...)

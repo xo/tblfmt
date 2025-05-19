@@ -180,8 +180,8 @@ type escTest struct {
 func quote(s string) string {
 	s = strconv.Quote(s)
 	s = s[1 : len(s)-1]
-	s = strings.Replace(s, `\t`, "\t", -1)
-	s = strings.Replace(s, `\n`, "\n", -1)
+	s = strings.ReplaceAll(s, `\t`, "\t")
+	s = strings.ReplaceAll(s, `\n`, "\n")
 	return s
 }
 

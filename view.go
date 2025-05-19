@@ -239,7 +239,7 @@ func (view *CrosstabView) Columns() ([]string, error) {
 	}
 	cols := make([]string, len(view.hkeys)+1)
 	cols[0] = view.v
-	for i := 0; i < len(view.hkeys); i++ {
+	for i := range len(view.hkeys) {
 		cols[i+1] = view.hkeys[i].v
 	}
 	return cols, nil

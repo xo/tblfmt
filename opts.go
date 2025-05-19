@@ -318,31 +318,36 @@ func WithFormatter(formatter Formatter) Option {
 // WithFormatterOptions is a encoder option to add additional formatter
 // options.
 func WithFormatterOptions(opts ...EscapeFormatterOption) Option {
-	apply := func(formatter Formatter) error {
+	apply := func(formatter Formatter) {
 		f := formatter.(*EscapeFormatter)
 		for _, o := range opts {
 			o(f)
 		}
-		return nil
 	}
 	return option{
 		table: func(enc *TableEncoder) error {
-			return apply(enc.formatter)
+			apply(enc.formatter)
+			return nil
 		},
 		expanded: func(enc *ExpandedEncoder) error {
-			return apply(enc.formatter)
+			apply(enc.formatter)
+			return nil
 		},
 		json: func(enc *JSONEncoder) error {
-			return apply(enc.formatter)
+			apply(enc.formatter)
+			return nil
 		},
 		unaligned: func(enc *UnalignedEncoder) error {
-			return apply(enc.formatter)
+			apply(enc.formatter)
+			return nil
 		},
 		template: func(enc *TemplateEncoder) error {
-			return apply(enc.formatter)
+			apply(enc.formatter)
+			return nil
 		},
 		crosstab: func(view *CrosstabView) error {
-			return apply(view.formatter)
+			apply(view.formatter)
+			return nil
 		},
 	}
 }
@@ -361,14 +366,14 @@ func WithSummary(summary Summary) Option {
 			return nil
 		},
 		// FIXME: all of these should have a summary option as well ...
-		json: func(enc *JSONEncoder) error {
+		json: func(*JSONEncoder) error {
 			return nil
 		},
 		unaligned: func(enc *UnalignedEncoder) error {
 			enc.summary = summary
 			return nil
 		},
-		template: func(enc *TemplateEncoder) error {
+		template: func(*TemplateEncoder) error {
 			return nil
 		},
 	}
@@ -484,13 +489,13 @@ func WithWidths(widths ...int) Option {
 			enc.widths = widths
 			return nil
 		},
-		unaligned: func(enc *UnalignedEncoder) error {
+		unaligned: func(*UnalignedEncoder) error {
 			// FIXME: unaligned encoder should be able to support minimum
 			// column widths
 			// enc.widths = widths
 			return nil
 		},
-		template: func(enc *TemplateEncoder) error {
+		template: func(*TemplateEncoder) error {
 			// FIXME: template encoder should be able to support minimum column
 			// widths
 			// enc.widths = widths

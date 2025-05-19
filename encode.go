@@ -9,7 +9,6 @@ import (
 	"io"
 	"os/exec"
 	"strings"
-	"sync/atomic"
 	"syscall"
 	"unicode"
 
@@ -71,7 +70,7 @@ type TableEncoder struct {
 	// if height or width is greater than minPagerHeight and minPagerWidth,
 	pagerCmd string
 	// scanCount is the number of scanned results in the result set.
-	scanCount int64
+	scanCount int
 	// lowerColumnNames indicates lower casing the column names when column
 	// names are all caps.
 	lowerColumnNames bool
@@ -219,29 +218,10 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		return checkErr(err, cmd)
 	}
 	if cmd != nil {
-		cmdBuf.Close()
+		_ = cmdBuf.Close()
 		return cmd.Wait()
 	}
 	return nil
-}
-
-func startPager(pagerCmd string, w io.Writer) (*exec.Cmd, io.WriteCloser, error) {
-	cmd := exec.Command(pagerCmd)
-	cmd.Stdout = w
-	cmd.Stderr = w
-	cmdBuf, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, nil, err
-	}
-	return cmd, cmdBuf, cmd.Start()
-}
-
-func checkErr(err error, cmd *exec.Cmd) error {
-	if cmd != nil && errors.Is(err, syscall.EPIPE) {
-		// broken pipe means pager quit before consuming all data, which might be expected
-		return nil
-	}
-	return err
 }
 
 func (enc *TableEncoder) encodeVals(vals [][]*Value) error {
@@ -275,8 +255,7 @@ func (enc *TableEncoder) EncodeAll(w io.Writer) error {
 	return nil
 }
 
-// nextResults reads the next enc.count values,
-// or all values if enc.count = 0
+// nextResults reads the next enc.count values, or all values if enc.count = 0.
 func (enc *TableEncoder) nextResults() ([][]*Value, error) {
 	var vals [][]*Value
 	if enc.count != 0 {
@@ -341,7 +320,7 @@ func (enc *TableEncoder) header() {
 	if enc.title != nil && enc.title.Width != 0 {
 		maxWidth := ((enc.tableWidth() - enc.title.Width) / 2) + enc.title.Width
 		enc.writeAligned(enc.title.Buf, rs.filler, AlignRight, maxWidth-enc.title.Width)
-		enc.w.Write(enc.newline)
+		_, _ = enc.w.Write(enc.newline)
 	}
 	// draw top border
 	if enc.border >= 2 && !enc.inline {
@@ -359,10 +338,9 @@ func (enc *TableEncoder) header() {
 	}
 }
 
-// rowStyle returns the left, right and midle borders.
-// It also profides the filler string, and indicates
-// if this style uses a wrapping indicator.
-func (enc TableEncoder) rowStyle(r [4]rune) rowStyle {
+// rowStyle returns the left, right and midle borders. It also profides the
+// filler string, and indicates if this style uses a wrapping indicator.
+func (enc *TableEncoder) rowStyle(r [4]rune) rowStyle {
 	var left, right, middle, spacer, filler string
 	spacer = strings.Repeat(string(r[1]), runewidth.RuneWidth(enc.lineStyle.Row[1]))
 	filler = string(r[1])
@@ -396,21 +374,21 @@ func (enc TableEncoder) rowStyle(r [4]rune) rowStyle {
 // divider draws a divider.
 func (enc *TableEncoder) divider(rs rowStyle) {
 	// left
-	enc.w.Write(rs.left)
+	_, _ = enc.w.Write(rs.left)
 	for i, width := range enc.maxWidths {
 		// column
-		enc.w.Write(bytes.Repeat(rs.filler, width))
+		_, _ = enc.w.Write(bytes.Repeat(rs.filler, width))
 		// line feed indicator
 		if rs.hasWrapping && enc.border >= 1 {
-			enc.w.Write(rs.filler)
+			_, _ = enc.w.Write(rs.filler)
 		}
 		// middle separator
 		if i != len(enc.maxWidths)-1 {
-			enc.w.Write(rs.middle)
+			_, _ = enc.w.Write(rs.middle)
 		}
 	}
 	// right
-	enc.w.Write(rs.right)
+	_, _ = enc.w.Write(rs.right)
 }
 
 // tableWidth calculates total table width.
@@ -420,7 +398,7 @@ func (enc *TableEncoder) tableWidth() int {
 	for i, w := range enc.maxWidths {
 		width += w
 		if rs.hasWrapping && enc.border >= 1 {
-			width += 1
+			width++
 		}
 		if i != len(enc.maxWidths)-1 {
 			width += runewidth.StringWidth(string(rs.middle))
@@ -462,7 +440,7 @@ func (enc *TableEncoder) tableHeight(rows [][]*Value) int {
 		height++
 	}
 	// scanCount at this point is not the final value but this is better than nothing
-	if enc.summary != nil && enc.summary[-1] != nil || enc.summary[int(enc.scanCount)] != nil {
+	if enc.summary != nil && enc.summary[-1] != nil || enc.summary[enc.scanCount] != nil {
 		height++
 	}
 	return height
@@ -473,7 +451,7 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 	var l int
 	for {
 		// left
-		enc.w.Write(rs.left)
+		_, _ = enc.w.Write(rs.left)
 		var remaining bool
 		for i, v := range vals {
 			if v == nil {
@@ -502,28 +480,26 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 					padding = 0
 				}
 				enc.writeAligned(v.Buf[start:end], rs.filler, v.Align, padding)
-			} else {
-				if enc.border > 1 || i != len(vals)-1 {
-					enc.w.Write(bytes.Repeat(rs.filler, enc.maxWidths[i]))
-				}
+			} else if enc.border > 1 || i != len(vals)-1 {
+				_, _ = enc.w.Write(bytes.Repeat(rs.filler, enc.maxWidths[i]))
 			}
 			// write newline wrap value
 			if rs.hasWrapping {
 				if l < len(v.Newlines) {
-					enc.w.Write(rs.wrapper)
+					_, _ = enc.w.Write(rs.wrapper)
 				} else {
-					enc.w.Write(rs.filler)
+					_, _ = enc.w.Write(rs.filler)
 				}
 			}
 			remaining = remaining || l < len(v.Newlines)
 			// middle separator. If border == 0, the new line indicator
 			// acts as the middle separator
 			if i != len(enc.maxWidths)-1 && enc.border >= 1 {
-				enc.w.Write(rs.middle)
+				_, _ = enc.w.Write(rs.middle)
 			}
 		}
 		// right
-		enc.w.Write(rs.right)
+		_, _ = enc.w.Write(rs.right)
 		if !remaining {
 			break
 		}
@@ -548,13 +524,13 @@ func (enc *TableEncoder) writeAligned(b, filler []byte, a Align, padding int) {
 	}
 	// add padding left
 	if paddingLeft > 0 {
-		enc.w.Write(bytes.Repeat(filler, paddingLeft))
+		_, _ = enc.w.Write(bytes.Repeat(filler, paddingLeft))
 	}
 	// write
-	enc.w.Write(b)
+	_, _ = enc.w.Write(b)
 	// add padding right
 	if paddingRight > 0 {
-		enc.w.Write(bytes.Repeat(filler, paddingRight))
+		_, _ = enc.w.Write(bytes.Repeat(filler, paddingRight))
 	}
 }
 
@@ -638,8 +614,8 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 		if !wroteTitle {
 			wroteTitle = true
 			if enc.title != nil && enc.title.Width != 0 {
-				enc.w.Write(enc.title.Buf)
-				enc.w.Write(enc.newline)
+				_, _ = enc.w.Write(enc.title.Buf)
+				_, _ = enc.w.Write(enc.newline)
 			}
 		}
 		if err := enc.encodeVals(vals); err != nil {
@@ -654,7 +630,7 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 		return checkErr(err, cmd)
 	}
 	if cmd != nil {
-		cmdBuf.Close()
+		_ = cmdBuf.Close()
 		return cmd.Wait()
 	}
 	return nil
@@ -743,7 +719,7 @@ func (enc *ExpandedEncoder) tableHeight(rows [][]*Value) int {
 		height++
 	}
 	// scanCount at this point is not the final value but this is better than nothing
-	if enc.summary != nil && enc.summary[-1] != nil || enc.summary[int(enc.scanCount)] != nil {
+	if enc.summary != nil && enc.summary[-1] != nil || enc.summary[enc.scanCount] != nil {
 		height++
 	}
 	return height
@@ -760,15 +736,15 @@ func (enc *ExpandedEncoder) record(i int, vals []*Value, rs rowStyle) {
 				headerRS = enc.rowStyle(enc.lineStyle.Mid)
 			}
 		}
-		enc.w.Write(headerRS.left)
-		enc.w.WriteString(header)
+		_, _ = enc.w.Write(headerRS.left)
+		_, _ = enc.w.WriteString(header)
 		padding := enc.maxWidths[0] + enc.maxWidths[1] + runewidth.StringWidth(string(headerRS.middle))*2 - len(header) - 1
 		if padding > 0 {
-			enc.w.Write(bytes.Repeat(headerRS.filler, padding))
+			_, _ = enc.w.Write(bytes.Repeat(headerRS.filler, padding))
 		}
 		// write newline wrap value
-		enc.w.Write(headerRS.filler)
-		enc.w.Write(headerRS.right)
+		_, _ = enc.w.Write(headerRS.filler)
+		_, _ = enc.w.Write(headerRS.right)
 	}
 	// write each value with column name in first col
 	for j, v := range vals {
@@ -829,7 +805,6 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 	if enc.resultSet == nil {
 		return ErrResultSetIsNil
 	}
-	var i int
 	var (
 		start = []byte{'['}
 		end   = []byte{']'}
@@ -847,7 +822,7 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		return ErrResultSetHasNoColumns
 	}
 	cb := make([][]byte, clen)
-	for i = 0; i < clen; i++ {
+	for i := range clen {
 		if cb[i], err = json.Marshal(cols[i]); err != nil {
 			return err
 		}
@@ -865,7 +840,7 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 	// process
 	var v *Value
 	var vals []*Value
-	var count int64
+	var count int
 	for enc.resultSet.Next() {
 		if count != 0 {
 			if _, err = w.Write(cma); err != nil {
@@ -879,7 +854,7 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		if _, err = w.Write(open); err != nil {
 			return err
 		}
-		for i = range clen {
+		for i := range clen {
 			v = vals[i]
 			if v == nil {
 				v = enc.empty
@@ -1070,7 +1045,7 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 		return err
 	}
 	// process
-	var count int64
+	var count int
 	for enc.resultSet.Next() {
 		vals, err := scanAndFormat(enc.resultSet, r, enc.formatter, &count)
 		if err != nil {
@@ -1212,7 +1187,7 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 	}
 	// process
 	var rows [][]*Value
-	var count int64
+	var count int
 	for enc.resultSet.Next() {
 		vals, err := scanAndFormat(enc.resultSet, r, enc.formatter, &count)
 		if err != nil {
@@ -1284,14 +1259,14 @@ func newErrEncoder(_ ResultSet, opts ...Option) (Encoder, error) {
 }
 
 // scanAndFormat scans and formats values from the result set.
-func scanAndFormat(resultSet ResultSet, vals []any, formatter Formatter, count *int64) ([]*Value, error) {
+func scanAndFormat(resultSet ResultSet, vals []any, formatter Formatter, count *int) ([]*Value, error) {
 	if err := resultSet.Err(); err != nil {
 		return nil, err
 	}
 	if err := resultSet.Scan(vals...); err != nil {
 		return nil, err
 	}
-	atomic.AddInt64(count, 1)
+	*count++
 	return formatter.Format(vals)
 }
 
@@ -1330,7 +1305,7 @@ func buildColumnTypes(resultSet ResultSet, n int, columnTypes func(ResultSet, []
 }
 
 // summarize writes the table scan count summary.
-func summarize(w io.Writer, summary Summary, count int64) error {
+func summarize(w io.Writer, summary Summary, count int) error {
 	// do summary
 	if summary == nil {
 		return nil
@@ -1339,11 +1314,11 @@ func summarize(w io.Writer, summary Summary, count int64) error {
 	if z, ok := summary[-1]; ok {
 		f = z
 	}
-	if z, ok := summary[int(count)]; ok {
+	if z, ok := summary[count]; ok {
 		f = z
 	}
 	if f != nil {
-		if _, err := f(w, int(count)); err != nil {
+		if _, err := f(w, count); err != nil {
 			return err
 		}
 		if _, err := w.Write(newline); err != nil {
@@ -1351,4 +1326,23 @@ func summarize(w io.Writer, summary Summary, count int64) error {
 		}
 	}
 	return nil
+}
+
+func startPager(pagerCmd string, w io.Writer) (*exec.Cmd, io.WriteCloser, error) {
+	cmd := exec.Command(pagerCmd)
+	cmd.Stdout = w
+	cmd.Stderr = w
+	cmdBuf, err := cmd.StdinPipe()
+	if err != nil {
+		return nil, nil, err
+	}
+	return cmd, cmdBuf, cmd.Start()
+}
+
+func checkErr(err error, cmd *exec.Cmd) error {
+	if cmd != nil && errors.Is(err, syscall.EPIPE) {
+		// broken pipe means pager quit before consuming all data, which might be expected
+		return nil
+	}
+	return err
 }

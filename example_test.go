@@ -54,7 +54,7 @@ func (res *result) NextResultSet() bool {
 }
 
 // getDatabaseResults returns a tblfmt.ResultSet, which is an interface that is
-// compatible with Go's standard
+// compatible with Go's standard.
 func getDatabaseResults() tblfmt.ResultSet {
 	return &result{
 		cols: []string{"author_id", "name", "z"},

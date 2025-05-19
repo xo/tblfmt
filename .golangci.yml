@@ -1,0 +1,48 @@
+version: "2"
+linters:
+  default: all
+  disable:
+    - cyclop
+    - dupword
+    - err113
+    - errcheck
+    - exhaustruct
+    - mnd
+    - forcetypeassert
+    - funlen
+    - gochecknoglobals
+    - gochecknoinits
+    - gocognit
+    - goconst
+    - gocyclo
+    - godox
+    - wrapcheck
+    - varnamelen
+    - testpackage
+    - depguard
+    - gosmopolitan
+    - inamedparam
+    - ireturn
+    - lll
+    - maintidx
+    - nestif
+    - nlreturn
+    - paralleltest
+    - prealloc
+    - wsl
+  settings:
+    gocritic:
+      disabled-checks:
+        - appendAssign
+        - singleCaseSwitch
+    gosec:
+      excludes:
+        - G401
+        - G404
+        - G501
+        - G203
+        - G504
+    revive:
+      rules:
+        - name: var-naming
+          disabled: true

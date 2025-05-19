@@ -1,11 +1,31 @@
+// Package internal contains tblfmt internals.
 package internal
 
 import (
+	"bytes"
 	"crypto/md5"
+	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
+	"os/exec"
+	"runtime"
+	"strconv"
+	"strings"
 	"time"
+	"unicode"
 )
+
+func init() {
+	if runtime.GOOS == "windows" {
+		newline = []byte("\r\n")
+	} else {
+		newline = []byte("\n")
+	}
+}
+
+// Divider is a divider.
+const Divider = "==============================================="
 
 // RS is a result set.
 type RS struct {
@@ -15,7 +35,7 @@ type RS struct {
 	vals [][][]any
 }
 
-// New creates a new result set
+// New creates a new result set.
 func New(cols []string, vals ...[][]any) *RS {
 	return &RS{
 		cols: cols,
@@ -91,22 +111,22 @@ func (*RS) Err() error {
 	return nil
 }
 
-// Err satisfies the ResultSet interface.
+// Close satisfies the ResultSet interface.
 func (*RS) Close() error {
 	return nil
 }
 
-// Err satisfies the ResultSet interface.
+// Columns satisfies the ResultSet interface.
 func (r *RS) Columns() ([]string, error) {
 	return r.cols, nil
 }
 
-// Err satisfies the ResultSet interface.
+// Next satisfies the ResultSet interface.
 func (r *RS) Next() bool {
 	return r.pos < len(r.vals[r.rs])
 }
 
-// Err satisfies the ResultSet interface.
+// Scan satisfies the ResultSet interface.
 func (r *RS) Scan(vals ...any) error {
 	for i := range vals {
 		x, ok := vals[i].(*any)
@@ -119,7 +139,7 @@ func (r *RS) Scan(vals ...any) error {
 	return nil
 }
 
-// Err satisfies the ResultSet interface.
+// NextResultSet satisfies the ResultSet interface.
 func (r *RS) NextResultSet() bool {
 	r.rs, r.pos = r.rs+1, 0
 	return r.rs < len(r.vals)
@@ -176,8 +196,6 @@ func newRrow(src *rand.Rand) rrow {
 	}
 }
 
-var glyphs = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _'\"\t\b\n\rゼ一二三四五六七八九十〇")
-
 // rstr creates a random string using the rand source.
 func rstr(src *rand.Rand) string {
 	l := 6 + src.Intn(32)
@@ -190,10 +208,10 @@ func rstr(src *rand.Rand) string {
 
 // rtime creates a random time using the rand source.
 func rtime(src *rand.Rand) time.Time {
-	min := time.Date(1970, 1, 0, 0, 0, 0, 0, time.UTC).Unix()
-	max := time.Date(2070, 1, 0, 0, 0, 0, 0, time.UTC).Unix()
-	delta := max - min
-	return time.Unix(src.Int63n(delta)+min, 0).UTC()
+	a := time.Date(1970, 1, 0, 0, 0, 0, 0, time.UTC).Unix()
+	b := time.Date(2070, 1, 0, 0, 0, 0, 0, time.UTC).Unix()
+	delta := b - a
+	return time.Unix(src.Int63n(delta)+a, 0).UTC()
 }
 
 // rset returns predefined record set values.
@@ -213,4 +231,107 @@ func rset(i int) [][]any {
 	}
 }
 
-const Divider = "==============================================="
+// ResultSet is the shared interface for a result set.
+type ResultSet interface {
+	Next() bool
+	Scan(...any) error
+	Columns() ([]string, error)
+	Close() error
+	Err() error
+	NextResultSet() bool
+}
+
+// PsqlEncodeAll does a values query for each of the values in the result set,
+// writing captured output to the writer.
+func PsqlEncodeAll(w io.Writer, resultSet ResultSet, params map[string]string, dsn string) error {
+	if err := PsqlEncode(w, resultSet, params, dsn); err != nil {
+		return err
+	}
+	for resultSet.NextResultSet() {
+		if _, err := w.Write(newline); err != nil {
+			return err
+		}
+		if err := PsqlEncode(w, resultSet, params, dsn); err != nil {
+			return err
+		}
+	}
+	if _, err := w.Write(newline); err != nil {
+		return err
+	}
+	return nil
+}
+
+// PsqlEncode does a single value query using psql, writing the captured output
+// to the writer.
+func PsqlEncode(w io.Writer, resultSet ResultSet, params map[string]string, dsn string) error {
+	// read values
+	var vals string
+	var i int
+	for resultSet.Next() {
+		var id, name, z any
+		if err := resultSet.Scan(&id, &name, &z); err != nil {
+			return err
+		}
+		var extra string
+		if i != 0 {
+			extra = ","
+		}
+		n := name.(string)
+		vals += fmt.Sprintf("%s\n    (%v,E'%s', %s)", extra, id, psqlEsc(n), psqlEnc(n, z))
+		i++
+	}
+	if err := resultSet.Err(); err != nil {
+		return err
+	}
+	// build pset
+	var pset string
+	for k, v := range params {
+		pset += fmt.Sprintf("\n\\pset %s '%s'", k, v)
+	}
+	// exec
+	stdout := new(bytes.Buffer)
+	q := fmt.Sprintf(psqlValuesQuery, pset, vals)
+	cmd := exec.Command("psql", dsn, "-qX")
+	cmd.Stdin, cmd.Stdout = bytes.NewReader([]byte(q)), stdout
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	if _, err := w.Write(bytes.TrimRightFunc(stdout.Bytes(), unicode.IsSpace)); err != nil {
+		return err
+	}
+	_, err := w.Write(newline)
+	return err
+}
+
+// psqlEsc escapes a string as a psql string.
+func psqlEsc(s string) string {
+	s = strings.ReplaceAll(s, "\n", `\n`)
+	s = strings.ReplaceAll(s, "\r", `\r`)
+	s = strings.ReplaceAll(s, "\t", `\t`)
+	s = strings.ReplaceAll(s, "\b", `\b`)
+	s = strings.ReplaceAll(s, "袈", `\u8888`)
+	return s
+}
+
+// psqlEnc encodes v based on n.
+func psqlEnc(n string, v any) string {
+	if n != "javascript" && n != "slice" {
+		return "NULL"
+	}
+	buf, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+	s := strconv.QuoteToASCII(string(buf))
+	return "E'" + s[1:len(s)-1] + "'"
+}
+
+var glyphs = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _'\"\t\b\n\rゼ一二三四五六七八九十〇")
+
+const psqlValuesQuery = `%s
+SELECT * FROM (
+  VALUES%s
+) AS t (author_id, name, z);`
+
+// newline is the default newline used by the system.
+var newline []byte
