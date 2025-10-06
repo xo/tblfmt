@@ -265,7 +265,7 @@ func PsqlEncodeAll(w io.Writer, resultSet ResultSet, params map[string]string, d
 // to the writer.
 func PsqlEncode(w io.Writer, resultSet ResultSet, params map[string]string, dsn string) error {
 	// read values
-	var vals string
+	var vals strings.Builder
 	var i int
 	for resultSet.Next() {
 		var id, name, z any
@@ -277,20 +277,20 @@ func PsqlEncode(w io.Writer, resultSet ResultSet, params map[string]string, dsn 
 			extra = ","
 		}
 		n := name.(string)
-		vals += fmt.Sprintf("%s\n    (%v,E'%s', %s)", extra, id, psqlEsc(n), psqlEnc(n, z))
+		vals.WriteString(fmt.Sprintf("%s\n    (%v,E'%s', %s)", extra, id, psqlEsc(n), psqlEnc(n, z)))
 		i++
 	}
 	if err := resultSet.Err(); err != nil {
 		return err
 	}
 	// build pset
-	var pset string
+	var pset strings.Builder
 	for k, v := range params {
-		pset += fmt.Sprintf("\n\\pset %s '%s'", k, v)
+		pset.WriteString(fmt.Sprintf("\n\\pset %s '%s'", k, v))
 	}
 	// exec
 	stdout := new(bytes.Buffer)
-	q := fmt.Sprintf(psqlValuesQuery, pset, vals)
+	q := fmt.Sprintf(psqlValuesQuery, pset.String(), vals.String())
 	cmd := exec.Command("psql", dsn, "-qX")
 	cmd.Stdin, cmd.Stdout = bytes.NewReader([]byte(q)), stdout
 	if err := cmd.Run(); err != nil {

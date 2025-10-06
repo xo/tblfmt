@@ -37,10 +37,10 @@ linters:
         - singleCaseSwitch
     gosec:
       excludes:
+        - G203
         - G401
         - G404
         - G501
-        - G203
         - G504
     revive:
       rules:

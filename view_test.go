@@ -94,7 +94,7 @@ func loadViewTests(t *testing.T, name string) []viewTest {
 		t.Fatal(err)
 	}
 	var tests []viewTest
-	for _, b := range bytes.Split(buf, []byte("\n\n")) {
+	for b := range bytes.SplitSeq(buf, []byte("\n\n")) {
 		z := bytes.Split(b, []byte("--\n"))
 		if len(z) != 3 {
 			t.Fatalf("t should be 3, got: %d", len(z))
@@ -154,7 +154,7 @@ func parseViewTest(buf []byte) ([]string, [][]any) {
 	var vals [][]any
 	for _, line := range lines[1:] {
 		var row []any
-		for _, c := range strings.Split(line, "|") {
+		for c := range strings.SplitSeq(line, "|") {
 			switch i, err := strconv.Atoi(c); {
 			case err == nil:
 				row = append(row, i)
