@@ -258,7 +258,7 @@ const (
 	// ErrCrosstabResultMustHaveAtLeast3Columns is the crosstab result must
 	// have at least 3 columns error.
 	ErrCrosstabResultMustHaveAtLeast3Columns Error = "crosstab result must have at least 3 columns"
-	// ErrCrosstabDataColumnMustBeSpecifiedWhenQueryReturnsMoreThanThreeColumnsA
+	// ErrCrosstabDataColumnMustBeSpecifiedWhenQueryReturnsMoreThanThreeColumns
 	// is the data column must be specified when query returns more than three
 	// columns error.
 	ErrCrosstabDataColumnMustBeSpecifiedWhenQueryReturnsMoreThanThreeColumns Error = "data column must be specified when query returns more than three columns"

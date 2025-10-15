@@ -3,12 +3,13 @@ linters:
   default: all
   disable:
     - cyclop
+    - depguard
     - dupword
     - err113
     - errcheck
     - exhaustruct
-    - mnd
     - forcetypeassert
+    - funcorder
     - funlen
     - gochecknoglobals
     - gochecknoinits
@@ -16,20 +17,24 @@ linters:
     - goconst
     - gocyclo
     - godox
-    - wrapcheck
-    - varnamelen
-    - testpackage
-    - depguard
     - gosmopolitan
     - inamedparam
     - ireturn
     - lll
     - maintidx
+    - mnd
     - nestif
     - nlreturn
+    - noctx
+    - noinlineerr
     - paralleltest
     - prealloc
+    - testpackage
+    - unqueryvet
+    - varnamelen
+    - wrapcheck
     - wsl
+    - wsl_v5
   settings:
     gocritic:
       disabled-checks:
