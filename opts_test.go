@@ -124,6 +124,47 @@ func TestFromMapFormats(t *testing.T) {
 	}
 }
 
+func TestFromMapTuplesOnlySuppressesFooter(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name       string
+		format     string
+		tuplesOnly string
+		wantFooter bool
+	}{
+		{"aligned/tuples_only=on", "aligned", "on", false},
+		{"aligned/tuples_only=off", "aligned", "off", true},
+		{"unaligned/tuples_only=on", "unaligned", "on", false},
+		{"unaligned/tuples_only=off", "unaligned", "off", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			rs := internal.New([]string{"id"}, [][]any{{"1"}})
+			params := map[string]string{
+				"format":      tt.format,
+				"tuples_only": tt.tuplesOnly,
+				"border":      "1",
+				"linestyle":   "ascii",
+				"fieldsep":    "|",
+				"footer":      "on",
+			}
+			var buf bytes.Buffer
+			if err := EncodeAll(&buf, rs, params); err != nil {
+				t.Fatalf("EncodeAll error: %v", err)
+			}
+			output := buf.String()
+			hasFooter := strings.Contains(output, "(1 row)")
+			if hasFooter && !tt.wantFooter {
+				t.Errorf("tuples_only should suppress footer, got output:\n%s", output)
+			}
+			if !hasFooter && tt.wantFooter {
+				t.Errorf("expected footer in output:\n%s", output)
+			}
+		})
+	}
+}
+
 func readFromOpts(buf []byte) ([]byte, map[string]string, []byte, error) {
 	divider := append([]byte(internal.Divider), newline...)
 	if len(buf) == 0 {

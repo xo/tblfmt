@@ -133,6 +133,9 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
 			FormatterOptionFromMap(opts),
 		}
+		if opts["tuples_only"] == "on" {
+			opts["footer"] = "off"
+		}
 		if s, ok := opts["footer"]; ok && s == "off" {
 			// use an empty summary map to skip drawing the footer
 			tableOpts = append(tableOpts, WithSummary(Summary{}))
