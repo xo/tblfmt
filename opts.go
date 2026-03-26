@@ -3,13 +3,14 @@ package tblfmt
 import (
 	"database/sql"
 	"fmt"
-	htmltemplate "html/template"
 	"io"
 	"reflect"
 	"strconv"
 	"strings"
-	texttemplate "text/template"
 	"time"
+
+	htmltemplate "github.com/DataDog/datadog-agent/pkg/template/html"
+	texttemplate "github.com/DataDog/datadog-agent/pkg/template/text"
 
 	"github.com/nathan-fiscaletti/consolesize-go"
 	"github.com/xo/tblfmt/templates"
@@ -595,11 +596,12 @@ func WithRawTemplate(text, typ string) Option {
 			switch typ {
 			case "html":
 				tpl, err := htmltemplate.New(typ).Funcs(htmltemplate.FuncMap{
-					"attr":    func(s string) htmltemplate.HTMLAttr { return htmltemplate.HTMLAttr(s) },
-					"safe":    func(s string) htmltemplate.HTML { return htmltemplate.HTML(s) },
-					"toLower": func(s string) htmltemplate.HTML { return htmltemplate.HTML(strings.ToLower(s)) },
-					"toUpper": func(s string) htmltemplate.HTML { return htmltemplate.HTML(strings.ToUpper(s)) },
-					"inc":     func(i int) int { return i + 1 },
+					"attr":        func(s string) htmltemplate.HTMLAttr { return htmltemplate.HTMLAttr(s) },
+					"safe":        func(s string) htmltemplate.HTML { return htmltemplate.HTML(s) },
+					"toLower":     func(s string) htmltemplate.HTML { return htmltemplate.HTML(strings.ToLower(s)) },
+					"toUpper":     func(s string) htmltemplate.HTML { return htmltemplate.HTML(strings.ToUpper(s)) },
+					"inc":         func(i int) int { return i + 1 },
+					"alignString": Align.String,
 				}).Parse(text)
 				if err != nil {
 					return err

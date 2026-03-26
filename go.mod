@@ -8,4 +8,7 @@ require (
 	golang.org/x/text v0.29.0
 )
 
-require github.com/clipperhouse/uax29/v2 v2.2.0 // indirect
+require (
+	github.com/DataDog/datadog-agent/pkg/template v0.77.1 // indirect
+	github.com/clipperhouse/uax29/v2 v2.2.0 // indirect
+)

@@ -2,12 +2,12 @@
   <caption>{{ .Title }}</caption>
   <thead>
     <tr>{{ range $i, $h := $headers }}
-      <th align="{{ $h.Align.String | toLower }}">{{ $h }}</th>{{ end }}
+      <th align="{{ alignString $h.Align | toLower }}">{{ $h }}</th>{{ end }}
     </tr>
   </thead>
   <tbody>{{ range $i, $r := $rows }}
     <tr>{{ range $j, $c := $r  }}
-      <td align="{{ $c.Align.String | toLower }}">{{ $c }}</td>{{ end }}
+      <td align="{{ alignString $c.Align | toLower }}">{{ $c }}</td>{{ end }}
     </tr>{{ end }}
   </tbody>
 </table>

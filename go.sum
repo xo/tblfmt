@@ -1,3 +1,5 @@
+github.com/DataDog/datadog-agent/pkg/template v0.77.1 h1:odAz9XeLDUcshTYot6dMT/sStLUquih4BsBcWto0bpE=
+github.com/DataDog/datadog-agent/pkg/template v0.77.1/go.mod h1:ZUjICHSlN0of0cmWrYk9Pof0DV0eqHSpTUK1NTnN26Y=
 github.com/clipperhouse/uax29/v2 v2.2.0 h1:ChwIKnQN3kcZteTXMgb1wztSgaU+ZemkgWdohwgs8tY=
 github.com/clipperhouse/uax29/v2 v2.2.0/go.mod h1:EFJ2TJMRUaplDxHKj1qAEhCtQPW2tJSwu5BF98AuoVM=
 github.com/mattn/go-runewidth v0.0.19 h1:v++JhqYnZuu5jSKrk9RbgF5v4CGUjqRfBm05byFGLdw=
