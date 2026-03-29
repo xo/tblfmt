@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -124,26 +125,24 @@ func TestFromMapFormats(t *testing.T) {
 	}
 }
 
-func TestFromMapTuplesOnlySuppressesFooter(t *testing.T) {
-	t.Parallel()
+func TestFromMapTuplesOnly(t *testing.T) {
 	tests := []struct {
-		name       string
 		format     string
 		tuplesOnly string
-		wantFooter bool
+		exp        bool
 	}{
-		{"aligned/tuples_only=on", "aligned", "on", false},
-		{"aligned/tuples_only=off", "aligned", "off", true},
-		{"unaligned/tuples_only=on", "unaligned", "on", false},
-		{"unaligned/tuples_only=off", "unaligned", "off", true},
+		{"aligned", "on", false},
+		{"aligned", "off", true},
+		{"unaligned", "on", false},
+		{"unaligned", "off", true},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+	for i, test := range tests {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			t.Logf("format: %s tuples_only: %s has footer: %t", test.format, test.tuplesOnly, test.exp)
 			rs := internal.New([]string{"id"}, [][]any{{"1"}})
 			params := map[string]string{
-				"format":      tt.format,
-				"tuples_only": tt.tuplesOnly,
+				"format":      test.format,
+				"tuples_only": test.tuplesOnly,
 				"border":      "1",
 				"linestyle":   "ascii",
 				"fieldsep":    "|",
@@ -151,15 +150,12 @@ func TestFromMapTuplesOnlySuppressesFooter(t *testing.T) {
 			}
 			var buf bytes.Buffer
 			if err := EncodeAll(&buf, rs, params); err != nil {
-				t.Fatalf("EncodeAll error: %v", err)
+				t.Fatalf("expected no error, got: %v", err)
 			}
-			output := buf.String()
-			hasFooter := strings.Contains(output, "(1 row)")
-			if hasFooter && !tt.wantFooter {
-				t.Errorf("tuples_only should suppress footer, got output:\n%s", output)
-			}
-			if !hasFooter && tt.wantFooter {
-				t.Errorf("expected footer in output:\n%s", output)
+			out := buf.String()
+			t.Logf("output:\n%s", out)
+			if b := strings.Contains(out, "(1 row)"); b != test.exp {
+				t.Errorf("expected %t, got: %t", test.exp, b)
 			}
 		})
 	}
