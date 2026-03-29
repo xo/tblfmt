@@ -80,5 +80,12 @@ func WriteVerticalTo(w io.Writer, tpl *Template) error {
 	// {{ $headers := .Headers }}{{ range $i, $r := .Rows }}*************************** {{ inc $i }}. row ***************************{{ range $j, $c := $r }}
 	// {{ index $headers $j }}: {{ $c }}{{ end }}
 	// {{ end -}}
+	const divider = `***************************`
+	for i, r := range tpl.Rows {
+		fmt.Fprintf(w, "%s %d. %s\n", divider, i+1, divider)
+		for j, c := range r {
+			fmt.Fprintf(w, "%s: %s\n", tpl.Headers[j], c)
+		}
+	}
 	return nil
 }
