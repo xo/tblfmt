@@ -2,6 +2,7 @@ package tblfmt
 
 import (
 	"fmt"
+	"html"
 	"io"
 	"strings"
 )
@@ -36,13 +37,13 @@ func WriteHTMLTo(w io.Writer, tpl *Template) error {
 	}
 	fmt.Fprintf(w, ">\n  <caption>%s</caption>\n  <thead>\n    <tr>\n", tpl.Title)
 	for _, h := range tpl.Headers {
-		fmt.Fprintf(w, "      <th align=%q>%s</th>\n", strings.ToLower(h.Align.String()), h.String())
+		fmt.Fprintf(w, "      <th align=%q>%s</th>\n", strings.ToLower(h.Align.String()), html.EscapeString(h.String()))
 	}
 	fmt.Fprint(w, "    </tr>\n  </thead>\n  <tbody>")
 	for _, r := range tpl.Rows {
 		fmt.Fprint(w, "\n    <tr>")
 		for _, c := range r {
-			fmt.Fprintf(w, "\n      <td align=%q>%s</td>", strings.ToLower(c.Align.String()), c)
+			fmt.Fprintf(w, "\n      <td align=%q>%s</td>", strings.ToLower(c.Align.String()), html.EscapeString(c.String()))
 		}
 		fmt.Fprint(w, "\n    </tr>")
 	}

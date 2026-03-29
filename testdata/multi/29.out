@@ -60,16 +60,16 @@ test
       <td align="right">20</td>
       <td align="left">javascript</td>
       <td align="left">{
-  "test21": "a value",
-  "test22": "foo\bbar"
+  &#34;test21&#34;: &#34;a value&#34;,
+  &#34;test22&#34;: &#34;foo\bbar&#34;
 }</td>
     </tr>
     <tr>
       <td align="right">23</td>
       <td align="left">slice</td>
       <td align="left">[
-  "a",
-  "b"
+  &#34;a&#34;,
+  &#34;b&#34;
 ]</td>
     </tr>
   </tbody>
@@ -124,16 +124,16 @@ test
       <td align="right">44</td>
       <td align="left">javascript</td>
       <td align="left">{
-  "test45": "a value",
-  "test46": "foo\bbar"
+  &#34;test45&#34;: &#34;a value&#34;,
+  &#34;test46&#34;: &#34;foo\bbar&#34;
 }</td>
     </tr>
     <tr>
       <td align="right">47</td>
       <td align="left">slice</td>
       <td align="left">[
-  "a",
-  "b"
+  &#34;a&#34;,
+  &#34;b&#34;
 ]</td>
     </tr>
   </tbody>
