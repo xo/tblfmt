@@ -3,16 +3,12 @@ package tblfmt
 import (
 	"database/sql"
 	"fmt"
-	htmltemplate "html/template"
 	"io"
 	"reflect"
 	"strconv"
-	"strings"
-	texttemplate "text/template"
 	"time"
 
 	"github.com/nathan-fiscaletti/consolesize-go"
-	"github.com/xo/tblfmt/templates"
 )
 
 // Builder is the shared builder interface.
@@ -578,7 +574,7 @@ func WithTableAttributes(a string) Option {
 }
 
 // WithExecutor is a encoder option to set the executor.
-func WithExecutor(executor func(io.Writer, any) error) Option {
+func WithExecutor(executor func(io.Writer, *Template) error) Option {
 	return option{
 		template: func(enc *TemplateEncoder) error {
 			enc.executor = executor
@@ -587,53 +583,21 @@ func WithExecutor(executor func(io.Writer, any) error) Option {
 	}
 }
 
-// WithRawTemplate is a encoder option to set a raw template of either "text"
-// or "html" type.
-func WithRawTemplate(text, typ string) Option {
-	return option{
-		template: func(enc *TemplateEncoder) error {
-			switch typ {
-			case "html":
-				tpl, err := htmltemplate.New(typ).Funcs(htmltemplate.FuncMap{
-					"attr":    func(s string) htmltemplate.HTMLAttr { return htmltemplate.HTMLAttr(s) },
-					"safe":    func(s string) htmltemplate.HTML { return htmltemplate.HTML(s) },
-					"toLower": func(s string) htmltemplate.HTML { return htmltemplate.HTML(strings.ToLower(s)) },
-					"toUpper": func(s string) htmltemplate.HTML { return htmltemplate.HTML(strings.ToUpper(s)) },
-					"inc":     func(i int) int { return i + 1 },
-				}).Parse(text)
-				if err != nil {
-					return err
-				}
-				enc.executor = tpl.Execute
-				return nil
-			case "text":
-				tpl, err := texttemplate.New(typ).Funcs(texttemplate.FuncMap{
-					"inc": func(i int) int { return i + 1 },
-				}).Parse(text)
-				if err != nil {
-					return err
-				}
-				enc.executor = tpl.Execute
-				return nil
-			}
-			return ErrInvalidTemplate
-		},
-	}
-}
-
 // WithTemplate is a encoder option to set a named template.
 func WithTemplate(name string) Option {
 	return option{
 		template: func(enc *TemplateEncoder) error {
-			typ := "text"
-			if name == "html" {
-				typ = "html"
+			switch name {
+			case "html":
+				enc.executor = WriteHTMLTo
+			case "asciidoc":
+				enc.executor = WriteAsciidocTo
+			case "vertical":
+				enc.executor = WriteVerticalTo
+			default:
+				return ErrInvalidTemplate
 			}
-			buf, err := templates.Templates.ReadFile(name + ".txt")
-			if err != nil {
-				return err
-			}
-			return WithRawTemplate(string(buf), typ).apply(enc)
+			return nil
 		},
 	}
 }

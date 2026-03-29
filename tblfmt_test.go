@@ -2,6 +2,8 @@ package tblfmt
 
 import (
 	"bytes"
+	"fmt"
+	"io"
 	"testing"
 
 	"github.com/xo/tblfmt/internal"
@@ -195,11 +197,8 @@ Row 7:
   "b"
 ]"
 `
-	tpl := `{{ $headers := .Headers }}{{ range $i, $r := .Rows }}Row {{ $i }}:{{ range $j, $c := $r }}
-  {{ index $headers $j }} = "{{ $c }}"{{ end }}
-{{ end }}`
 	buf := new(bytes.Buffer)
-	if err := EncodeTemplateAll(buf, internal.Multi(), WithRawTemplate(tpl, "text"), WithEmpty("<nil>")); err != nil {
+	if err := EncodeTemplateAll(buf, internal.Multi(), WithExecutor(testWriteTemplateTo), WithEmpty("<nil>")); err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 	actual := buf.String()
@@ -321,4 +320,17 @@ test
 	if actual != exp {
 		t.Errorf("expected:\n%q\n---\ngot:\n%q", exp, actual)
 	}
+}
+
+func testWriteTemplateTo(w io.Writer, tpl *Template) error {
+	// {{ $headers := .Headers }}{{ range $i, $r := .Rows }}Row {{ $i }}:{{ range $j, $c := $r }}
+	//   {{ index $headers $j }} = "{{ $c }}"{{ end }}
+	// {{ end }}
+	for i, r := range tpl.Rows {
+		fmt.Fprintf(w, "Row %d:\n", i)
+		for j, c := range r {
+			fmt.Fprintf(w, "  %s = \"%s\"\n", tpl.Headers[j], c)
+		}
+	}
+	return nil
 }

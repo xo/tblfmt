@@ -1100,7 +1100,7 @@ type TemplateEncoder struct {
 	// ResultSet is the result set to encode.
 	resultSet ResultSet
 	// executor is the template executor function.
-	executor func(io.Writer, any) error
+	executor func(io.Writer, *Template) error
 	// newline is the record separator to use.
 	newline []byte
 	// formatter handles formatting values prior to output.
@@ -1124,7 +1124,7 @@ type TemplateEncoder struct {
 func NewTemplateEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	enc := &TemplateEncoder{
 		resultSet: resultSet,
-		executor:  func(io.Writer, any) error { return ErrInvalidTemplate },
+		executor:  func(io.Writer, *Template) error { return ErrInvalidTemplate },
 		newline:   newline,
 		formatter: NewEscapeFormatter(),
 		empty: &Value{
@@ -1207,12 +1207,12 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 	if title == nil {
 		title = enc.empty
 	}
-	return enc.executor(w, map[string]any{
-		"Attributes": enc.attributes,
-		"Headers":    headers,
-		"Rows":       rows,
-		"SkipHeader": enc.skipHeader,
-		"Title":      title,
+	return enc.executor(w, &Template{
+		Attributes: enc.attributes,
+		Headers:    headers,
+		Rows:       rows,
+		SkipHeader: enc.skipHeader,
+		Title:      title,
 	})
 }
 
