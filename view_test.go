@@ -3,6 +3,7 @@ package tblfmt
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -11,7 +12,6 @@ import (
 
 	//	_ "github.com/lib/pq"
 	"github.com/xo/tblfmt/internal"
-	"github.com/xo/tblfmt/testdata"
 )
 
 func TestNewCrosstabView(t *testing.T) {
@@ -89,7 +89,7 @@ func checkView(t *testing.T, testNum int, test viewTest, view ResultSet) {
 
 func loadViewTests(t *testing.T, name string) []viewTest {
 	t.Helper()
-	buf, err := testdata.Testdata.ReadFile(name + ".txt")
+	buf, err := os.ReadFile("testdata/" + name + ".txt")
 	if err != nil {
 		t.Fatal(err)
 	}
