@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/xo/tblfmt/internal"
-	"github.com/xo/tblfmt/testdata"
 )
 
 func TestFromMap(t *testing.T) {
@@ -72,7 +72,7 @@ func TestFromMapFormats(t *testing.T) {
 	} {
 		t.Run(typ, func(t *testing.T) {
 			t.Parallel()
-			z, err := testdata.Testdata.ReadFile(typ + ".gz")
+			z, err := os.ReadFile("testdata/" + typ + ".gz")
 			if err != nil {
 				t.Fatalf("expected no error, got: %v", err)
 			}
