@@ -1,0 +1,88 @@
+* Record 1                        
+author_id 14 
+name      a	b	c	d 
+z         x 
+* Record 2                        
+author_id 15 
+name      aoeu                   ↵
+          test                   ↵
+           
+z          
+
+* Record 1                         
+author_id 16 
+name      foo\bbar 
+z          
+* Record 2                         
+author_id 17 
+name      袈	袈		袈 
+z          
+* Record 3                         
+author_id 18 
+name      a	b	\r        ↵
+          	a 
+z         a                       ↵
+           
+* Record 4                         
+author_id 19 
+name      袈	袈		袈↵
+           
+z          
+* Record 5                         
+author_id 20 
+name      javascript 
+z         {                       ↵
+            "test21": "a value",  ↵
+            "test22": "foo\bbar"  ↵
+          } 
+* Record 6                         
+author_id 23 
+name      slice 
+z         [                       ↵
+            "a",                  ↵
+            "b"                   ↵
+          ] 
+
+* Record 1                         
+author_id 38 
+name      a	b	c	d 
+z         x 
+* Record 2                         
+author_id 39 
+name      aoeu                    ↵
+          test                    ↵
+           
+z          
+* Record 3                         
+author_id 40 
+name      foo\bbar 
+z          
+* Record 4                         
+author_id 41 
+name      袈	袈		袈 
+z          
+* Record 5                         
+author_id 42 
+name      a	b	\r        ↵
+          	a 
+z         a                       ↵
+           
+* Record 6                         
+author_id 43 
+name      袈	袈		袈↵
+           
+z          
+* Record 7                         
+author_id 44 
+name      javascript 
+z         {                       ↵
+            "test45": "a value",  ↵
+            "test46": "foo\bbar"  ↵
+          } 
+* Record 8                         
+author_id 47 
+name      slice 
+z         [                       ↵
+            "a",                  ↵
+            "b"                   ↵
+          ] 

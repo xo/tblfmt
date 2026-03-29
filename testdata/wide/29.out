@@ -1,0 +1,31 @@
+<table>
+  <caption></caption>
+  <thead>
+    <tr>
+      <th align="left">aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</th>
+      <th align="left">bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb</th>
+      <th align="left">cccccccccccccccccccccccccccccc</th>
+      <th align="left">dddddddddddddddddddddddddddddd</th>
+      <th align="left">eeeeeeeeeeeeeeeeeeeeeeeeeeeeee</th>
+      <th align="left">ffffffffffffffffffffffffffffff</th>
+      <th align="left">gggggggggggggggggggggggggggggg</th>
+      <th align="left">hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh</th>
+      <th align="left">iiiiiiiiiiiiiiiiiiiiiiiiiiiiii</th>
+      <th align="left">jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="left">1</td>
+      <td align="left">2</td>
+      <td align="left">3</td>
+      <td align="left">4</td>
+      <td align="left">5</td>
+      <td align="left">6</td>
+      <td align="left">7</td>
+      <td align="left">8</td>
+      <td align="left">9</td>
+      <td align="left">10</td>
+    </tr>
+  </tbody>
+</table>

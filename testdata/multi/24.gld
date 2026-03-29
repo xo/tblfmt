@@ -1,0 +1,88 @@
+═[ RECORD 1 ]═════════════════════
+ author_id ║ 14 
+ name      ║ a	b	c	d 
+ z         ║ x 
+═[ RECORD 2 ]═════════════════════
+ author_id ║ 15 
+ name      ║ aoeu                ↵
+           ║ test                ↵
+           ║  
+ z         ║  
+
+═[ RECORD 1 ]═══════════════════════
+ author_id ║ 16 
+ name      ║ foo\bbar 
+ z         ║  
+═[ RECORD 2 ]═══════════════════════
+ author_id ║ 17 
+ name      ║ 袈	袈		袈 
+ z         ║  
+═[ RECORD 3 ]═══════════════════════
+ author_id ║ 18 
+ name      ║ a	b	\r         ↵
+           ║ 	a 
+ z         ║ a                     ↵
+           ║  
+═[ RECORD 4 ]═══════════════════════
+ author_id ║ 19 
+ name      ║ 袈	袈		袈 ↵
+           ║  
+ z         ║  
+═[ RECORD 5 ]═══════════════════════
+ author_id ║ 20 
+ name      ║ javascript 
+ z         ║ {                     ↵
+           ║   "test21": "a value",↵
+           ║   "test22": "foo\bbar"↵
+           ║ } 
+═[ RECORD 6 ]═══════════════════════
+ author_id ║ 23 
+ name      ║ slice 
+ z         ║ [                     ↵
+           ║   "a",                ↵
+           ║   "b"                 ↵
+           ║ ] 
+
+═[ RECORD 1 ]═══════════════════════
+ author_id ║ 38 
+ name      ║ a	b	c	d 
+ z         ║ x 
+═[ RECORD 2 ]═══════════════════════
+ author_id ║ 39 
+ name      ║ aoeu                  ↵
+           ║ test                  ↵
+           ║  
+ z         ║  
+═[ RECORD 3 ]═══════════════════════
+ author_id ║ 40 
+ name      ║ foo\bbar 
+ z         ║  
+═[ RECORD 4 ]═══════════════════════
+ author_id ║ 41 
+ name      ║ 袈	袈		袈 
+ z         ║  
+═[ RECORD 5 ]═══════════════════════
+ author_id ║ 42 
+ name      ║ a	b	\r         ↵
+           ║ 	a 
+ z         ║ a                     ↵
+           ║  
+═[ RECORD 6 ]═══════════════════════
+ author_id ║ 43 
+ name      ║ 袈	袈		袈 ↵
+           ║  
+ z         ║  
+═[ RECORD 7 ]═══════════════════════
+ author_id ║ 44 
+ name      ║ javascript 
+ z         ║ {                     ↵
+           ║   "test45": "a value",↵
+           ║   "test46": "foo\bbar"↵
+           ║ } 
+═[ RECORD 8 ]═══════════════════════
+ author_id ║ 47 
+ name      ║ slice 
+ z         ║ [                     ↵
+           ║   "a",                ↵
+           ║   "b"                 ↵
+           ║ ] 

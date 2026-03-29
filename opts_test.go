@@ -2,11 +2,8 @@ package tblfmt
 
 import (
 	"bytes"
-	"compress/gzip"
-	"errors"
-	"fmt"
-	"io"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -72,54 +69,36 @@ func TestFromMapFormats(t *testing.T) {
 	} {
 		t.Run(typ, func(t *testing.T) {
 			t.Parallel()
-			z, err := os.ReadFile("testdata/" + typ + ".gz")
-			if err != nil {
-				t.Fatalf("expected no error, got: %v", err)
-			}
-			r, err := gzip.NewReader(bytes.NewReader(z))
-			if err != nil {
-				t.Fatalf("expected no error, got: %v", err)
-			}
-			buf, err := io.ReadAll(r)
-			if err != nil {
-				t.Fatalf("expected no error, got: %v", err)
-			}
-			var i int
-		loop:
-			for {
-				var resultSet ResultSet
-				switch typ {
-				case "big":
-					resultSet = internal.Big(1549508725559526476)
-				case "multi":
-					resultSet = internal.Multi()
-				case "tiny":
-					resultSet = internal.Tiny()
-				case "wide":
-					resultSet = internal.Wide()
-				}
-				var optMap map[string]string
-				var exp []byte
-				buf, optMap, exp, err = readFromOpts(buf)
-				switch {
-				case errors.Is(err, io.EOF):
-					break loop
-				case err != nil:
-					t.Fatalf("test %s (%d) expected no error, got: %v", typ, i, err)
-				}
-				f, opts := FromMap(optMap)
-				enc, err := f(resultSet, opts...)
-				if err != nil {
-					t.Fatalf("test %s (%d) expected no error, got: %v", typ, i, err)
-				}
-				actual := new(bytes.Buffer)
-				if err := enc.EncodeAll(actual); err != nil {
-					t.Fatalf("test %s (%d) expected no error, got: %v", typ, i, err)
-				}
-				if !bytes.Equal(actual.Bytes(), exp) {
-					t.Errorf("test %s (%d) actual != exp", typ, i)
-				}
-				i++
+			tests := loadTests(t, typ)
+			for _, test := range tests {
+				t.Run(test.idstr, func(t *testing.T) {
+					f, opts := FromMap(test.opts)
+					var rs ResultSet
+					switch typ {
+					case "big":
+						rs = internal.Big(1549508725559526476)
+					case "multi":
+						rs = internal.Multi()
+					case "tiny":
+						rs = internal.Tiny()
+					case "wide":
+						rs = internal.Wide()
+					}
+					enc, err := f(rs, opts...)
+					if err != nil {
+						t.Fatalf("expected no error, got: %v", err)
+					}
+					var buf bytes.Buffer
+					if err := enc.EncodeAll(&buf); err != nil {
+						t.Fatalf("expected no error, got: %v", err)
+					}
+					if err := os.WriteFile(test.out, buf.Bytes(), 0o644); err != nil {
+						t.Fatalf("expected no error, got: %v", err)
+					}
+					if s, exp := buf.String(), string(test.exp); s != exp {
+						t.Errorf("expected:\n%s\ngot:\n%s", exp, s)
+					}
+				})
 			}
 		})
 	}
@@ -161,32 +140,62 @@ func TestFromMapTuplesOnly(t *testing.T) {
 	}
 }
 
-func readFromOpts(buf []byte) ([]byte, map[string]string, []byte, error) {
-	divider := append([]byte(internal.Divider), newline...)
-	if len(buf) == 0 {
-		return nil, nil, nil, io.EOF
-	}
-	if !bytes.HasPrefix(buf, divider) {
-		return nil, nil, nil, errors.New("could not find option start divider")
-	}
-	buf = buf[len(divider):]
-	end := bytes.Index(buf, divider)
-	if end == -1 {
-		return nil, nil, nil, errors.New("could not find option middle divider")
-	}
-	optMap, err := parseOpts(buf[:end])
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to parse opts: %w", err)
-	}
-	buf = buf[end+len(divider):]
-	if end = bytes.Index(buf, divider); end == -1 {
-		end = len(buf)
-	}
-	return buf[end:], optMap, buf[:end], nil
+type goldTest struct {
+	id    int
+	idstr string
+	in    string
+	gld   string
+	out   string
+	opts  map[string]string
+	exp   []byte
 }
 
-func parseOpts(buf []byte) (map[string]string, error) {
+func loadTests(t *testing.T, typ string) []goldTest {
+	t.Helper()
+	base := "testdata/" + typ
+	var tests []goldTest
+	err := filepath.Walk(base, func(name string, fi os.FileInfo, err error) error {
+		switch {
+		case err != nil:
+			return err
+		case fi.IsDir(), !strings.HasSuffix(name, ".in"):
+			return nil
+		}
+		n := strings.TrimSuffix(name, ".in")
+		id, err := strconv.ParseInt(strings.TrimPrefix(n, base+"/"), 10, 64)
+		if err != nil {
+			t.Fatalf("unable to parse %q: %v", name, err)
+		}
+		opts := loadOpts(t, name)
+		gld := n + ".gld"
+		exp, err := os.ReadFile(gld)
+		if err != nil {
+			t.Fatalf("unable to open %s: %v", gld, err)
+		}
+		tests = append(tests, goldTest{
+			id:    int(id),
+			idstr: strconv.Itoa(int(id)),
+			in:    name,
+			gld:   gld,
+			out:   n + ".out",
+			opts:  opts,
+			exp:   exp,
+		})
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	return tests
+}
+
+func loadOpts(t *testing.T, in string) map[string]string {
+	t.Helper()
 	opts := make(map[string]string)
+	buf, err := os.ReadFile(in)
+	if err != nil {
+		t.Fatalf("unable to open %q", in)
+	}
 loop:
 	for {
 		i := bytes.Index(buf, []byte{'\n'})
@@ -199,13 +208,13 @@ loop:
 		}
 		v := strings.Split(line, ":")
 		if len(v) != 2 {
-			return nil, errors.New("missing : in line")
+			t.Fatalf("missing : in line")
 		}
 		opts[strings.TrimSpace(v[0])] = strings.TrimSpace(v[1])
 		buf = buf[i+1:]
 	}
 	if opts["format"] == "" {
-		return nil, errors.New("format was not defined")
+		t.Fatalf("format was not defined")
 	}
 	if s := opts["format"]; s == "expanded" {
 		opts["format"] = "aligned"
@@ -218,5 +227,5 @@ loop:
 			opts["unicode_border_linestyle"] = "double"
 		}
 	}
-	return opts, nil
+	return opts
 }
