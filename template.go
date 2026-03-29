@@ -59,19 +59,20 @@ func WriteAsciidocTo(w io.Writer, tpl *Template) error {
 	// {{ range $j, $c := $r }}|{{ $c }}{{ end }}{{ end }}
 	// |===
 	fmt.Fprint(w, "[%header]")
-	if len(tpl.Title.Buf) != 0 {
-		w.Write(tpl.Title.Buf)
+	if s := tpl.Title.String(); s != "" {
+		fmt.Fprintf(w, "\n%s", tpl.Title.String())
 	}
-	fmt.Fprintln(w, "\n|===")
+	fmt.Fprint(w, "\n|===")
 	for _, h := range tpl.Headers {
-		fmt.Fprintf(w, "|%s", h)
+		fmt.Fprintf(w, "\n|%s", h)
 	}
 	for _, r := range tpl.Rows {
-		fmt.Fprintln(w, "\n|===")
+		fmt.Fprintln(w)
 		for _, c := range r {
 			fmt.Fprintf(w, "|%s", c)
 		}
 	}
+	fmt.Fprintln(w, "\n|===")
 	return nil
 }
 
