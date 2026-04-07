@@ -88,6 +88,13 @@ type LineStyle struct {
 }
 
 // TableLineStyle is the table line style for tables.
+//
+// Tables using this style will look like the following:
+//
+//	AUTHOR_ID  NAME                      Z
+//	14         a       b       c       d
+//	15         aoeu
+//	           test
 func TableLineStyle() LineStyle {
 	return LineStyle{
 		// left char sep right
