@@ -149,10 +149,6 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 		}
 	case "table":
 		tableOpts := []Option{
-			FormatterOptionFromMap(opts),
-		}
-		tableOpts = append(
-			tableOpts,
 			WithForceUpperColumnNames(true),
 			WithBorder(0),
 			WithLineStyle(TableLineStyle()),
@@ -161,7 +157,20 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 				WithHeaderAlign(AlignLeft),
 				WithAlign(AlignLeft),
 			),
-		)
+			FormatterOptionFromMap(opts),
+		}
+		if s, ok := opts["tuples_only"]; ok && s == "on" {
+			tableOpts = append(tableOpts, WithSkipHeader(true))
+			opts["footer"] = "off"
+		}
+		if s, ok := opts["null"]; ok {
+			tableOpts = append(tableOpts, WithEmpty(s))
+		}
+		if s, ok := opts["footer"]; ok && s == "off" {
+			// use an empty summary map to skip drawing the footer
+			tableOpts = append(tableOpts, WithSummary(Summary{}))
+		}
+		tableOpts = pagerOpts(tableOpts, opts)
 		return NewTableEncoder, tableOpts
 	case "aligned":
 		tableOpts := []Option{
@@ -202,28 +211,7 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 				}
 			}
 		}
-		pager := opts["pager"]
-		pagerCmd := opts["pager_cmd"]
-		if pager != "" && pagerCmd != "" {
-			tableOpts = append(tableOpts, WithPager(pagerCmd))
-			switch pager {
-			case "on":
-				cols, rows := consolesize.GetConsoleSize()
-				if cstr, ok := opts["columns"]; ok && cstr != "" {
-					if c, err := strconv.ParseUint(cstr, 10, 32); err == nil && c != 0 {
-						cols = int(c)
-					}
-				}
-				if rstr, ok := opts["pager_min_lines"]; ok && rstr != "" {
-					if r, err := strconv.ParseUint(rstr, 10, 32); err == nil && r != 0 {
-						rows = int(r)
-					}
-				}
-				tableOpts = append(tableOpts, WithMinPagerWidth(cols+1), WithMinPagerHeight(rows+1))
-			case "always":
-				tableOpts = append(tableOpts, WithMinPagerWidth(-1), WithMinPagerHeight(-1))
-			}
-		}
+		tableOpts = pagerOpts(tableOpts, opts)
 		builder := NewTableEncoder
 		if e, ok := opts["expanded"]; ok {
 			switch e {
@@ -844,4 +832,31 @@ func resultSetColumns(resultSet ResultSet, n int) ([]*sql.ColumnType, error) {
 		return nil, ErrResultSetReturnedInvalidColumnTypes
 	}
 	return cols, nil
+}
+
+// pagerOpts adds pager options to the table options.
+func pagerOpts(tableOpts []Option, opts map[string]string) []Option {
+	pager, pagerCmd := opts["pager"], opts["pager_cmd"]
+	if pager == "" || pagerCmd == "" {
+		return tableOpts
+	}
+	tableOpts = append(tableOpts, WithPager(pagerCmd))
+	switch pager {
+	case "on":
+		cols, rows := consolesize.GetConsoleSize()
+		if cstr, ok := opts["columns"]; ok && cstr != "" {
+			if c, err := strconv.ParseUint(cstr, 10, 32); err == nil && c != 0 {
+				cols = int(c)
+			}
+		}
+		if rstr, ok := opts["pager_min_lines"]; ok && rstr != "" {
+			if r, err := strconv.ParseUint(rstr, 10, 32); err == nil && r != 0 {
+				rows = int(r)
+			}
+		}
+		tableOpts = append(tableOpts, WithMinPagerWidth(cols+1), WithMinPagerHeight(rows+1))
+	case "always":
+		tableOpts = append(tableOpts, WithMinPagerWidth(-1), WithMinPagerHeight(-1))
+	}
+	return tableOpts
 }
