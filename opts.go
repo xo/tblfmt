@@ -147,6 +147,22 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
 			FormatterOptionFromMap(opts),
 		}
+	case "table":
+		tableOpts := []Option{
+			FormatterOptionFromMap(opts),
+		}
+		tableOpts = append(
+			tableOpts,
+			WithForceUpperColumnNames(true),
+			WithBorder(0),
+			WithLineStyle(TableLineStyle()),
+			WithInline(true),
+			WithFormatterOptions(
+				WithHeaderAlign(AlignLeft),
+				WithAlign(AlignLeft),
+			),
+		)
+		return NewTableEncoder, tableOpts
 	case "aligned":
 		tableOpts := []Option{
 			WithLowerColumnNames(opts["lower_column_names"] == "true"),
@@ -602,35 +618,55 @@ func WithTemplate(name string) Option {
 	}
 }
 
-// WithLowerColumnNames is a encoder option to lower case column names when
-// column names are all caps.
-func WithLowerColumnNames(lowerColumnNames bool) Option {
+// WithHeaderTransformer is a encoder option to set the column header transform
+// style.
+func WithHeaderTransformer(headerTransformer Transformer) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
-			enc.lowerColumnNames = lowerColumnNames
+			enc.headerTransformer = headerTransformer
 			return nil
 		},
 		expanded: func(enc *ExpandedEncoder) error {
-			enc.lowerColumnNames = lowerColumnNames
+			enc.headerTransformer = headerTransformer
 			return nil
 		},
 		json: func(enc *JSONEncoder) error {
-			enc.lowerColumnNames = lowerColumnNames
+			enc.headerTransformer = headerTransformer
 			return nil
 		},
 		unaligned: func(enc *UnalignedEncoder) error {
-			enc.lowerColumnNames = lowerColumnNames
+			enc.headerTransformer = headerTransformer
 			return nil
 		},
 		template: func(enc *TemplateEncoder) error {
-			enc.lowerColumnNames = lowerColumnNames
+			enc.headerTransformer = headerTransformer
 			return nil
 		},
 		crosstab: func(view *CrosstabView) error {
-			view.lowerColumnNames = lowerColumnNames
+			view.headerTransformer = headerTransformer
 			return nil
 		},
 	}
+}
+
+// WithLowerColumnNames is a encoder option to lower case column names when
+// column names are all caps. See [TransformUpperToLower].
+func WithLowerColumnNames(lowerColumnNames bool) Option {
+	transformStyle := TransformNone
+	if lowerColumnNames {
+		transformStyle = TransformUpperToLower
+	}
+	return WithHeaderTransformer(transformStyle)
+}
+
+// WithForceUpperColumnNames is a encoder option to force upper case column
+// names. See [TransformForceUpper].
+func WithForceUpperColumnNames(forceUpper bool) Option {
+	transformStyle := TransformNone
+	if forceUpper {
+		transformStyle = TransformForceUpper
+	}
+	return WithHeaderTransformer(transformStyle)
 }
 
 // WithColumnTypes is a encoder option to set a func to use for building column

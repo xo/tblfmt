@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"strings"
 	"syscall"
-	"unicode"
 
 	runewidth "github.com/mattn/go-runewidth"
 )
@@ -71,9 +70,8 @@ type TableEncoder struct {
 	pagerCmd string
 	// scanCount is the number of scanned results in the result set.
 	scanCount int
-	// lowerColumnNames indicates lower casing the column names when column
-	// names are all caps.
-	lowerColumnNames bool
+	// headerTransformer is the column header transformer.
+	headerTransformer Transformer
 	// columnTypes is used to build column types for a result set.
 	columnTypes func(ResultSet, []any, int) error
 	// w is the undelying writer
@@ -130,7 +128,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		return ErrResultSetIsNil
 	}
 	// get and check columns
-	clen, cols, err := buildColNames(enc.resultSet, enc.lowerColumnNames)
+	clen, cols, err := buildColNames(enc.resultSet, enc.headerTransformer)
 	switch {
 	case err != nil:
 		return err
@@ -338,7 +336,7 @@ func (enc *TableEncoder) header() {
 	}
 }
 
-// rowStyle returns the left, right and midle borders. It also profides the
+// rowStyle returns the left, right and middle borders. It also provides the
 // filler string, and indicates if this style uses a wrapping indicator.
 func (enc *TableEncoder) rowStyle(r [4]rune) rowStyle {
 	var left, right, middle, spacer, filler string
@@ -572,7 +570,7 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 		return ErrResultSetIsNil
 	}
 	// get and check columns
-	clen, cols, err := buildColNames(enc.resultSet, enc.lowerColumnNames)
+	clen, cols, err := buildColNames(enc.resultSet, enc.headerTransformer)
 	switch {
 	case err != nil:
 		return err
@@ -772,9 +770,8 @@ type JSONEncoder struct {
 	formatter Formatter
 	// empty is the empty value.
 	empty *Value
-	// lowerColumnNames indicates lower casing the column names when column
-	// names are all caps.
-	lowerColumnNames bool
+	// headerTransformer is the column header transformer.
+	headerTransformer Transformer
 	// columnTypes is used to build column types for a result set.
 	columnTypes func(ResultSet, []any, int) error
 }
@@ -814,7 +811,7 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		cma   = []byte{','}
 	)
 	// get and check columns
-	clen, cols, err := buildColNames(enc.resultSet, enc.lowerColumnNames)
+	clen, cols, err := buildColNames(enc.resultSet, enc.headerTransformer)
 	switch {
 	case err != nil:
 		return err
@@ -945,9 +942,8 @@ type UnalignedEncoder struct {
 	summary map[int]func(io.Writer, int) (int, error)
 	// empty is the empty value.
 	empty *Value
-	// lowerColumnNames indicates lower casing the column names when column
-	// names are all caps.
-	lowerColumnNames bool
+	// headerTransformer is the column header transformer.
+	headerTransformer Transformer
 	// columnTypes is used to build column types for a result set.
 	columnTypes func(ResultSet, []any, int) error
 }
@@ -1007,7 +1003,7 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 		return ErrResultSetIsNil
 	}
 	// get and check columns
-	clen, cols, err := buildColNames(enc.resultSet, enc.lowerColumnNames)
+	clen, cols, err := buildColNames(enc.resultSet, enc.headerTransformer)
 	switch {
 	case err != nil:
 		return err
@@ -1113,9 +1109,8 @@ type TemplateEncoder struct {
 	skipHeader bool
 	// attributes are extra table attributes.
 	attributes string
-	// lowerColumnNames indicates lower casing the column names when column
-	// names are all caps.
-	lowerColumnNames bool
+	// headerTransformer is the column header transformer.
+	headerTransformer Transformer
 	// columnTypes is used to build column types for a result set.
 	columnTypes func(ResultSet, []any, int) error
 }
@@ -1164,7 +1159,7 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 		return ErrResultSetIsNil
 	}
 	// get and check columns
-	clen, cols, err := buildColNames(enc.resultSet, enc.lowerColumnNames)
+	clen, cols, err := buildColNames(enc.resultSet, enc.headerTransformer)
 	switch {
 	case err != nil:
 		return err
@@ -1271,19 +1266,15 @@ func scanAndFormat(resultSet ResultSet, vals []any, formatter Formatter, count *
 }
 
 // buildColNames builds the column names for the result set.
-func buildColNames(resultSet ResultSet, lower bool) (int, []string, error) {
+func buildColNames(resultSet ResultSet, transformer Transformer) (int, []string, error) {
 	cols, err := resultSet.Columns()
 	if err != nil {
 		return 0, nil, err
 	}
 	clen := len(cols)
-	if lower {
-		for i, s := range cols {
-			if j := strings.IndexFunc(s, func(r rune) bool {
-				return unicode.IsLetter(r) && unicode.IsLower(r)
-			}); j == -1 {
-				cols[i] = strings.ToLower(s)
-			}
+	if transformer != nil {
+		for i := range clen {
+			cols[i] = transformer.Transform(cols[i])
 		}
 	}
 	return clen, cols, nil

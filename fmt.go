@@ -68,6 +68,8 @@ type EscapeFormatter struct {
 	invalidWidth int
 	// headerAlign is the default header values alignment
 	headerAlign Align
+	// align is the forced alignment value.
+	align Align
 	// numericLocalePrinter is the numeric locale printer.
 	numericLocalePrinter *message.Printer
 }
@@ -82,6 +84,7 @@ func NewEscapeFormatter(opts ...EscapeFormatterOption) *EscapeFormatter {
 		mask:       "%d",
 		timeFormat: time.RFC3339Nano,
 		indent:     "  ",
+		align:      -1,
 	}
 	for _, o := range opts {
 		o(f)
@@ -116,12 +119,16 @@ func (f *EscapeFormatter) Format(vals []any) ([]*Value, error) {
 	// TODO: use pool
 	// TODO: allow configurable runes that can be escaped
 	// TODO: handler driver.Valuer
+	left, right := AlignLeft, AlignRight
+	if f.align != -1 {
+		left, right = f.align, f.align
+	}
 	for i := range n {
 		val := deref(vals[i])
 		switch v := val.(type) {
 		case nil:
 		case bool:
-			res[i] = newValue(strconv.FormatBool(v), AlignLeft, true)
+			res[i] = newValue(strconv.FormatBool(v), left, true)
 		case int, int8, int16, int32, int64,
 			uint, uint8, uint16, uint32, uint64:
 			var s string
@@ -130,7 +137,7 @@ func (f *EscapeFormatter) Format(vals []any) ([]*Value, error) {
 			} else {
 				s = fmt.Sprintf("%d", v)
 			}
-			res[i] = newValue(s, AlignRight, true)
+			res[i] = newValue(s, right, true)
 		case float32:
 			var s string
 			if f.numericLocalePrinter != nil {
@@ -138,7 +145,7 @@ func (f *EscapeFormatter) Format(vals []any) ([]*Value, error) {
 			} else {
 				s = strconv.FormatFloat(float64(v), 'g', -1, 32)
 			}
-			res[i] = newValue(s, AlignRight, true)
+			res[i] = newValue(s, right, true)
 		case float64:
 			var s string
 			if f.numericLocalePrinter != nil {
@@ -146,13 +153,13 @@ func (f *EscapeFormatter) Format(vals []any) ([]*Value, error) {
 			} else {
 				s = strconv.FormatFloat(v, 'g', -1, 64)
 			}
-			res[i] = newValue(s, AlignRight, true)
+			res[i] = newValue(s, right, true)
 		case uintptr:
-			res[i] = newValue(fmt.Sprintf("(0x%x)", v), AlignRight, true)
+			res[i] = newValue(fmt.Sprintf("(0x%x)", v), right, true)
 		case complex64:
-			res[i] = newValue(fmt.Sprintf("%g", v), AlignRight, false)
+			res[i] = newValue(fmt.Sprintf("%g", v), right, false)
 		case complex128:
-			res[i] = newValue(fmt.Sprintf("%g", v), AlignRight, false)
+			res[i] = newValue(fmt.Sprintf("%g", v), right, false)
 		case []byte:
 			res[i] = FormatBytes(v, f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
 		case string:
@@ -162,10 +169,10 @@ func (f *EscapeFormatter) Format(vals []any) ([]*Value, error) {
 			if f.timeLocation != nil {
 				t = t.In(f.timeLocation)
 			}
-			res[i] = newValue(t.Format(f.timeFormat), AlignLeft, false)
+			res[i] = newValue(t.Format(f.timeFormat), left, false)
 		case sql.NullBool:
 			if v.Valid {
-				res[i] = newValue(strconv.FormatBool(v.Bool), AlignLeft, true)
+				res[i] = newValue(strconv.FormatBool(v.Bool), left, true)
 			}
 		case sql.NullByte:
 			if v.Valid {
@@ -175,7 +182,7 @@ func (f *EscapeFormatter) Format(vals []any) ([]*Value, error) {
 				} else {
 					s = strconv.FormatUint(uint64(v.Byte), 10)
 				}
-				res[i] = newValue(s, AlignRight, true)
+				res[i] = newValue(s, right, true)
 			}
 		case sql.NullFloat64:
 			if v.Valid {
@@ -185,7 +192,7 @@ func (f *EscapeFormatter) Format(vals []any) ([]*Value, error) {
 				} else {
 					s = strconv.FormatFloat(v.Float64, 'g', -1, 64)
 				}
-				res[i] = newValue(s, AlignRight, true)
+				res[i] = newValue(s, right, true)
 			}
 		case sql.NullInt16:
 			if v.Valid {
@@ -195,7 +202,7 @@ func (f *EscapeFormatter) Format(vals []any) ([]*Value, error) {
 				} else {
 					s = strconv.FormatInt(int64(v.Int16), 10)
 				}
-				res[i] = newValue(s, AlignRight, true)
+				res[i] = newValue(s, right, true)
 			}
 		case sql.NullInt32:
 			if v.Valid {
@@ -205,7 +212,7 @@ func (f *EscapeFormatter) Format(vals []any) ([]*Value, error) {
 				} else {
 					s = strconv.FormatInt(int64(v.Int32), 10)
 				}
-				res[i] = newValue(s, AlignRight, true)
+				res[i] = newValue(s, right, true)
 			}
 		case sql.NullInt64:
 			if v.Valid {
@@ -215,7 +222,7 @@ func (f *EscapeFormatter) Format(vals []any) ([]*Value, error) {
 				} else {
 					s = strconv.FormatInt(v.Int64, 10)
 				}
-				res[i] = newValue(s, AlignRight, true)
+				res[i] = newValue(s, right, true)
 			}
 		case sql.NullString:
 			if v.Valid {
@@ -227,7 +234,7 @@ func (f *EscapeFormatter) Format(vals []any) ([]*Value, error) {
 				if f.timeLocation != nil {
 					t = t.In(f.timeLocation)
 				}
-				res[i] = newValue(t.Format(f.timeFormat), AlignLeft, false)
+				res[i] = newValue(t.Format(f.timeFormat), left, false)
 			}
 		case sql.RawBytes:
 			res[i] = FormatBytes(v, f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
@@ -593,6 +600,13 @@ func WithInvalid(invalid string) EscapeFormatterOption {
 func WithHeaderAlign(a Align) EscapeFormatterOption {
 	return func(f *EscapeFormatter) {
 		f.headerAlign = a
+	}
+}
+
+// WithAlign sets the forced alignment for values.
+func WithAlign(a Align) EscapeFormatterOption {
+	return func(f *EscapeFormatter) {
+		f.align = a
 	}
 }
 

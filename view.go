@@ -23,9 +23,8 @@ type CrosstabView struct {
 	formatter Formatter
 	// empty is the empty value.
 	empty *Value
-	// lowerColumnNames indicates lower casing the column names when column
-	// names are all caps.
-	lowerColumnNames bool
+	// headerTransformer is the column header transformer.
+	headerTransformer Transformer
 	// columnTypes is used to build column types for a result set.
 	columnTypes func(ResultSet, []any, int) error
 	// v is the vertical header column.
@@ -77,7 +76,7 @@ func (view *CrosstabView) build() error {
 	view.pos = -1
 	view.vals = make(map[string]map[string]any)
 	// get columns
-	clen, cols, err := buildColNames(view.resultSet, view.lowerColumnNames)
+	clen, cols, err := buildColNames(view.resultSet, view.headerTransformer)
 	switch {
 	case err != nil:
 		return view.fail(err)

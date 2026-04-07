@@ -3,7 +3,49 @@ package tblfmt
 import (
 	"fmt"
 	"io"
+	"strings"
+	"unicode"
 )
+
+// Transformer is the interface for column transformers.
+type Transformer interface {
+	Transform(string) string
+}
+
+// TransformStyle is a column/header transform style.
+type TransformStyle int
+
+// Transform styles.
+const (
+	TransformNone TransformStyle = iota
+	TransformForceLower
+	TransformForceUpper
+	TransformUpperToLower
+	TransformLowerToUpper
+)
+
+// Transform transforms style. Satisifies the [Transformer] interface.
+func (style TransformStyle) Transform(s string) string {
+	switch style {
+	case TransformForceLower:
+		return strings.ToLower(s)
+	case TransformForceUpper:
+		return strings.ToUpper(s)
+	case TransformUpperToLower:
+		if j := strings.IndexFunc(s, func(r rune) bool {
+			return unicode.IsLetter(r) && unicode.IsLower(r)
+		}); j == -1 {
+			return strings.ToLower(s)
+		}
+	case TransformLowerToUpper:
+		if j := strings.IndexFunc(s, func(r rune) bool {
+			return unicode.IsLetter(r) && unicode.IsUpper(r)
+		}); j == -1 {
+			return strings.ToUpper(s)
+		}
+	}
+	return s
+}
 
 // LineStyle is a table line style.
 //
@@ -43,6 +85,18 @@ type LineStyle struct {
 	Row  [4]rune
 	Wrap [4]rune
 	End  [4]rune
+}
+
+// TableLineStyle is the table line style for tables.
+func TableLineStyle() LineStyle {
+	return LineStyle{
+		// left char sep right
+		Top:  [4]rune{0, 0, 0, 0},
+		Mid:  [4]rune{0, 0, 0, 0},
+		Row:  [4]rune{0, ' ', 0, 0},
+		Wrap: [4]rune{0, ' ', 0, 0},
+		End:  [4]rune{0, 0, 0, 0},
+	}
 }
 
 // ASCIILineStyle is the ASCII line style for tables.
