@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/mattn/go-runewidth v0.0.21
 	github.com/nathan-fiscaletti/consolesize-go v0.0.0-20220204101620-317176b6684d
-	golang.org/x/text v0.35.0
+	golang.org/x/text v0.36.0
 )
 
 require github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
