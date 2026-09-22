@@ -57,6 +57,9 @@ type TableEncoder struct {
 	// maxWidths are calculated max column widths. Max widths are at least as
 	// wide as user-supplied widths
 	maxWidths []int
+	// aligns are the calculated column alignments, followed by a column's null
+	// values, which have no type of their own to align by.
+	aligns []Align
 	// minExpandWidth of the table required to switch to the ExpandedEncoder
 	// zero disables switching
 	minExpandWidth int
@@ -141,6 +144,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 	wroteHeader := enc.skipHeader
 	// default to user-supplied widths
 	enc.maxWidths = make([]int, clen)
+	enc.aligns = make([]Align, clen)
 	copy(enc.maxWidths, enc.widths)
 	enc.headers, err = enc.formatter.Header(cols)
 	if err != nil {
@@ -168,6 +172,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 			}
 			exp.offsets = make([]int, 2)
 			exp.maxWidths = make([]int, 2)
+			exp.aligns = make([]Align, 2)
 			exp.headers, err = exp.formatter.Header(cols)
 			if err != nil {
 				return err
@@ -305,6 +310,12 @@ func (enc *TableEncoder) calcWidth(vals [][]*Value) {
 				cell = enc.empty
 			}
 			enc.maxWidths[i] = max(enc.maxWidths[i], cell.MaxWidth(offset, enc.tab))
+		}
+		// a null cell has no type of its own to align by, so it follows the
+		// column, the way psql aligns the null string by the column's type. A
+		// batch with nothing to learn from keeps what an earlier one found.
+		if align, ok := columnAlign(vals, i); ok {
+			enc.aligns[i] = align
 		}
 		// add column width, and one space for newline indicator
 		offset += enc.maxWidths[i]
@@ -453,8 +464,11 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 		_, _ = enc.w.Write(rs.left)
 		var remaining bool
 		for i, v := range vals {
+			align := enc.aligns[i]
 			if v == nil {
 				v = enc.empty
+			} else {
+				align = v.Align
 			}
 			// write value
 			if l <= len(v.Newlines) {
@@ -475,10 +489,10 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 				}
 				padding := enc.maxWidths[i] - width
 				// no padding for last cell if no border and aligned left
-				if enc.border <= 1 && v.Align == AlignLeft && i == len(vals)-1 && (!rs.hasWrapping || l >= len(v.Newlines)) {
+				if enc.border <= 1 && align == AlignLeft && i == len(vals)-1 && (!rs.hasWrapping || l >= len(v.Newlines)) {
 					padding = 0
 				}
-				enc.writeAligned(v.Buf[start:end], rs.filler, v.Align, padding)
+				enc.writeAligned(v.Buf[start:end], rs.filler, align, padding)
 			} else if enc.border > 1 || i != len(vals)-1 {
 				_, _ = enc.w.Write(bytes.Repeat(rs.filler, enc.maxWidths[i]))
 			}
@@ -581,6 +595,7 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 	// setup offsets, widths
 	enc.offsets = make([]int, 2)
 	enc.maxWidths = make([]int, 2)
+	enc.aligns = make([]Align, 2)
 	enc.headers, err = enc.formatter.Header(cols)
 	if err != nil {
 		return err
@@ -760,6 +775,26 @@ func (enc *ExpandedEncoder) recordHeader(i int) string {
 		header = fmt.Sprintf("[ RECORD %d ]", i+1)
 	}
 	return header
+}
+
+// columnAlign returns the alignment shared by column i's non-null values, and
+// whether the column had any to share.
+//
+// Note: a column whose values do not agree on an alignment has none to pass
+// on, and is left aligned.
+func columnAlign(vals [][]*Value, i int) (Align, bool) {
+	var align Align
+	var found bool
+	for j := range vals {
+		switch cell := vals[j][i]; {
+		case cell == nil:
+		case !found:
+			align, found = cell.Align, true
+		case cell.Align != align:
+			return AlignLeft, true
+		}
+	}
+	return align, found
 }
 
 // JSONEncoder is an unbuffered JSON encoder for result sets.
@@ -1191,15 +1226,25 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 		if err != nil {
 			return err
 		}
-		for i := range clen {
-			if vals[i] == nil {
-				vals[i] = enc.empty
-			}
-		}
 		rows = append(rows, vals)
 	}
 	if err := enc.resultSet.Err(); err != nil {
 		return err
+	}
+	// a null cell has no type of its own to align by, so it follows the
+	// column, the way psql aligns the null string by the column's type
+	for i := range clen {
+		empty := enc.empty
+		if align, ok := columnAlign(rows, i); ok && align != empty.Align {
+			v := *empty
+			v.Align = align
+			empty = &v
+		}
+		for _, vals := range rows {
+			if vals[i] == nil {
+				vals[i] = empty
+			}
+		}
 	}
 	title := enc.title
 	if title == nil {

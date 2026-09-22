@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/xo/tblfmt/internal"
@@ -333,4 +334,88 @@ func testWriteTemplateTo(w io.Writer, tpl *Template) error {
 		}
 	}
 	return nil
+}
+
+// TestEncodeNullAlign checks that a null value follows the alignment of its
+// column, the way psql aligns the null string by the column's type, and does
+// not always sit to the left.
+//
+// Measured against psql 18.6:
+//
+//	$ psql -P null='(null)' -c "select 12345678901234567890::numeric as n,
+//	                                   'txt'::text as t
+//	                            union all select null, null;"
+//	          n           |   t
+//	----------------------+--------
+//	 12345678901234567890 | txt
+//	               (null) | (null)
+func TestEncodeNullAlign(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		vals [][]any
+		exp  string
+		html string
+	}{
+		// note: the values are wider than the null string on purpose. A null
+		// string exactly as wide as its column fills it, and then the two
+		// alignments are indistinguishable and the test proves nothing.
+		{
+			"right aligned column",
+			[][]any{{uint64(12345678901234567890)}, {nil}},
+			"               (null)",
+			`align="right"`,
+		},
+		{
+			"left aligned column",
+			[][]any{{"aaaaaaaaaaaaaaaaaaaa"}, {nil}},
+			" (null)",
+			`align="left"`,
+		},
+		{
+			// a column of more than one alignment has none to pass on
+			"mixed alignment column",
+			[][]any{{uint64(12345678901234567890)}, {"aaaaaaaaaaaaaaaaaaaa"}, {nil}},
+			" (null)",
+			`align="left"`,
+		},
+		{
+			"all null column",
+			[][]any{{nil}, {nil}},
+			" (null)",
+			`align="left"`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			buf := new(bytes.Buffer)
+			if err := EncodeAll(buf, internal.New([]string{"n"}, test.vals), map[string]string{
+				"format": "aligned",
+				"null":   "(null)",
+			}); err != nil {
+				t.Fatalf("expected no error, got: %v", err)
+			}
+			t.Logf("aligned:\n%s", buf.String())
+			// the null row is the last row before the summary
+			lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
+			if len(lines) < 3 {
+				t.Fatalf("expected at least 3 lines, got: %d", len(lines))
+			}
+			if s := strings.TrimRight(lines[len(lines)-2], " "); s != test.exp {
+				t.Errorf("expected null row %q, got: %q", test.exp, s)
+			}
+			buf.Reset()
+			if err := EncodeAll(buf, internal.New([]string{"n"}, test.vals), map[string]string{
+				"format": "html",
+				"null":   "(null)",
+			}); err != nil {
+				t.Fatalf("expected no error, got: %v", err)
+			}
+			t.Logf("html:\n%s", buf.String())
+			if s := test.html + ">(null)</td>"; !strings.Contains(buf.String(), s) {
+				t.Errorf("expected html to contain %q", s)
+			}
+		})
+	}
 }
