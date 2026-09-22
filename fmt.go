@@ -3,6 +3,7 @@ package tblfmt
 import (
 	"bytes"
 	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -75,7 +76,8 @@ type EscapeFormatter struct {
 }
 
 // NewEscapeFormatter creates a escape formatter to handle basic Go values,
-// such as []byte, string, time.Time, and sql.Null*. Formatting for
+// such as []byte, string, time.Time, sql.Null*, and any
+// [database/sql/driver.Valuer]. Formatting for
 // map[string]interface{} and []interface{} will be passed to a marshaler
 // provided by [WithEncoder], otherwise the standard [encoding/json.Encoder]
 // will be used to marshal those values.
@@ -114,165 +116,240 @@ func (f *EscapeFormatter) Header(headers []string) ([]*Value, error) {
 func (f *EscapeFormatter) Format(vals []any) ([]*Value, error) {
 	n := len(vals)
 	res := make([]*Value, n)
-	// TODO: change time to v.AppendFormat() + pool
-	// TODO: use strconv.Format* for numeric times
-	// TODO: use pool
-	// TODO: allow configurable runes that can be escaped
-	// TODO: handler driver.Valuer
 	left, right := AlignLeft, AlignRight
 	if f.align != -1 {
 		left, right = f.align, f.align
 	}
 	for i := range n {
-		val := deref(vals[i])
-		switch v := val.(type) {
-		case nil:
-		case bool:
-			res[i] = newValue(strconv.FormatBool(v), left, true)
-		case int, int8, int16, int32, int64,
-			uint, uint8, uint16, uint32, uint64:
+		v, err := f.format(deref(vals[i]), left, right, 0)
+		if err != nil {
+			return nil, err
+		}
+		res[i] = v
+	}
+	return res, nil
+}
+
+// maxValuerDepth is the maximum number of times [EscapeFormatter.format] will
+// unwrap a [database/sql/driver.Valuer] before giving up and encoding the
+// value, bounding recursion for a value that wraps itself.
+const maxValuerDepth = 10
+
+// format formats a single value, returning nil for a null value. depth is the
+// number of [database/sql/driver.Valuer] values already unwrapped.
+func (f *EscapeFormatter) format(val any, left, right Align, depth int) (*Value, error) {
+	// TODO: change time to v.AppendFormat() + pool
+	// TODO: use strconv.Format* for numeric times
+	// TODO: use pool
+	// TODO: allow configurable runes that can be escaped
+	switch v := val.(type) {
+	case nil:
+		return nil, nil
+	case bool:
+		return newValue(strconv.FormatBool(v), left, true), nil
+	case int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64:
+		var s string
+		if f.numericLocalePrinter != nil {
+			s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v))
+		} else {
+			s = fmt.Sprintf("%d", v)
+		}
+		return newValue(s, right, true), nil
+	case float32:
+		var s string
+		if f.numericLocalePrinter != nil {
+			s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v, number.MinFractionDigits(1)))
+		} else {
+			s = strconv.FormatFloat(float64(v), 'g', -1, 32)
+		}
+		return newValue(s, right, true), nil
+	case float64:
+		var s string
+		if f.numericLocalePrinter != nil {
+			s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v, number.MinFractionDigits(1)))
+		} else {
+			s = strconv.FormatFloat(v, 'g', -1, 64)
+		}
+		return newValue(s, right, true), nil
+	case uintptr:
+		return newValue(fmt.Sprintf("(0x%x)", v), right, true), nil
+	case complex64:
+		return newValue(fmt.Sprintf("%g", v), right, false), nil
+	case complex128:
+		return newValue(fmt.Sprintf("%g", v), right, false), nil
+	case []byte:
+		return FormatBytes(v, f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote), nil
+	case string:
+		return FormatBytes([]byte(v), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote), nil
+	case time.Time:
+		t := v
+		if f.timeLocation != nil {
+			t = t.In(f.timeLocation)
+		}
+		return newValue(t.Format(f.timeFormat), left, false), nil
+	case sql.NullBool:
+		if v.Valid {
+			return newValue(strconv.FormatBool(v.Bool), left, true), nil
+		}
+		return nil, nil
+	case sql.NullByte:
+		if v.Valid {
 			var s string
 			if f.numericLocalePrinter != nil {
-				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v))
+				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Byte))
 			} else {
-				s = fmt.Sprintf("%d", v)
+				s = strconv.FormatUint(uint64(v.Byte), 10)
 			}
-			res[i] = newValue(s, right, true)
-		case float32:
+			return newValue(s, right, true), nil
+		}
+		return nil, nil
+	case sql.NullFloat64:
+		if v.Valid {
 			var s string
 			if f.numericLocalePrinter != nil {
-				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v, number.MinFractionDigits(1)))
+				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Float64))
 			} else {
-				s = strconv.FormatFloat(float64(v), 'g', -1, 32)
+				s = strconv.FormatFloat(v.Float64, 'g', -1, 64)
 			}
-			res[i] = newValue(s, right, true)
-		case float64:
+			return newValue(s, right, true), nil
+		}
+		return nil, nil
+	case sql.NullInt16:
+		if v.Valid {
 			var s string
 			if f.numericLocalePrinter != nil {
-				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v, number.MinFractionDigits(1)))
+				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Int16))
 			} else {
-				s = strconv.FormatFloat(v, 'g', -1, 64)
+				s = strconv.FormatInt(int64(v.Int16), 10)
 			}
-			res[i] = newValue(s, right, true)
-		case uintptr:
-			res[i] = newValue(fmt.Sprintf("(0x%x)", v), right, true)
-		case complex64:
-			res[i] = newValue(fmt.Sprintf("%g", v), right, false)
-		case complex128:
-			res[i] = newValue(fmt.Sprintf("%g", v), right, false)
-		case []byte:
-			res[i] = FormatBytes(v, f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
-		case string:
-			res[i] = FormatBytes([]byte(v), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
-		case time.Time:
-			t := v
+			return newValue(s, right, true), nil
+		}
+		return nil, nil
+	case sql.NullInt32:
+		if v.Valid {
+			var s string
+			if f.numericLocalePrinter != nil {
+				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Int32))
+			} else {
+				s = strconv.FormatInt(int64(v.Int32), 10)
+			}
+			return newValue(s, right, true), nil
+		}
+		return nil, nil
+	case sql.NullInt64:
+		if v.Valid {
+			var s string
+			if f.numericLocalePrinter != nil {
+				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Int64))
+			} else {
+				s = strconv.FormatInt(v.Int64, 10)
+			}
+			return newValue(s, right, true), nil
+		}
+		return nil, nil
+	case sql.NullString:
+		if v.Valid {
+			return FormatBytes([]byte(v.String), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote), nil
+		}
+		return nil, nil
+	case sql.NullTime:
+		if v.Valid {
+			t := v.Time
 			if f.timeLocation != nil {
 				t = t.In(f.timeLocation)
 			}
-			res[i] = newValue(t.Format(f.timeFormat), left, false)
-		case sql.NullBool:
-			if v.Valid {
-				res[i] = newValue(strconv.FormatBool(v.Bool), left, true)
+			return newValue(t.Format(f.timeFormat), left, false), nil
+		}
+		return nil, nil
+	case sql.RawBytes:
+		return FormatBytes(v, f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote), nil
+	case fmt.Stringer:
+		return FormatBytes([]byte(v.String()), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote), nil
+	case driver.Valuer:
+		if z, ok := unwrapNull(v); ok {
+			if depth < maxValuerDepth {
+				return f.format(deref(z), left, right, depth+1)
 			}
-		case sql.NullByte:
-			if v.Valid {
-				var s string
-				if f.numericLocalePrinter != nil {
-					s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Byte))
-				} else {
-					s = strconv.FormatUint(uint64(v.Byte), 10)
-				}
-				res[i] = newValue(s, right, true)
-			}
-		case sql.NullFloat64:
-			if v.Valid {
-				var s string
-				if f.numericLocalePrinter != nil {
-					s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Float64))
-				} else {
-					s = strconv.FormatFloat(v.Float64, 'g', -1, 64)
-				}
-				res[i] = newValue(s, right, true)
-			}
-		case sql.NullInt16:
-			if v.Valid {
-				var s string
-				if f.numericLocalePrinter != nil {
-					s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Int16))
-				} else {
-					s = strconv.FormatInt(int64(v.Int16), 10)
-				}
-				res[i] = newValue(s, right, true)
-			}
-		case sql.NullInt32:
-			if v.Valid {
-				var s string
-				if f.numericLocalePrinter != nil {
-					s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Int32))
-				} else {
-					s = strconv.FormatInt(int64(v.Int32), 10)
-				}
-				res[i] = newValue(s, right, true)
-			}
-		case sql.NullInt64:
-			if v.Valid {
-				var s string
-				if f.numericLocalePrinter != nil {
-					s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Int64))
-				} else {
-					s = strconv.FormatInt(v.Int64, 10)
-				}
-				res[i] = newValue(s, right, true)
-			}
-		case sql.NullString:
-			if v.Valid {
-				res[i] = FormatBytes([]byte(v.String), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
-			}
-		case sql.NullTime:
-			if v.Valid {
-				t := v.Time
-				if f.timeLocation != nil {
-					t = t.In(f.timeLocation)
-				}
-				res[i] = newValue(t.Format(f.timeFormat), left, false)
-			}
-		case sql.RawBytes:
-			res[i] = FormatBytes(v, f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
-		case fmt.Stringer:
-			res[i] = FormatBytes([]byte(v.String()), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
-		default:
-			// TODO: pool
-			if f.encoder != nil {
-				buf, err := f.encoder(v)
-				if err != nil {
-					return nil, err
-				}
-				res[i] = &Value{
-					Buf: buf,
-					Raw: true,
-				}
-			} else {
-				// json encode
-				buf := new(bytes.Buffer)
-				enc := json.NewEncoder(buf)
-				enc.SetIndent(f.prefix, f.indent)
-				enc.SetEscapeHTML(f.escapeHTML)
-				if err := enc.Encode(v); err != nil {
-					return nil, err
-				}
-				if f.isJSON {
-					res[i] = &Value{
-						Buf: bytes.TrimSpace(buf.Bytes()),
-						Raw: true,
-					}
-				} else {
-					res[i] = FormatBytes(bytes.TrimSpace(buf.Bytes()), f.invalid, f.invalidWidth, false, f.isRaw, f.sep, f.quote)
-					res[i].Raw = true
-				}
-			}
+			break
+		}
+		// note: a Valuer returning an error is encoded below, as encoding the
+		// value is more useful to the reader than failing the entire result
+		// set.
+		if z, err := v.Value(); err == nil && depth < maxValuerDepth {
+			return f.format(deref(z), left, right, depth+1)
 		}
 	}
-	return res, nil
+	return f.encode(val)
+}
+
+// encode encodes a value not otherwise handled by [EscapeFormatter.format]
+// using the configured encoder, or the standard [encoding/json.Encoder] when
+// no encoder was configured.
+func (f *EscapeFormatter) encode(val any) (*Value, error) {
+	// TODO: pool
+	if f.encoder != nil {
+		buf, err := f.encoder(val)
+		if err != nil {
+			return nil, err
+		}
+		return &Value{
+			Buf: buf,
+			Raw: true,
+		}, nil
+	}
+	// json encode
+	buf := new(bytes.Buffer)
+	enc := json.NewEncoder(buf)
+	enc.SetIndent(f.prefix, f.indent)
+	enc.SetEscapeHTML(f.escapeHTML)
+	if err := enc.Encode(val); err != nil {
+		return nil, err
+	}
+	if f.isJSON {
+		return &Value{
+			Buf: bytes.TrimSpace(buf.Bytes()),
+			Raw: true,
+		}, nil
+	}
+	v := FormatBytes(bytes.TrimSpace(buf.Bytes()), f.invalid, f.invalidWidth, false, f.isRaw, f.sep, f.quote)
+	v.Raw = true
+	return v, nil
+}
+
+// nullPkgPath is the package path of the generic [database/sql.Null] type.
+var nullPkgPath = reflect.TypeOf(sql.Null[bool]{}).PkgPath()
+
+// unwrapNull returns the value contained in a generic [database/sql.Null]
+// value, and whether v is such a value. A nil value is returned for a null
+// (invalid) value.
+//
+// The generic Null's own Value method cannot be used for this: it passes the
+// contained value through [database/sql/driver.DefaultParameterConverter],
+// which converts every unsigned integer to an int64 and rejects outright a
+// uint64 with its high bit set, such as MySQL's max BIGINT UNSIGNED.
+func unwrapNull(v any) (any, bool) {
+	typ := reflect.TypeOf(v)
+	if typ == nil {
+		return nil, false
+	}
+	// note: deref unwraps only one level, so a Null reached through a *any
+	// destination arrives here as a pointer.
+	val := reflect.ValueOf(v)
+	if typ.Kind() == reflect.Pointer {
+		typ, val = typ.Elem(), val.Elem()
+	}
+	if typ.Kind() != reflect.Struct || typ.PkgPath() != nullPkgPath ||
+		typ.NumField() != 2 ||
+		typ.Field(0).Name != "V" ||
+		typ.Field(1).Name != "Valid" || typ.Field(1).Type.Kind() != reflect.Bool {
+		return nil, false
+	}
+	// note: val is invalid for a nil pointer, whose Value method would panic.
+	if !val.IsValid() || !val.Field(1).Bool() {
+		return nil, true
+	}
+	return val.Field(0).Interface(), true
 }
 
 // valueFromBuffer returns a value from a buffer known not to contain
@@ -626,11 +703,16 @@ func WithNumericLocale(enable bool, locale string) EscapeFormatterOption {
 // deref dereferences a pointer to an interface.
 func deref(v any) any {
 	switch z := v.(type) {
+	case nil:
+		return nil
 	case *any:
 		return *z
 	}
 	val := reflect.ValueOf(v)
 	if val.Kind() == reflect.Ptr {
+		if val.IsNil() {
+			return nil
+		}
 		val = val.Elem()
 	}
 	return val.Interface()

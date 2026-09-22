@@ -1,15 +1,22 @@
 package tblfmt
 
 import (
+	"bytes"
+	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
+	"errors"
+	"math"
 	"reflect"
 	"regexp"
 	"slices"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	runewidth "github.com/mattn/go-runewidth"
+	"github.com/xo/tblfmt/internal"
 )
 
 func TestTabwidthCalc(t *testing.T) {
@@ -198,4 +205,104 @@ func v(s string, check int) escTest {
 		Width: width,
 	}
 	return escTest{s, v, check}
+}
+
+// TestFormatNull checks that the generic database/sql Null type and other
+// driver.Valuer implementations format as their contained value, and that a
+// null value formats as the empty value.
+//
+// MySQL's ColumnType.ScanType reports sql.Null[uint64] for a nullable BIGINT
+// UNSIGNED, and the value is above math.MaxInt64, so it cannot round trip
+// through the Null's own Value method.
+func TestFormatNull(t *testing.T) {
+	t.Parallel()
+	loc, err := time.LoadLocation("UTC")
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	tm := time.Date(2026, 1, 2, 3, 4, 5, 0, loc)
+	maxUint64 := sql.Null[uint64]{V: math.MaxUint64, Valid: true}
+	tests := []struct {
+		v     any
+		exp   string
+		align Align
+	}{
+		{sql.Null[uint64]{V: math.MaxUint64, Valid: true}, "18446744073709551615", AlignRight},
+		{&maxUint64, "18446744073709551615", AlignRight},
+		{sql.Null[uint64]{V: 42, Valid: true}, "42", AlignRight},
+		{sql.Null[uint64]{}, "", AlignLeft},
+		{&sql.Null[uint64]{}, "", AlignLeft},
+		{sql.Null[int64]{V: -5, Valid: true}, "-5", AlignRight},
+		{sql.Null[float64]{V: 3.25, Valid: true}, "3.25", AlignRight},
+		{sql.Null[bool]{V: true, Valid: true}, "true", AlignLeft},
+		{sql.Null[string]{V: "hello", Valid: true}, "hello", AlignLeft},
+		{sql.Null[string]{}, "", AlignLeft},
+		{sql.Null[time.Time]{V: tm, Valid: true}, "2026-01-02T03:04:05Z", AlignLeft},
+		{sql.Null[[]byte]{V: []byte("bytes"), Valid: true}, "bytes", AlignLeft},
+		{valuer{}, "", AlignLeft},
+		{valuer{v: "from valuer"}, "from valuer", AlignLeft},
+		{errValuer{}, "{}", AlignLeft},
+		{(*sql.Null[uint64])(nil), "", AlignLeft},
+		{nil, "", AlignLeft},
+	}
+	f := NewEscapeFormatter(WithTimeLocation(loc))
+	for i, test := range tests {
+		vals, err := f.Format([]any{test.v})
+		switch {
+		case err != nil:
+			t.Errorf("test %d expected no error, got: %v", i, err)
+			continue
+		case len(vals) != 1:
+			t.Errorf("test %d expected 1 value, got: %d", i, len(vals))
+			continue
+		}
+		var s string
+		var align Align
+		if vals[0] != nil {
+			s, align = string(vals[0].Buf), vals[0].Align
+		}
+		if s != test.exp {
+			t.Errorf("test %d %#v expected %q, got: %q", i, test.v, test.exp, s)
+		}
+		if test.exp != "" && align != test.align {
+			t.Errorf("test %d %#v expected align %d, got: %d", i, test.v, test.align, align)
+		}
+	}
+}
+
+// TestEncodeJSONNull checks that the generic database/sql Null type encodes as
+// a bare JSON value, and as JSON null when not valid.
+func TestEncodeJSONNull(t *testing.T) {
+	t.Parallel()
+	resultSet := internal.New([]string{"b"}, [][]any{
+		{&sql.Null[uint64]{V: math.MaxUint64, Valid: true}},
+		{&sql.Null[uint64]{}},
+	})
+	buf := new(bytes.Buffer)
+	if err := EncodeJSONAll(buf, resultSet); err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	const exp = `[{"b":18446744073709551615},{"b":null}]`
+	if s := strings.TrimSpace(buf.String()); s != exp {
+		t.Errorf("expected %s, got: %s", exp, s)
+	}
+}
+
+// valuer is a driver.Valuer returning a string.
+type valuer struct {
+	v string
+}
+
+func (v valuer) Value() (driver.Value, error) {
+	if v.v == "" {
+		return nil, nil
+	}
+	return v.v, nil
+}
+
+// errValuer is a driver.Valuer always returning an error.
+type errValuer struct{}
+
+func (errValuer) Value() (driver.Value, error) {
+	return nil, errors.New("invalid value")
 }
