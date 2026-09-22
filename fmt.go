@@ -151,28 +151,28 @@ func (f *EscapeFormatter) format(val any, left, right Align, depth int) (*Value,
 	case int, int8, int16, int32, int64,
 		uint, uint8, uint16, uint32, uint64:
 		var s string
-		if f.numericLocalePrinter != nil {
+		if f.useNumericLocale() {
 			s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v))
 		} else {
 			s = fmt.Sprintf("%d", v)
 		}
-		return newValue(s, right, true), nil
+		return f.number(s, right), nil
 	case float32:
 		var s string
-		if f.numericLocalePrinter != nil {
+		if f.useNumericLocale() {
 			s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v, number.MinFractionDigits(1)))
 		} else {
 			s = strconv.FormatFloat(float64(v), 'g', -1, 32)
 		}
-		return newValue(s, right, true), nil
+		return f.number(s, right), nil
 	case float64:
 		var s string
-		if f.numericLocalePrinter != nil {
+		if f.useNumericLocale() {
 			s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v, number.MinFractionDigits(1)))
 		} else {
 			s = strconv.FormatFloat(v, 'g', -1, 64)
 		}
-		return newValue(s, right, true), nil
+		return f.number(s, right), nil
 	case uintptr:
 		return newValue(fmt.Sprintf("(0x%x)", v), right, true), nil
 	case complex64:
@@ -197,56 +197,56 @@ func (f *EscapeFormatter) format(val any, left, right Align, depth int) (*Value,
 	case sql.NullByte:
 		if v.Valid {
 			var s string
-			if f.numericLocalePrinter != nil {
+			if f.useNumericLocale() {
 				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Byte))
 			} else {
 				s = strconv.FormatUint(uint64(v.Byte), 10)
 			}
-			return newValue(s, right, true), nil
+			return f.number(s, right), nil
 		}
 		return nil, nil
 	case sql.NullFloat64:
 		if v.Valid {
 			var s string
-			if f.numericLocalePrinter != nil {
+			if f.useNumericLocale() {
 				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Float64))
 			} else {
 				s = strconv.FormatFloat(v.Float64, 'g', -1, 64)
 			}
-			return newValue(s, right, true), nil
+			return f.number(s, right), nil
 		}
 		return nil, nil
 	case sql.NullInt16:
 		if v.Valid {
 			var s string
-			if f.numericLocalePrinter != nil {
+			if f.useNumericLocale() {
 				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Int16))
 			} else {
 				s = strconv.FormatInt(int64(v.Int16), 10)
 			}
-			return newValue(s, right, true), nil
+			return f.number(s, right), nil
 		}
 		return nil, nil
 	case sql.NullInt32:
 		if v.Valid {
 			var s string
-			if f.numericLocalePrinter != nil {
+			if f.useNumericLocale() {
 				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Int32))
 			} else {
 				s = strconv.FormatInt(int64(v.Int32), 10)
 			}
-			return newValue(s, right, true), nil
+			return f.number(s, right), nil
 		}
 		return nil, nil
 	case sql.NullInt64:
 		if v.Valid {
 			var s string
-			if f.numericLocalePrinter != nil {
+			if f.useNumericLocale() {
 				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Int64))
 			} else {
 				s = strconv.FormatInt(v.Int64, 10)
 			}
-			return newValue(s, right, true), nil
+			return f.number(s, right), nil
 		}
 		return nil, nil
 	case sql.NullString:
@@ -390,6 +390,30 @@ func unwrapNull(v any) (any, bool) {
 		return nil, true
 	}
 	return val.Field(0).Interface(), true
+}
+
+// useNumericLocale reports whether numbers are formatted for a locale.
+//
+// Note: never for JSON, which has a number type but no syntax for a grouping
+// separator. Honoring it there would mean writing a number as a string, so
+// that a column's JSON type would follow a display option; ignoring it keeps
+// the type stable. csv, which has no types at all, applies it as psql does.
+func (f *EscapeFormatter) useNumericLocale() bool {
+	return f.numericLocalePrinter != nil && !f.isJSON
+}
+
+// number returns a value for a formatted number.
+//
+// A number formatted for a locale is escaped as any other value would be, as
+// its grouping separator would otherwise be read as a csv field separator,
+// leaving a bare 1,234,567 to be read as three fields.
+func (f *EscapeFormatter) number(s string, align Align) *Value {
+	if !f.useNumericLocale() {
+		return newValue(s, align, true)
+	}
+	v := FormatBytes([]byte(s), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
+	v.Align = align
+	return v
 }
 
 // valueFromBuffer returns a value from a buffer known not to contain
@@ -730,7 +754,13 @@ func WithAlign(a Align) EscapeFormatterOption {
 	}
 }
 
-// WithNumericLocale sets the numeric locale printer.
+// WithNumericLocale sets the numeric locale printer, which groups the digits
+// of a number as the locale does, as psql's \pset numericlocale does.
+//
+// It has no effect on JSON output: a grouped number is not a JSON number, and
+// writing it as a JSON string would make a column's type depend on a display
+// option. Every other format applies it, csv quoting the fields that need it
+// exactly as psql does.
 func WithNumericLocale(enable bool, locale string) EscapeFormatterOption {
 	return func(f *EscapeFormatter) {
 		if enable {

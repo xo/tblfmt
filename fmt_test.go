@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/csv"
 	"encoding/json/jsontext"
 	json "encoding/json/v2"
 	"errors"
 	"math"
 	"reflect"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -318,4 +320,92 @@ type errValuer struct{}
 
 func (errValuer) Value() (driver.Value, error) {
 	return nil, errors.New("invalid value")
+}
+
+// TestEncodeNumericLocale checks that a locale formatted number does not break
+// the csv and JSON encodings, where its grouping separator would otherwise be
+// read as a field separator, or as an invalid JSON number.
+func TestEncodeNumericLocale(t *testing.T) {
+	t.Parallel()
+	// note: the locales cover the three ways a grouping separator meets csv --
+	// a comma, which is the separator itself; a period paired with a decimal
+	// comma, where only the float needs quoting; and a non-breaking space,
+	// which is quoted as whitespace.
+	tests := []struct {
+		locale string
+		n      string
+		f      string
+		b      string
+	}{
+		{"en-US", "1,234,567", "1,234,567.25", "18,446,744,073,709,551,615"},
+		{"en-IN", "12,34,567", "12,34,567.25", "1,84,46,74,40,73,70,95,51,615"},
+		{"de-DE", "1.234.567", "1.234.567,25", "18.446.744.073.709.551.615"},
+		{"fr-FR", "1\u00a0234\u00a0567", "1\u00a0234\u00a0567,25", "18\u00a0446\u00a0744\u00a0073\u00a0709\u00a0551\u00a0615"},
+	}
+	for _, test := range tests {
+		resultSet := func() ResultSet {
+			return internal.New([]string{"n", "f", "b"}, [][]any{
+				{1234567, 1234567.25, &sql.Null[uint64]{V: math.MaxUint64, Valid: true}},
+				{nil, nil, &sql.Null[uint64]{}},
+			})
+		}
+		buf := new(bytes.Buffer)
+		if err := EncodeCSVAll(buf, resultSet(), WithFormatter(NewEscapeFormatter(
+			WithNumericLocale(true, test.locale),
+			WithIsRaw(true, ',', '"'),
+		))); err != nil {
+			t.Fatalf("%s expected no error, got: %v", test.locale, err)
+		}
+		t.Logf("%s csv:\n%s", test.locale, buf.String())
+		records, err := csv.NewReader(bytes.NewReader(buf.Bytes())).ReadAll()
+		if err != nil {
+			t.Errorf("%s expected no error, got: %v", test.locale, err)
+			continue
+		}
+		if len(records) != 3 {
+			t.Errorf("%s expected 3 csv records, got: %d", test.locale, len(records))
+			continue
+		}
+		for i, record := range records {
+			if len(record) != 3 {
+				t.Errorf("%s csv record %d expected 3 fields, got: %d (%q)", test.locale, i, len(record), record)
+			}
+		}
+		if exp := []string{test.n, test.f, test.b}; !slices.Equal(records[1], exp) {
+			t.Errorf("%s expected csv %q, got: %q", test.locale, exp, records[1])
+		}
+		buf.Reset()
+		if err := EncodeJSONAll(buf, resultSet(), WithFormatter(NewEscapeFormatter(
+			WithNumericLocale(true, test.locale),
+			WithIsJSON(true),
+		))); err != nil {
+			t.Fatalf("%s expected no error, got: %v", test.locale, err)
+		}
+		t.Logf("%s json: %s", test.locale, buf.String())
+		// note: json ignores the numeric locale, so the numbers stay numbers
+		// rather than becoming strings; they are compared as their raw text so
+		// that a uint64 above 2^53 is not rounded by decoding it to a float.
+		var v []map[string]jsontext.Value
+		if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &v); err != nil {
+			t.Errorf("%s expected %s to be valid json, got: %v", test.locale, buf.String(), err)
+			continue
+		}
+		exp := map[string]string{
+			"n": "1234567",
+			"f": "1.23456725e+06",
+			"b": "18446744073709551615",
+		}
+		if len(v) != 2 {
+			t.Errorf("%s expected 2 json rows, got: %d", test.locale, len(v))
+			continue
+		}
+		for _, col := range []string{"n", "f", "b"} {
+			if s := string(v[0][col]); s != exp[col] {
+				t.Errorf("%s expected json %s to be %s, got: %s", test.locale, col, exp[col], s)
+			}
+		}
+		if s := string(v[1]["b"]); s != "null" {
+			t.Errorf("%s expected null, got: %s", test.locale, s)
+		}
+	}
 }
