@@ -297,7 +297,9 @@ func TestEncodeJSONNull(t *testing.T) {
 	if err := EncodeJSONAll(buf, resultSet); err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
-	const exp = `[{"b":18446744073709551615},{"b":null}]`
+	// note: quoted because it is above the int64 a JSON number is read as,
+	// with its digits intact; see TestEncodeJSONNumber.
+	const exp = `[{"b":"18446744073709551615"},{"b":null}]`
 	if s := strings.TrimSpace(buf.String()); s != exp {
 		t.Errorf("expected %s, got: %s", exp, s)
 	}
@@ -390,10 +392,12 @@ func TestEncodeNumericLocale(t *testing.T) {
 			t.Errorf("%s expected %s to be valid json, got: %v", test.locale, buf.String(), err)
 			continue
 		}
+		// note: b is above the int64 a JSON number is read as, so it is a
+		// JSON string -- of its exact digits, never locale formatted.
 		exp := map[string]string{
 			"n": "1234567",
 			"f": "1.23456725e+06",
-			"b": "18446744073709551615",
+			"b": `"18446744073709551615"`,
 		}
 		if len(v) != 2 {
 			t.Errorf("%s expected 2 json rows, got: %d", test.locale, len(v))
@@ -406,6 +410,88 @@ func TestEncodeNumericLocale(t *testing.T) {
 		}
 		if s := string(v[1]["b"]); s != "null" {
 			t.Errorf("%s expected null, got: %s", test.locale, s)
+		}
+	}
+}
+
+// TestEncodeJSONNumber checks that a number JSON cannot write as a number --
+// one above the int64 a JSON number is read as, and the values that are not
+// finite numbers at all -- is written as a string of the same text the other
+// formats show.
+func TestEncodeJSONNumber(t *testing.T) {
+	t.Parallel()
+	resultSet := internal.New(
+		[]string{"u64max", "u64min", "i64max", "u64ok", "nan", "inf", "ninf", "f"},
+		[][]any{{
+			uint64(math.MaxUint64),
+			uint64(math.MaxInt64) + 1,
+			int64(math.MaxInt64),
+			uint64(42),
+			math.NaN(),
+			math.Inf(1),
+			math.Inf(-1),
+			1.5,
+		}},
+	)
+	buf := new(bytes.Buffer)
+	if err := EncodeJSONAll(buf, resultSet); err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	t.Logf("json: %s", buf.String())
+	var v []map[string]jsontext.Value
+	if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &v); err != nil {
+		t.Fatalf("expected %s to be valid json, got: %v", buf.String(), err)
+	}
+	if len(v) != 1 {
+		t.Fatalf("expected 1 json row, got: %d", len(v))
+	}
+	// note: compared as raw text, as decoding would round the large values it
+	// is the point of the quoting to keep exact.
+	for _, test := range []struct {
+		col string
+		exp string
+	}{
+		{"u64max", `"18446744073709551615"`},
+		{"u64min", `"9223372036854775808"`},
+		{"i64max", `9223372036854775807`},
+		{"u64ok", `42`},
+		{"nan", `"NaN"`},
+		{"inf", `"Infinity"`},
+		{"ninf", `"-Infinity"`},
+		{"f", `1.5`},
+	} {
+		if s := string(v[0][test.col]); s != test.exp {
+			t.Errorf("expected %s to be %s, got: %s", test.col, test.exp, s)
+		}
+	}
+}
+
+// TestFormatNotANumber checks that the values that are not finite numbers use
+// PostgreSQL's spellings, which are what psql displays, in every format.
+func TestFormatNotANumber(t *testing.T) {
+	t.Parallel()
+	f := NewEscapeFormatter()
+	for i, test := range []struct {
+		v   any
+		exp string
+	}{
+		{math.NaN(), "NaN"},
+		{math.Inf(1), "Infinity"},
+		{math.Inf(-1), "-Infinity"},
+		{float32(math.Inf(1)), "Infinity"},
+		{sql.NullFloat64{Float64: math.NaN(), Valid: true}, "NaN"},
+		{sql.Null[float64]{V: math.Inf(-1), Valid: true}, "-Infinity"},
+	} {
+		vals, err := f.Format([]any{test.v})
+		if err != nil {
+			t.Errorf("test %d expected no error, got: %v", i, err)
+			continue
+		}
+		if s := string(vals[0].Buf); s != test.exp {
+			t.Errorf("test %d expected %q, got: %q", i, test.exp, s)
+		}
+		if vals[0].Align != AlignRight {
+			t.Errorf("test %d expected right align, got: %d", i, vals[0].Align)
 		}
 	}
 }

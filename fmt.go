@@ -7,6 +7,7 @@ import (
 	"encoding/json/jsontext"
 	json "encoding/json/v2"
 	"fmt"
+	"math"
 	"reflect"
 	"strconv"
 	"strings"
@@ -156,25 +157,29 @@ func (f *EscapeFormatter) format(val any, left, right Align, depth int) (*Value,
 		} else {
 			s = fmt.Sprintf("%d", v)
 		}
-		return f.number(s, right), nil
+		return f.number(s, right, overflowsInt64(v)), nil
 	case float32:
-		var s string
-		if f.useNumericLocale() {
+		s, notNumber := floatString(float64(v))
+		switch {
+		case notNumber:
+		case f.useNumericLocale():
 			s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v, number.MinFractionDigits(1)))
-		} else {
+		default:
 			s = strconv.FormatFloat(float64(v), 'g', -1, 32)
 		}
-		return f.number(s, right), nil
+		return f.number(s, right, notNumber), nil
 	case float64:
-		var s string
-		if f.useNumericLocale() {
+		s, notNumber := floatString(v)
+		switch {
+		case notNumber:
+		case f.useNumericLocale():
 			s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v, number.MinFractionDigits(1)))
-		} else {
+		default:
 			s = strconv.FormatFloat(v, 'g', -1, 64)
 		}
-		return f.number(s, right), nil
+		return f.number(s, right, notNumber), nil
 	case uintptr:
-		return newValue(fmt.Sprintf("(0x%x)", v), right, true), nil
+		return newValue(fmt.Sprintf("(0x%x)", v), right, false), nil
 	case complex64:
 		return newValue(fmt.Sprintf("%g", v), right, false), nil
 	case complex128:
@@ -202,18 +207,20 @@ func (f *EscapeFormatter) format(val any, left, right Align, depth int) (*Value,
 			} else {
 				s = strconv.FormatUint(uint64(v.Byte), 10)
 			}
-			return f.number(s, right), nil
+			return f.number(s, right, false), nil
 		}
 		return nil, nil
 	case sql.NullFloat64:
 		if v.Valid {
-			var s string
-			if f.useNumericLocale() {
+			s, notNumber := floatString(v.Float64)
+			switch {
+			case notNumber:
+			case f.useNumericLocale():
 				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Float64))
-			} else {
+			default:
 				s = strconv.FormatFloat(v.Float64, 'g', -1, 64)
 			}
-			return f.number(s, right), nil
+			return f.number(s, right, notNumber), nil
 		}
 		return nil, nil
 	case sql.NullInt16:
@@ -224,7 +231,7 @@ func (f *EscapeFormatter) format(val any, left, right Align, depth int) (*Value,
 			} else {
 				s = strconv.FormatInt(int64(v.Int16), 10)
 			}
-			return f.number(s, right), nil
+			return f.number(s, right, false), nil
 		}
 		return nil, nil
 	case sql.NullInt32:
@@ -235,7 +242,7 @@ func (f *EscapeFormatter) format(val any, left, right Align, depth int) (*Value,
 			} else {
 				s = strconv.FormatInt(int64(v.Int32), 10)
 			}
-			return f.number(s, right), nil
+			return f.number(s, right, false), nil
 		}
 		return nil, nil
 	case sql.NullInt64:
@@ -246,7 +253,7 @@ func (f *EscapeFormatter) format(val any, left, right Align, depth int) (*Value,
 			} else {
 				s = strconv.FormatInt(v.Int64, 10)
 			}
-			return f.number(s, right), nil
+			return f.number(s, right, false), nil
 		}
 		return nil, nil
 	case sql.NullString:
@@ -402,18 +409,55 @@ func (f *EscapeFormatter) useNumericLocale() bool {
 	return f.numericLocalePrinter != nil && !f.isJSON
 }
 
-// number returns a value for a formatted number.
+// number returns a value for a formatted number. notNumber marks a value that
+// JSON cannot write as a number.
 //
 // A number formatted for a locale is escaped as any other value would be, as
 // its grouping separator would otherwise be read as a csv field separator,
 // leaving a bare 1,234,567 to be read as three fields.
-func (f *EscapeFormatter) number(s string, align Align) *Value {
-	if !f.useNumericLocale() {
+func (f *EscapeFormatter) number(s string, align Align, notNumber bool) *Value {
+	switch {
+	case f.isJSON && notNumber:
+		// note: written as a JSON string of the same text the other formats
+		// show, never locale formatted, which JSON ignores anyway.
+		return newValue(s, align, false)
+	case !f.useNumericLocale():
 		return newValue(s, align, true)
 	}
 	v := FormatBytes([]byte(s), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote)
 	v.Align = align
 	return v
+}
+
+// floatString returns the text of a float that is not a finite number, and
+// whether it is one.
+//
+// Note: the spellings are PostgreSQL's, which are what psql displays. JSON has
+// no NaN or infinity at all, so these are written there as strings, as
+// PostgreSQL's own to_jsonb does.
+func floatString(f float64) (string, bool) {
+	switch {
+	case math.IsNaN(f):
+		return "NaN", true
+	case math.IsInf(f, 1):
+		return "Infinity", true
+	case math.IsInf(f, -1):
+		return "-Infinity", true
+	}
+	return "", false
+}
+
+// overflowsInt64 reports whether v is an unsigned integer above the int64 a
+// JSON number is read as, such as MySQL's max BIGINT UNSIGNED, and so is
+// written as a JSON string of its exact digits.
+func overflowsInt64(v any) bool {
+	switch z := v.(type) {
+	case uint:
+		return uint64(z) > math.MaxInt64
+	case uint64:
+		return z > math.MaxInt64
+	}
+	return false
 }
 
 // valueFromBuffer returns a value from a buffer known not to contain
