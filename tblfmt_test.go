@@ -81,21 +81,104 @@ func TestEncodeTableAll(t *testing.T) {
 
 func TestEncodeJSONAll(t *testing.T) {
 	t.Parallel()
-	exp := `[{"author_id":14,"name":"a\tb\tc\td","z":"x"},{"author_id":15,"name":"aoeu\ntest\n","z":null}],
-[{"author_id":16,"name":"foo\bbar","z":null},{"author_id":17,"name":"袈\t袈\t\t袈","z":null},{"author_id":18,"name":"a\tb\t\r\n\ta","z":"a\n"},{"author_id":19,"name":"袈\t袈\t\t袈\n","z":null},{"author_id":20,"name":"javascript","z":{
-  "test21": "a value",
-  "test22": "foo\bbar"
-}},{"author_id":23,"name":"slice","z":[
-  "a",
-  "b"
-]}],
-[{"author_id":38,"name":"a\tb\tc\td","z":"x"},{"author_id":39,"name":"aoeu\ntest\n","z":null},{"author_id":40,"name":"foo\bbar","z":null},{"author_id":41,"name":"袈\t袈\t\t袈","z":null},{"author_id":42,"name":"a\tb\t\r\n\ta","z":"a\n"},{"author_id":43,"name":"袈\t袈\t\t袈\n","z":null},{"author_id":44,"name":"javascript","z":{
-  "test45": "a value",
-  "test46": "foo\bbar"
-}},{"author_id":47,"name":"slice","z":[
-  "a",
-  "b"
-]}]
+	exp := `[
+  {
+    "author_id": 14,
+    "name": "a\tb\tc\td",
+    "z": "x"
+  },
+  {
+    "author_id": 15,
+    "name": "aoeu\ntest\n",
+    "z": null
+  }
+],
+[
+  {
+    "author_id": 16,
+    "name": "foo\bbar",
+    "z": null
+  },
+  {
+    "author_id": 17,
+    "name": "袈\t袈\t\t袈",
+    "z": null
+  },
+  {
+    "author_id": 18,
+    "name": "a\tb\t\r\n\ta",
+    "z": "a\n"
+  },
+  {
+    "author_id": 19,
+    "name": "袈\t袈\t\t袈\n",
+    "z": null
+  },
+  {
+    "author_id": 20,
+    "name": "javascript",
+    "z": {
+      "test21": "a value",
+      "test22": "foo\bbar"
+    }
+  },
+  {
+    "author_id": 23,
+    "name": "slice",
+    "z": [
+      "a",
+      "b"
+    ]
+  }
+],
+[
+  {
+    "author_id": 38,
+    "name": "a\tb\tc\td",
+    "z": "x"
+  },
+  {
+    "author_id": 39,
+    "name": "aoeu\ntest\n",
+    "z": null
+  },
+  {
+    "author_id": 40,
+    "name": "foo\bbar",
+    "z": null
+  },
+  {
+    "author_id": 41,
+    "name": "袈\t袈\t\t袈",
+    "z": null
+  },
+  {
+    "author_id": 42,
+    "name": "a\tb\t\r\n\ta",
+    "z": "a\n"
+  },
+  {
+    "author_id": 43,
+    "name": "袈\t袈\t\t袈\n",
+    "z": null
+  },
+  {
+    "author_id": 44,
+    "name": "javascript",
+    "z": {
+      "test45": "a value",
+      "test46": "foo\bbar"
+    }
+  },
+  {
+    "author_id": 47,
+    "name": "slice",
+    "z": [
+      "a",
+      "b"
+    ]
+  }
+]
 `
 	buf := new(bytes.Buffer)
 	if err := EncodeJSONAll(buf, internal.Multi()); err != nil {

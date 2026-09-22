@@ -297,11 +297,21 @@ func TestEncodeJSONNull(t *testing.T) {
 	if err := EncodeJSONAll(buf, resultSet); err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
-	// note: quoted because it is above the int64 a JSON number is read as,
-	// with its digits intact; see TestEncodeJSONNumber.
-	const exp = `[{"b":"18446744073709551615"},{"b":null}]`
-	if s := strings.TrimSpace(buf.String()); s != exp {
+	// note: compared by what it decodes to rather than by its text, as the
+	// encoder's layout is covered by the golden tests. b is a JSON string
+	// because it is a uint64; see TestEncodeJSONNumber.
+	var v []map[string]jsontext.Value
+	if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &v); err != nil {
+		t.Fatalf("expected %s to be valid json, got: %v", buf.String(), err)
+	}
+	if len(v) != 2 {
+		t.Fatalf("expected 2 json rows, got: %d", len(v))
+	}
+	if s, exp := string(v[0]["b"]), `"18446744073709551615"`; s != exp {
 		t.Errorf("expected %s, got: %s", exp, s)
+	}
+	if s := string(v[1]["b"]); s != "null" {
+		t.Errorf("expected null, got: %s", s)
 	}
 }
 

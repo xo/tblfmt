@@ -817,7 +817,9 @@ func NewJSONEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	enc := &JSONEncoder{
 		resultSet: resultSet,
 		newline:   newline,
-		formatter: NewEscapeFormatter(WithIsJSON(true)),
+		// note: the prefix is the indent of the column a value sits on, so
+		// that the lines of a nested object or array line up under it.
+		formatter: NewEscapeFormatter(WithIsJSON(true), WithJSONConfig(jsonValueIndent, jsonIndent, false)),
 		empty: &Value{
 			Buf:  []byte("null"),
 			Tabs: make([][][2]int, 1),
@@ -832,6 +834,14 @@ func NewJSONEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	return enc, nil
 }
 
+// jsonIndent is the indent of one level of the JSON encoder's output, and
+// jsonRowIndent and jsonValueIndent the indents of a row and of a value.
+const (
+	jsonIndent      = "  "
+	jsonRowIndent   = jsonIndent
+	jsonValueIndent = jsonIndent + jsonIndent
+)
+
 // Encode encodes a single result set to the writer using the formatting
 // options specified in the encoder.
 func (enc *JSONEncoder) Encode(w io.Writer) error {
@@ -845,6 +855,8 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		cls   = []byte{'}'}
 		q     = []byte{'"'}
 		cma   = []byte{','}
+		rowNL = append(append([]byte{}, enc.newline...), jsonRowIndent...)
+		valNL = append(append([]byte{}, enc.newline...), jsonValueIndent...)
 	)
 	// get and check columns
 	clen, cols, err := buildColNames(enc.resultSet, enc.headerTransformer)
@@ -861,7 +873,7 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		if cb[i], err = json.Marshal(cols[i], jsontext.AllowInvalidUTF8(true), jsontext.EscapeForHTML(true)); err != nil {
 			return err
 		}
-		cb[i] = append(cb[i], ':')
+		cb[i] = append(cb[i], ':', ' ')
 	}
 	// set up storage for results
 	r, err := buildColumnTypes(enc.resultSet, clen, enc.columnTypes)
@@ -886,6 +898,9 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		if err != nil {
 			return err
 		}
+		if _, err = w.Write(rowNL); err != nil {
+			return err
+		}
 		if _, err = w.Write(open); err != nil {
 			return err
 		}
@@ -895,6 +910,9 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 				v = enc.empty
 			}
 			// write "column":
+			if _, err = w.Write(valNL); err != nil {
+				return err
+			}
 			if _, err = w.Write(cb[i]); err != nil {
 				return err
 			}
@@ -920,6 +938,9 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 				}
 			}
 		}
+		if _, err = w.Write(rowNL); err != nil {
+			return err
+		}
 		if _, err = w.Write(cls); err != nil {
 			return err
 		}
@@ -928,7 +949,13 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	// end
+	// end -- an empty result set stays [] rather than opening a line for
+	// nothing
+	if count != 0 {
+		if _, err = w.Write(enc.newline); err != nil {
+			return err
+		}
+	}
 	_, err = w.Write(end)
 	return err
 }
