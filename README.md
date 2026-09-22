@@ -112,6 +112,33 @@ Which can produce output like the following:
 
 Please see the [Go Reference][goref-tblfmt] for the full API.
 
+## Differences from `psql`
+
+`tblfmt` follows `psql`'s output closely. The differences below are deliberate;
+anything else is a bug worth reporting.
+
+### Trailing space on the last column
+
+`tblfmt` pads the last column of a bordered table, so that every line of a
+table is the same width. `psql` pads the header but trims the data rows,
+leaving them ragged.
+
+For `select 42 as n, 'a'::text as t union all select 7, 'bb';`, with trailing
+spaces written as `·` and the width of each line at the right:
+
+```text
+psql 18.6                 tblfmt
+ n  | t  ·         9       n  | t  ·         9
+----+----          9      ----+----          9
+ 42 | a            7       42 | a ·          9
+  7 | bb           8        7 | bb ·         9
+```
+
+`psql` is wrong here. A table whose lines do not share a width is awkward to
+select from a terminal, to diff, and to lay out in anything that measures the
+block, and the ragged edge carries no information. It is also inconsistent with
+`psql`'s own header, which is padded. `tblfmt` will not follow it.
+
 ## Testing
 
 Run using standard `go test`:
