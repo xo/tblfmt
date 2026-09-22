@@ -454,7 +454,9 @@ func TestEncodeJSONNumber(t *testing.T) {
 		{"u64max", `"18446744073709551615"`},
 		{"u64min", `"9223372036854775808"`},
 		{"i64max", `9223372036854775807`},
-		{"u64ok", `42`},
+		// note: quoted although it fits, as the decision is by type so that a
+		// column is one JSON type for all of its rows
+		{"u64ok", `"42"`},
 		{"nan", `"NaN"`},
 		{"inf", `"Infinity"`},
 		{"ninf", `"-Infinity"`},

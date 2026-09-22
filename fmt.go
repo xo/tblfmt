@@ -157,7 +157,7 @@ func (f *EscapeFormatter) format(val any, left, right Align, depth int) (*Value,
 		} else {
 			s = fmt.Sprintf("%d", v)
 		}
-		return f.number(s, right, overflowsInt64(v)), nil
+		return f.number(s, right, unsignedInt64(v)), nil
 	case float32:
 		s, notNumber := floatString(float64(v))
 		switch {
@@ -409,15 +409,15 @@ func (f *EscapeFormatter) useNumericLocale() bool {
 	return f.numericLocalePrinter != nil && !f.isJSON
 }
 
-// number returns a value for a formatted number. notNumber marks a value that
-// JSON cannot write as a number.
+// number returns a value for a formatted number. asString marks one that JSON
+// writes as a string rather than as a number.
 //
 // A number formatted for a locale is escaped as any other value would be, as
 // its grouping separator would otherwise be read as a csv field separator,
 // leaving a bare 1,234,567 to be read as three fields.
-func (f *EscapeFormatter) number(s string, align Align, notNumber bool) *Value {
+func (f *EscapeFormatter) number(s string, align Align, asString bool) *Value {
 	switch {
-	case f.isJSON && notNumber:
+	case f.isJSON && asString:
 		// note: written as a JSON string of the same text the other formats
 		// show, never locale formatted, which JSON ignores anyway.
 		return newValue(s, align, false)
@@ -447,15 +447,20 @@ func floatString(f float64) (string, bool) {
 	return "", false
 }
 
-// overflowsInt64 reports whether v is an unsigned integer above the int64 a
-// JSON number is read as, such as MySQL's max BIGINT UNSIGNED, and so is
-// written as a JSON string of its exact digits.
-func overflowsInt64(v any) bool {
-	switch z := v.(type) {
-	case uint:
-		return uint64(z) > math.MaxInt64
-	case uint64:
-		return z > math.MaxInt64
+// unsignedInt64 reports whether v is an unsigned 64 bit integer, such as
+// MySQL's BIGINT UNSIGNED, which is written as a JSON string of its exact
+// digits so that it survives a consumer reading a JSON number as an int64 or
+// a float64.
+//
+// Note: by type and not by value, so that a column is one JSON type for every
+// one of its rows. Deciding by value would write {"n":42} for one row and
+// {"n":"18446744073709551615"} for the next, leaving a consumer unable to type
+// the column without reading every value. uint is included whatever its width,
+// so that the output does not differ between platforms.
+func unsignedInt64(v any) bool {
+	switch v.(type) {
+	case uint, uint64:
+		return true
 	}
 	return false
 }
