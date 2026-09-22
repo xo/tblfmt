@@ -3,7 +3,8 @@ package tblfmt
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	json "encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -820,7 +821,9 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 	}
 	cb := make([][]byte, clen)
 	for i := range clen {
-		if cb[i], err = json.Marshal(cols[i]); err != nil {
+		// note: matches the v1 encoding/json defaults, which escaped HTML and
+		// replaced invalid UTF-8 rather than rejecting it.
+		if cb[i], err = json.Marshal(cols[i], jsontext.AllowInvalidUTF8(true), jsontext.EscapeForHTML(true)); err != nil {
 			return err
 		}
 		cb[i] = append(cb[i], ':')

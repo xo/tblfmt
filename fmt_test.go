@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"database/sql"
 	"database/sql/driver"
-	"encoding/json"
+	"encoding/json/jsontext"
+	json "encoding/json/v2"
 	"errors"
 	"math"
 	"reflect"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -130,23 +130,36 @@ func TestFormatJSON(t *testing.T) {
 			"\xaf",
 			"\xff",
 			"\u1998",
-			"👀",
-			"🤰",
+			"\U0001f440",
+			"\U0001f930",
 			"foo",
 			"15\u00f8C",
 		},
 		";",
 	)
-	exp, err := json.Marshal(s)
+	// note: compared by what the encodings decode to and not byte for byte,
+	// as more than one escaping of the same string is valid JSON, and
+	// FormatBytes and encoding/json legitimately differ: an invalid UTF-8
+	// byte becomes a \ufffd escape here, where encoding/json writes the
+	// U+FFFD replacement rune itself.
+	exp, err := json.Marshal(s, jsontext.AllowInvalidUTF8(true))
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
-	exp = exp[1 : len(exp)-1]
-	t.Logf("exp: %q", string(exp))
+	t.Logf("exp: %s", string(exp))
 	v := FormatBytes([]byte(s), nil, 0, true, false, 0, 0)
-	t.Logf("v  : %q", v)
-	if b := []byte(v.String()); !slices.Equal(b, exp) {
-		t.Errorf("\nexpected:\n%q\ngot:\n%q", string(exp), string(b))
+	buf := []byte(`"` + v.String() + `"`)
+	t.Logf("v  : %s", string(buf))
+	var expStr string
+	if err := json.Unmarshal(exp, &expStr); err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	var s2 string
+	if err := json.Unmarshal(buf, &s2); err != nil {
+		t.Fatalf("expected %s to be valid json, got: %v", string(buf), err)
+	}
+	if s2 != expStr {
+		t.Errorf("\nexpected:\n%q\ngot:\n%q", expStr, s2)
 	}
 }
 

@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"database/sql"
 	"database/sql/driver"
-	"encoding/json"
+	"encoding/json/jsontext"
+	json "encoding/json/v2"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -32,7 +33,7 @@ type Formatter interface {
 //
 // When the encoder is not nil, then it will be passed any
 // map[string]interface{} and []interface{} values encountered, otherwise the
-// stdlib's encoding/json.Encoder will be used.
+// stdlib's [encoding/json/v2] will be used.
 type EscapeFormatter struct {
 	// mask is used to format header values when the formatted value (after
 	// trimming spaces) is the empty string.
@@ -46,7 +47,7 @@ type EscapeFormatter struct {
 	// encoder will be used to encode map[string]interface{} and []interface{}
 	// types.
 	//
-	// If nil, the standard encoding/json.Encoder will be used instead.
+	// If nil, the standard [encoding/json/v2] will be used instead.
 	encoder func(any) ([]byte, error)
 	// prefix is indent prefix used by the JSON encoder when encoder is nil.
 	prefix string
@@ -79,8 +80,8 @@ type EscapeFormatter struct {
 // such as []byte, string, time.Time, sql.Null*, and any
 // [database/sql/driver.Valuer]. Formatting for
 // map[string]interface{} and []interface{} will be passed to a marshaler
-// provided by [WithEncoder], otherwise the standard [encoding/json.Encoder]
-// will be used to marshal those values.
+// provided by [WithEncoder], otherwise the standard [encoding/json/v2] will
+// be used to marshal those values.
 func NewEscapeFormatter(opts ...EscapeFormatterOption) *EscapeFormatter {
 	f := &EscapeFormatter{
 		mask:       "%d",
@@ -284,8 +285,8 @@ func (f *EscapeFormatter) format(val any, left, right Align, depth int) (*Value,
 }
 
 // encode encodes a value not otherwise handled by [EscapeFormatter.format]
-// using the configured encoder, or the standard [encoding/json.Encoder] when
-// no encoder was configured.
+// using the configured encoder, or the standard [encoding/json/v2] when no
+// encoder was configured.
 func (f *EscapeFormatter) encode(val any) (*Value, error) {
 	// TODO: pool
 	if f.encoder != nil {
@@ -299,22 +300,61 @@ func (f *EscapeFormatter) encode(val any) (*Value, error) {
 		}, nil
 	}
 	// json encode
-	buf := new(bytes.Buffer)
-	enc := json.NewEncoder(buf)
-	enc.SetIndent(f.prefix, f.indent)
-	enc.SetEscapeHTML(f.escapeHTML)
-	if err := enc.Encode(val); err != nil {
+	buf, err := json.Marshal(val, f.jsonOptions()...)
+	if err != nil {
 		return nil, err
 	}
+	buf = bytes.TrimSpace(buf)
 	if f.isJSON {
 		return &Value{
-			Buf: bytes.TrimSpace(buf.Bytes()),
+			Buf: buf,
 			Raw: true,
 		}, nil
 	}
-	v := FormatBytes(bytes.TrimSpace(buf.Bytes()), f.invalid, f.invalidWidth, false, f.isRaw, f.sep, f.quote)
+	v := FormatBytes(buf, f.invalid, f.invalidWidth, false, f.isRaw, f.sep, f.quote)
 	v.Raw = true
 	return v, nil
+}
+
+// jsonOptions returns the [encoding/json/v2] options used to marshal a value.
+//
+// Note: the first four restore what the v1 encoding/json encoder did, as the
+// v2 defaults differ -- v2 leaves map keys in map order, rejects invalid
+// UTF-8, and writes a nil map or slice as {} or [] rather than null.
+func (f *EscapeFormatter) jsonOptions() []json.Options {
+	opts := []json.Options{
+		json.Deterministic(true),
+		jsontext.AllowInvalidUTF8(true),
+		json.FormatNilMapAsNull(true),
+		json.FormatNilSliceAsNull(true),
+		jsontext.EscapeForHTML(f.escapeHTML),
+	}
+	// note: jsontext panics when the prefix or indent is anything but spaces
+	// and tabs, where the v1 encoder accepted any string, so both are dropped
+	// when not usable. An empty indent indents by nothing rather than
+	// producing compact output, so as with the v1 encoder the output is
+	// compact only when the prefix and indent are both empty.
+	prefix, indent := f.prefix, f.indent
+	if !isSpaceOrTab(prefix) {
+		prefix = ""
+	}
+	if !isSpaceOrTab(indent) {
+		indent = ""
+	}
+	if prefix != "" || indent != "" {
+		opts = append(opts, jsontext.WithIndent(indent))
+		if prefix != "" {
+			opts = append(opts, jsontext.WithIndentPrefix(prefix))
+		}
+	}
+	return opts
+}
+
+// isSpaceOrTab reports whether s contains only spaces and tabs.
+func isSpaceOrTab(s string) bool {
+	return !strings.ContainsFunc(s, func(r rune) bool {
+		return r != ' ' && r != '\t'
+	})
 }
 
 // nullPkgPath is the package path of the generic [database/sql.Null] type.
@@ -647,9 +687,12 @@ func WithIsJSON(isJSON bool) EscapeFormatterOption {
 }
 
 // WithJSONConfig is an escape formatter option to set the JSON encoding
-// prefix, indent value, and whether or not to escape HTML. Passed to the
-// standard encoding/json.Encoder when a marshaler has not been set on the
-// escape formatter.
+// prefix, indent value, and whether or not to escape HTML. Passed to
+// [encoding/json/v2] when a marshaler has not been set on the escape
+// formatter.
+//
+// The prefix and indent must contain only spaces and tabs, and are ignored
+// otherwise. Output is compact when both are empty.
 func WithJSONConfig(prefix, indent string, escapeHTML bool) EscapeFormatterOption {
 	return func(f *EscapeFormatter) {
 		f.prefix, f.indent, f.escapeHTML = prefix, indent, escapeHTML

@@ -4,7 +4,8 @@ package internal
 import (
 	"bytes"
 	"crypto/md5"
-	"encoding/json"
+	"encoding/json/jsontext"
+	json "encoding/json/v2"
 	"fmt"
 	"io"
 	"math/rand"
@@ -318,7 +319,7 @@ func psqlEnc(n string, v any) string {
 	if n != "javascript" && n != "slice" {
 		return "NULL"
 	}
-	buf, err := json.MarshalIndent(v, "", "  ")
+	buf, err := json.Marshal(v, json.Deterministic(true), jsontext.WithIndent("  "), jsontext.EscapeForHTML(true))
 	if err != nil {
 		panic(err)
 	}
