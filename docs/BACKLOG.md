@@ -23,6 +23,9 @@ no program ran it.
   rows gives only `(0 rows)`, at border 1 and at border 2.
 - Origin: `4aaadae` (2019-01-30) moved the header into the batch loop. The
   first commit, `ff80f92`, always wrote the header.
+- Who sees it: usql users, and the Neo4j driver in `xo/dbimp`, which names the
+  columns of an empty result, such as `RETURN x` on no rows. dbimp recorded
+  this on 2026-09-28.
 - D31 writes the lines for a result set that has no columns and no rows, in
   a block after the loop. That block runs only when `clen == 0`, and its
   comment names this item. Open question 2 in [PLAN.md](PLAN.md) asks Ken
