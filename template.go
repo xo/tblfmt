@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// Template is template data.
+// Template holds the data for a template.
 type Template struct {
 	Attributes string
 	Headers    []*Value

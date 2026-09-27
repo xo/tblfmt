@@ -502,3 +502,165 @@ func TestEncodeNullAlign(t *testing.T) {
 		})
 	}
 }
+
+// TestEncodeNoColumns makes sure that each encoder writes a result set that
+// has no columns, and goes on to the next result set.
+//
+// Measured against psql 18.6 and PostgreSQL 18.6:
+//
+//	$ psql -c 'select; select from pg_class where false;'
+//	--
+//	(1 row)
+//
+//	--
+//	(0 rows)
+func TestEncodeNoColumns(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		opts map[string]string
+		rows int
+		exp  string
+	}{
+		{"aligned no rows", map[string]string{"format": "aligned"}, 0, "--\n(0 rows)\n"},
+		{"aligned one row", map[string]string{"format": "aligned"}, 1, "--\n(1 row)\n"},
+		{"aligned three rows", map[string]string{"format": "aligned"}, 3, "--\n(3 rows)\n"},
+		{"aligned border 0", map[string]string{"format": "aligned", "border": "0"}, 1, "\n(1 row)\n"},
+		{"aligned border 2 no rows", map[string]string{"format": "aligned", "border": "2"}, 0, "+--+\n+--+\n+--+\n(0 rows)\n"},
+		{"aligned border 2 one row", map[string]string{"format": "aligned", "border": "2"}, 1, "+--+\n+--+\n+--+\n(1 row)\n"},
+		{"aligned unicode", map[string]string{"format": "aligned", "border": "2", "linestyle": "unicode", "unicode_border_linestyle": "single"}, 1, "┌──┐\n├──┤\n└──┘\n(1 row)\n"},
+		{"aligned title", map[string]string{"format": "aligned", "title": "T"}, 1, "T\n--\n(1 row)\n"},
+		{"aligned tuples only", map[string]string{"format": "aligned", "tuples_only": "on"}, 1, ""},
+		{"aligned tuples only border 2 no rows", map[string]string{"format": "aligned", "tuples_only": "on", "border": "2"}, 0, "+--+\n"},
+		{"aligned tuples only border 2 one row", map[string]string{"format": "aligned", "tuples_only": "on", "border": "2"}, 1, "+--+\n"},
+		{"expanded", map[string]string{"format": "aligned", "expanded": "on"}, 1, ""},
+		{"expanded border 2", map[string]string{"format": "aligned", "expanded": "on", "border": "2"}, 3, ""},
+		{"unaligned no rows", map[string]string{"format": "unaligned"}, 0, "\n(0 rows)\n"},
+		{"unaligned three rows", map[string]string{"format": "unaligned"}, 3, "\n(3 rows)\n"},
+		{"unaligned tuples only", map[string]string{"format": "unaligned", "tuples_only": "on"}, 1, ""},
+		{"csv", map[string]string{"format": "csv"}, 3, "\n"},
+		{"json no rows", map[string]string{"format": "json"}, 0, "[]\n"},
+		{"json one row", map[string]string{"format": "json"}, 1, "[\n  {}\n]\n"},
+		{"json two rows", map[string]string{"format": "json"}, 2, "[\n  {},\n  {}\n]\n"},
+		{"html one row", map[string]string{"format": "html"}, 1, "<table>\n  <caption></caption>\n  <thead>\n    <tr>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n    </tr>\n  </tbody>\n</table>\n"},
+		{"vertical no rows", map[string]string{"format": "vertical"}, 0, ""},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			buf := new(bytes.Buffer)
+			rs := newColumnsRS(columnsSet{rows: make([][]any, test.rows)})
+			if err := EncodeAll(buf, rs, test.opts); err != nil {
+				t.Fatalf("expected no error, got: %v", err)
+			}
+			if s := buf.String(); s != test.exp {
+				t.Errorf("expected:\n%q\ngot:\n%q", test.exp, s)
+			}
+		})
+	}
+}
+
+// TestEncodeAllNoColumnsFirst makes sure that a result set with no columns
+// does not stop the result sets after it.
+//
+// Measured against psql 18.6 and PostgreSQL 18.6:
+//
+//	$ psql -c 'select; select 1 as a;'
+//	--
+//	(1 row)
+//
+//	 a
+//	---
+//	 1
+//	(1 row)
+func TestEncodeAllNoColumnsFirst(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		format string
+		exp    string
+	}{
+		// note: tblfmt pads a right-aligned last column, and psql does not.
+		// See README.md.
+		{"aligned", "--\n(1 row)\n\n a \n---\n 1 \n(1 row)\n"},
+		{"unaligned", "\n(1 row)\n\na\n1\n(1 row)\n"},
+		{"json", "[\n  {}\n],\n[\n  {\n    \"a\": 1\n  }\n]\n"},
+	}
+	for _, test := range tests {
+		t.Run(test.format, func(t *testing.T) {
+			t.Parallel()
+			buf := new(bytes.Buffer)
+			rs := newColumnsRS(
+				columnsSet{rows: [][]any{{}}},
+				columnsSet{cols: []string{"a"}, rows: [][]any{{1}}},
+			)
+			if err := EncodeAll(buf, rs, map[string]string{"format": test.format}); err != nil {
+				t.Fatalf("expected no error, got: %v", err)
+			}
+			if s := buf.String(); s != test.exp {
+				t.Errorf("expected:\n%q\ngot:\n%q", test.exp, s)
+			}
+		})
+	}
+}
+
+// columnsRS is a result set whose result sets each have their own columns.
+type columnsRS struct {
+	sets []columnsSet
+	rs   int
+	pos  int
+}
+
+// columnsSet is one result set of a columnsRS.
+type columnsSet struct {
+	cols []string
+	rows [][]any
+}
+
+// newColumnsRS creates a result set with the result sets.
+func newColumnsRS(sets ...columnsSet) *columnsRS {
+	for i := range sets {
+		if sets[i].cols == nil {
+			sets[i].cols = []string{}
+		}
+	}
+	return &columnsRS{sets: sets}
+}
+
+// Columns satisfies the ResultSet interface.
+func (r *columnsRS) Columns() ([]string, error) {
+	return r.sets[r.rs].cols, nil
+}
+
+// Next satisfies the ResultSet interface.
+func (r *columnsRS) Next() bool {
+	return r.pos < len(r.sets[r.rs].rows)
+}
+
+// Scan satisfies the ResultSet interface.
+func (r *columnsRS) Scan(vals ...any) error {
+	row := r.sets[r.rs].rows[r.pos]
+	if len(vals) != len(row) {
+		return fmt.Errorf("expected %d scan args, got: %d", len(row), len(vals))
+	}
+	for i := range vals {
+		*(vals[i].(*any)) = row[i]
+	}
+	r.pos++
+	return nil
+}
+
+// NextResultSet satisfies the ResultSet interface.
+func (r *columnsRS) NextResultSet() bool {
+	r.rs, r.pos = r.rs+1, 0
+	return r.rs < len(r.sets)
+}
+
+// Err satisfies the ResultSet interface.
+func (*columnsRS) Err() error {
+	return nil
+}
+
+// Close satisfies the ResultSet interface.
+func (*columnsRS) Close() error {
+	return nil
+}

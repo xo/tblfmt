@@ -1,5 +1,5 @@
-// Package tblfmt provides streaming table encoders for result sets (ie, from a
-// database).
+// Package tblfmt provides streaming table encoders for result sets (that is,
+// result sets from a database).
 package tblfmt
 
 import (
@@ -23,8 +23,8 @@ type ResultSet interface {
 	NextResultSet() bool
 }
 
-// Encode encodes the result set to the writer using the supplied map params
-// and any additional options.
+// Encode encodes the result set to the writer. It uses the parameters in the
+// map and any other options that you supply.
 func Encode(w io.Writer, resultSet ResultSet, params map[string]string, options ...Option) error {
 	f, opts := FromMap(params)
 	enc, err := f(resultSet, append(opts, options...)...)
@@ -34,8 +34,8 @@ func Encode(w io.Writer, resultSet ResultSet, params map[string]string, options 
 	return enc.Encode(w)
 }
 
-// EncodeAll encodes all result sets to the writer using the supplied map
-// params and any additional options.
+// EncodeAll encodes all result sets to the writer. It uses the parameters in
+// the map and any other options that you supply.
 func EncodeAll(w io.Writer, resultSet ResultSet, params map[string]string, options ...Option) error {
 	f, opts := FromMap(params)
 	enc, err := f(resultSet, append(opts, options...)...)
@@ -45,8 +45,8 @@ func EncodeAll(w io.Writer, resultSet ResultSet, params map[string]string, optio
 	return enc.EncodeAll(w)
 }
 
-// EncodeTable encodes result set to the writer as a table using the supplied
-// encoding options.
+// EncodeTable encodes the result set to the writer as a table, with the
+// options that you supply.
 func EncodeTable(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewTableEncoder(resultSet, opts...)
 	if err != nil {
@@ -55,8 +55,8 @@ func EncodeTable(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.Encode(w)
 }
 
-// EncodeTableAll encodes all result sets to the writer as a table using the
-// supplied encoding options.
+// EncodeTableAll encodes all result sets to the writer as a table, with the
+// options that you supply.
 func EncodeTableAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewTableEncoder(resultSet, opts...)
 	if err != nil {
@@ -65,8 +65,8 @@ func EncodeTableAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.EncodeAll(w)
 }
 
-// EncodeExpanded encodes result set to the writer as a table using the supplied
-// encoding options.
+// EncodeExpanded encodes the result set to the writer as an expanded table,
+// with the options that you supply.
 func EncodeExpanded(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewExpandedEncoder(resultSet, opts...)
 	if err != nil {
@@ -75,8 +75,8 @@ func EncodeExpanded(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.Encode(w)
 }
 
-// EncodeExpandedAll encodes all result sets to the writer as a table using the
-// supplied encoding options.
+// EncodeExpandedAll encodes all result sets to the writer as an expanded
+// table, with the options that you supply.
 func EncodeExpandedAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewExpandedEncoder(resultSet, opts...)
 	if err != nil {
@@ -85,8 +85,8 @@ func EncodeExpandedAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.EncodeAll(w)
 }
 
-// EncodeJSON encodes the result set to the writer as JSON using the supplied
-// encoding options.
+// EncodeJSON encodes the result set to the writer as JSON, with the options
+// that you supply.
 func EncodeJSON(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewJSONEncoder(resultSet, opts...)
 	if err != nil {
@@ -95,8 +95,8 @@ func EncodeJSON(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.Encode(w)
 }
 
-// EncodeJSONAll encodes all result sets to the writer as JSON using the
-// supplied encoding options.
+// EncodeJSONAll encodes all result sets to the writer as JSON, with the
+// options that you supply.
 func EncodeJSONAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewJSONEncoder(resultSet, opts...)
 	if err != nil {
@@ -105,8 +105,8 @@ func EncodeJSONAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.EncodeAll(w)
 }
 
-// EncodeUnaligned encodes the result set to the writer unaligned using the
-// supplied encoding options.
+// EncodeUnaligned encodes the result set to the writer as unaligned text, with
+// the options that you supply.
 func EncodeUnaligned(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewUnalignedEncoder(resultSet, opts...)
 	if err != nil {
@@ -115,8 +115,8 @@ func EncodeUnaligned(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.Encode(w)
 }
 
-// EncodeUnalignedAll encodes all result sets to the writer unaligned using the
-// supplied encoding options.
+// EncodeUnalignedAll encodes all result sets to the writer as unaligned text,
+// with the options that you supply.
 func EncodeUnalignedAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewUnalignedEncoder(resultSet, opts...)
 	if err != nil {
@@ -125,8 +125,8 @@ func EncodeUnalignedAll(w io.Writer, resultSet ResultSet, opts ...Option) error 
 	return enc.EncodeAll(w)
 }
 
-// EncodeCSV encodes the result set to the writer unaligned using the
-// supplied encoding options.
+// EncodeCSV encodes the result set to the writer as unaligned CSV, with the
+// options that you supply.
 func EncodeCSV(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewCSVEncoder(resultSet, opts...)
 	if err != nil {
@@ -135,8 +135,8 @@ func EncodeCSV(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.Encode(w)
 }
 
-// EncodeCSVAll encodes all result sets to the writer unaligned using the
-// supplied encoding options.
+// EncodeCSVAll encodes all result sets to the writer as unaligned CSV, with
+// the options that you supply.
 func EncodeCSVAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewCSVEncoder(resultSet, opts...)
 	if err != nil {
@@ -145,8 +145,8 @@ func EncodeCSVAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.EncodeAll(w)
 }
 
-// EncodeTemplate encodes the result set to the writer using a template from
-// the supplied encoding options.
+// EncodeTemplate encodes the result set to the writer with a template. The
+// options that you supply set the template.
 func EncodeTemplate(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewTemplateEncoder(resultSet, opts...)
 	if err != nil {
@@ -155,8 +155,8 @@ func EncodeTemplate(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.Encode(w)
 }
 
-// EncodeTemplateAll encodes all result sets to the writer using a template
-// from the supplied encoding options.
+// EncodeTemplateAll encodes all result sets to the writer with a template. The
+// options that you supply set the template.
 func EncodeTemplateAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewTemplateEncoder(resultSet, opts...)
 	if err != nil {
@@ -165,8 +165,8 @@ func EncodeTemplateAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.EncodeAll(w)
 }
 
-// EncodeHTML encodes the result set to the writer using the html template and
-// the supplied encoding options.
+// EncodeHTML encodes the result set to the writer with the html template and
+// the options that you supply.
 func EncodeHTML(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewHTMLEncoder(resultSet, opts...)
 	if err != nil {
@@ -175,8 +175,8 @@ func EncodeHTML(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.Encode(w)
 }
 
-// EncodeHTMLAll encodes the result set to the writer using the html template
-// and the supplied encoding options.
+// EncodeHTMLAll encodes all result sets to the writer with the html template
+// and the options that you supply.
 func EncodeHTMLAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewHTMLEncoder(resultSet, opts...)
 	if err != nil {
@@ -185,8 +185,8 @@ func EncodeHTMLAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.EncodeAll(w)
 }
 
-// EncodeAsciiDoc encodes the result set to the writer using the asciidoc
-// template and the supplied encoding options.
+// EncodeAsciiDoc encodes the result set to the writer with the asciidoc
+// template and the options that you supply.
 func EncodeAsciiDoc(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewAsciiDocEncoder(resultSet, opts...)
 	if err != nil {
@@ -195,8 +195,8 @@ func EncodeAsciiDoc(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.Encode(w)
 }
 
-// EncodeAsciiDocAll encodes the result set to the writer using the asciidoc
-// template and the supplied encoding options.
+// EncodeAsciiDocAll encodes all result sets to the writer with the asciidoc
+// template and the options that you supply.
 func EncodeAsciiDocAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewAsciiDocEncoder(resultSet, opts...)
 	if err != nil {
@@ -205,8 +205,8 @@ func EncodeAsciiDocAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.EncodeAll(w)
 }
 
-// EncodeVertical encodes the result set to the writer using the vertical
-// template and the supplied encoding options.
+// EncodeVertical encodes the result set to the writer with the vertical
+// template and the options that you supply.
 func EncodeVertical(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewVerticalEncoder(resultSet, opts...)
 	if err != nil {
@@ -215,8 +215,8 @@ func EncodeVertical(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.Encode(w)
 }
 
-// EncodeVerticalAll encodes the result set to the writer using the vertical
-// template and the supplied encoding options.
+// EncodeVerticalAll encodes all result sets to the writer with the vertical
+// template and the options that you supply.
 func EncodeVerticalAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	enc, err := NewVerticalEncoder(resultSet, opts...)
 	if err != nil {
@@ -225,7 +225,7 @@ func EncodeVerticalAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.EncodeAll(w)
 }
 
-// Error is an  error.
+// Error is an error.
 type Error string
 
 // Error satisfies the error interface.
@@ -239,8 +239,6 @@ const (
 	ErrResultSetIsNil Error = "result set is nil"
 	// ErrResultSetHasNoColumnTypes is the result set has no column types error.
 	ErrResultSetHasNoColumnTypes Error = "result set has no column types"
-	// ErrResultSetHasNoColumns is the result set has no columns error.
-	ErrResultSetHasNoColumns Error = "result set has no columns"
 	// ErrResultSetReturnedInvalidColumnTypes is the result set returned invalid column types error.
 	ErrResultSetReturnedInvalidColumnTypes Error = "result set returned invalid column types"
 	// ErrInvalidFormat is the invalid format error.
@@ -285,7 +283,7 @@ const (
 	ErrCrosstabHorizontalSortColumnIsNotANumber Error = "crosstab horizontal sort column is not a number"
 )
 
-// newline is the default newline used by the system.
+// newline is the default newline for the operating system.
 var newline []byte
 
 func init() {

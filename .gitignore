@@ -2,3 +2,6 @@
 /_example/_example.exe
 /coverage.out
 /notes.txt
+# The Claude Code permissions of one person. A setting that belongs to the
+# project goes in .claude/settings.json, which is committed.
+/.claude/settings.local.json

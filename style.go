@@ -12,7 +12,7 @@ type Transformer interface {
 	Transform(string) string
 }
 
-// TransformStyle is a column/header transform style.
+// TransformStyle is a transform style for column names in the header.
 type TransformStyle int
 
 // Transform styles.
@@ -24,7 +24,8 @@ const (
 	TransformLowerToUpper
 )
 
-// Transform transforms style. Satisifies the [Transformer] interface.
+// Transform transforms s with the style. It satisfies the [Transformer]
+// interface.
 func (style TransformStyle) Transform(s string) string {
 	switch style {
 	case TransformForceLower:
@@ -47,12 +48,12 @@ func (style TransformStyle) Transform(s string) string {
 	return s
 }
 
-// LineStyle is a table line style.
+// LineStyle is a line style for tables.
 //
-// See the ASCII, OldASCII, and Unicode styles below for predefined table
+// The ASCII, OldASCII, and Unicode line styles below are predefined line
 // styles.
 //
-// Tables generally look like the following:
+// A table usually looks like this:
 //
 //	+-----------+---------------------------+---+
 //	| author_id |           name            | z |
@@ -63,7 +64,7 @@ func (style TransformStyle) Transform(s string) string {
 //	|           |                           |   |
 //	+-----------+---------------------------+---+
 //
-// When border is 0, then no surrounding borders will be shown:
+// If the border is 0, the encoder does not write a border around the table:
 //
 //	author_id           name            z
 //	--------- ------------------------- -
@@ -71,7 +72,7 @@ func (style TransformStyle) Transform(s string) string {
 //	       15 aoeu                     +
 //	          test                     +
 //
-// When border is 1, then a border between columns will be shown:
+// If the border is 1, the encoder writes a border between the columns:
 //
 //	 author_id |           name            | z
 //	-----------+---------------------------+---
@@ -87,9 +88,9 @@ type LineStyle struct {
 	End  [4]rune
 }
 
-// TableLineStyle is the table line style for tables.
+// TableLineStyle is the table line style.
 //
-// Tables using this style will look like the following:
+// A table with this line style looks like this:
 //
 //	AUTHOR_ID  NAME                      Z
 //	14         a       b       c       d
@@ -108,7 +109,7 @@ func TableLineStyle() LineStyle {
 
 // ASCIILineStyle is the ASCII line style for tables.
 //
-// Tables using this style will look like the following:
+// A table with this line style looks like this:
 //
 //	+-----------+---------------------------+---+
 //	| author_id |           name            | z |
@@ -131,7 +132,7 @@ func ASCIILineStyle() LineStyle {
 
 // OldASCIILineStyle is the old ASCII line style for tables.
 //
-// Tables using this style will look like the following:
+// A table with this line style looks like this:
 //
 //	+-----------+---------------------------+---+
 //	| author_id |           name            | z |
@@ -149,7 +150,7 @@ func OldASCIILineStyle() LineStyle {
 
 // UnicodeLineStyle is the Unicode line style for tables.
 //
-// Tables using this style will look like the following:
+// A table with this line style looks like this:
 //
 //	┌───────────┬───────────────────────────┬───┐
 //	│ author_id │           name            │ z │
@@ -172,7 +173,7 @@ func UnicodeLineStyle() LineStyle {
 
 // UnicodeDoubleLineStyle is the Unicode double line style for tables.
 //
-// Tables using this style will look like the following:
+// A table with this line style looks like this:
 //
 //	╔═══════════╦═══════════════════════════╦═══╗
 //	║ author_id ║           name            ║ z ║
@@ -193,9 +194,9 @@ func UnicodeDoubleLineStyle() LineStyle {
 	}
 }
 
-// DefaultTableSummary is the default table summary.
+// DefaultTableSummary is the default summary for tables.
 //
-// Default table summaries look like the following:
+// The default summary looks like this:
 //
 //	(3 rows)
 func DefaultTableSummary() Summary {

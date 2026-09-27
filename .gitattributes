@@ -1,2 +1,6 @@
+# Every text file is LF on every checkout, including a checkout on Windows.
+* text=auto eol=lf
+# The golden files hold the exact bytes that an encoder writes, and some of
+# them hold a carriage return on purpose. Git must not change them.
 /testdata/*/*.gld binary
 /testdata/*/*.out binary

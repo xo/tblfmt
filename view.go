@@ -11,11 +11,10 @@ import (
 //
 // CAUTION:
 //
-// A design decision was made to not support multiple result sets, and to force
-// the user to create a new crosstab view for each result set. As such,
-// NextResultSet always returns false, and any use of this view should take
-// care when using inside a loop or passing to other code that calls
-// NextResultSet.
+// By design, a crosstab view does not support multiple result sets. You must
+// create a new crosstab view for each result set. Thus, NextResultSet always
+// returns false. If you use this view inside a loop, or give it to other code
+// that calls NextResultSet, be careful.
 type CrosstabView struct {
 	// resultSet is the wrapped result set.
 	resultSet ResultSet
@@ -23,9 +22,9 @@ type CrosstabView struct {
 	formatter Formatter
 	// empty is the empty value.
 	empty *Value
-	// headerTransformer is the column header transformer.
+	// headerTransformer is the header transformer.
 	headerTransformer Transformer
-	// columnTypes is used to build column types for a result set.
+	// columnTypes builds the column types for a result set.
 	columnTypes func(ResultSet, []any, int) error
 	// v is the vertical header column.
 	v string
@@ -33,11 +32,11 @@ type CrosstabView struct {
 	h string
 	// d is the data column.
 	d string
-	// s is the horizontal header sort column.
+	// s is the sort column for the horizontal header.
 	s string
-	// vmap is the map of vertical rows.
+	// vkeys are the keys of the vertical rows.
 	vkeys []string
-	// hmap is the map of horizontal columns.
+	// hkeys are the keys of the horizontal columns.
 	hkeys []hkey
 	// vals are the result values.
 	vals map[string]map[string]any
@@ -95,8 +94,8 @@ func (view *CrosstabView) build() error {
 		return view.fail(ErrCrosstabHorizontalColumnNotInResult)
 	}
 	view.h = cols[hindex]
-	// this complicated bit of code is used to find the 'unused' column for d
-	// (ie, when number of columns == 3, and v and h are specified)
+	// this code finds the 'unused' column for d (that is, when the
+	// number of columns is 3, and v and h are set)
 	//
 	// psql manual states (colD == d):
 	//
@@ -167,13 +166,13 @@ func (view *CrosstabView) build() error {
 	return nil
 }
 
-// fail sets the internal error to the passed error and returns it.
+// fail sets the error of the view to err, and returns err.
 func (view *CrosstabView) fail(err error) error {
 	view.err = err
 	return err
 }
 
-// add processes and adds a val.
+// add processes and adds a value.
 func (view *CrosstabView) add(d any, v, h, s *Value) error {
 	if v == nil {
 		v = view.empty
@@ -259,8 +258,7 @@ func (view *CrosstabView) NextResultSet() bool {
 	return false
 }
 
-// vkeyAppend determines if k is in v, if so it returns the unmodified v.
-// Otherwise, appends k to v.
+// vkeyAppend returns v unchanged if k is in v. If not, it appends k to v.
 func vkeyAppend(v []string, k string) []string {
 	if slices.Contains(v, k) {
 		return v
@@ -274,8 +272,7 @@ type hkey struct {
 	s int
 }
 
-// hkeyAppend determines if k is in v, if so it returns the unmodified v.
-// Otherwise, appends k to v.
+// hkeyAppend returns v unchanged if k is in v. If not, it appends k to v.
 func hkeyAppend(v []hkey, k hkey) []hkey {
 	for _, z := range v {
 		if z.v == k.v {
@@ -285,8 +282,8 @@ func hkeyAppend(v []hkey, k hkey) []hkey {
 	return append(v, k)
 }
 
-// indexOf returns the index of s in v. If s is a integer, then it returns the
-// converted value of s. If s is an integer, it needs to be 1-based.
+// indexOf returns the index of s in v. If s is an integer, it must be 1-based,
+// and indexOf returns the converted value of s.
 func indexOf(v []string, s string) int {
 	s = strings.TrimSpace(s)
 	if i, err := strconv.Atoi(s); err == nil {

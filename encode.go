@@ -15,76 +15,81 @@ import (
 	runewidth "github.com/mattn/go-runewidth"
 )
 
-// TableEncoder is a buffered, lookahead table encoder for result sets.
+// TableEncoder is an encoder that writes a result set as a table. It buffers
+// a batch of rows ahead to find the widths of the columns.
 type TableEncoder struct {
-	// ResultSet is the result set to encode.
+	// resultSet is the result set to encode.
 	resultSet ResultSet
-	// count is the number of rows to scan ahead by (buffer), up to count, in
-	// order to determine maximum column widths returned by the encoder's
-	// formatter.
+	// count is the number of rows in a batch. The encoder scans and buffers
+	// up to count rows ahead to find the maximum widths of the columns that
+	// the formatter of the encoder returns.
 	//
-	// Note: when 0 all rows will be scanned (buffered) prior to encoding the
-	// table.
+	// Note: if count is 0, the encoder scans and buffers all the rows before
+	// it encodes the table.
 	count int
 	// tab is the tab width.
 	tab int
-	// newline is the record separator to use.
+	// newline is the record separator.
 	newline []byte
 	// border is the display border size.
 	border int
-	// inline toggles writing the column header names inline with the top line.
+	// inline turns on writing the header inline with the top line.
 	inline bool
-	// lineStyle is the table line style.
+	// lineStyle is the line style of the table.
 	lineStyle LineStyle
-	// formatter handles formatting values prior to output.
+	// formatter formats the values before the encoder writes them.
 	formatter Formatter
-	// skipHeader disables writing header.
+	// skipHeader turns off the header.
 	skipHeader bool
 	// summary is the summary map.
 	summary Summary
-	// isCustomSummary when summary has been set via options
+	// isCustomSummary is true if an option set the summary.
 	isCustomSummary bool
 	// title is the title value.
 	title *Value
 	// empty is the empty value.
 	empty *Value
-	// headers contains formatted column names.
+	// headers contains the formatted column names.
 	headers []*Value
 	// offsets are the column offsets.
 	offsets []int
-	// widths are the user-supplied column widths.
+	// widths are the column widths that the user set.
 	widths []int
-	// maxWidths are calculated max column widths. Max widths are at least as
-	// wide as user-supplied widths
+	// maxWidths are the calculated maximum widths of the columns. Each one is
+	// at least the width that the user set.
 	maxWidths []int
 	// aligns are the calculated column alignments, followed by a column's null
 	// values, which have no type of their own to align by.
 	aligns []Align
-	// minExpandWidth of the table required to switch to the ExpandedEncoder
-	// zero disables switching
+	// minExpandWidth is the table width at which the encoder switches to the
+	// ExpandedEncoder. Zero turns off the switch.
 	minExpandWidth int
-	// minPagerWidth of the table required to redirect output to the pager,
-	// zero disables pager
+	// minPagerWidth is the table width at which the encoder sends its output
+	// to the pager. Zero turns off the width test. The height test can still
+	// start the pager.
 	minPagerWidth int
-	// minPagerHeight of the table required to redirect output to the pager,
-	// zero disables pager
+	// minPagerHeight is the table height at which the encoder sends its
+	// output to the pager. Zero turns off the height test. The width test can
+	// still start the pager.
 	minPagerHeight int
-	// pagerCmd is the pager command to run and redirect output to
-	// if height or width is greater than minPagerHeight and minPagerWidth,
+	// pagerCmd is the pager command. The encoder starts it when the table
+	// height is minPagerHeight or more, or when the table width is
+	// minPagerWidth or more.
 	pagerCmd string
-	// scanCount is the number of scanned results in the result set.
+	// scanCount is the number of rows that the encoder scanned from the result
+	// set.
 	scanCount int
-	// headerTransformer is the column header transformer.
+	// headerTransformer is the transformer for the column names.
 	headerTransformer Transformer
-	// columnTypes is used to build column types for a result set.
+	// columnTypes builds the column types for a result set.
 	columnTypes func(ResultSet, []any, int) error
-	// w is the undelying writer
+	// w is the underlying writer
 	w *bufio.Writer
 }
 
-// NewTableEncoder creates a new table encoder using the provided options.
+// NewTableEncoder creates a table encoder with the options.
 //
-// The table encoder has a default value of border 1, and a tab width of 8.
+// By default, the table encoder has a border of 1 and a tab width of 8.
 func NewTableEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	enc := &TableEncoder{
 		resultSet: resultSet,
@@ -104,8 +109,8 @@ func NewTableEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 			return nil, err
 		}
 	}
-	// check linestyle runes
-	// TODO: this check should be removed
+	// make sure that each rune of the line style has a width of 1
+	// TODO: remove this loop
 	for _, l := range [][4]rune{
 		enc.lineStyle.Top,
 		enc.lineStyle.Mid,
@@ -122,8 +127,8 @@ func NewTableEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	return enc, nil
 }
 
-// Encode encodes a single result set to the writer using the formatting
-// options specified in the encoder.
+// Encode encodes one result set to the writer with the options of the
+// encoder.
 func (enc *TableEncoder) Encode(w io.Writer) error {
 	// reset scan count
 	enc.scanCount = 0
@@ -131,18 +136,15 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 	if enc.resultSet == nil {
 		return ErrResultSetIsNil
 	}
-	// get and check columns
+	// get the column names, and stop on an error
 	clen, cols, err := buildColNames(enc.resultSet, enc.headerTransformer)
-	switch {
-	case err != nil:
+	if err != nil {
 		return err
-	case clen == 0:
-		return ErrResultSetHasNoColumns
 	}
-	// setup offsets, widths
+	// set up the offsets and the widths
 	enc.offsets = make([]int, clen)
 	wroteHeader := enc.skipHeader
-	// default to user-supplied widths
+	// start with the widths that the user set
 	enc.maxWidths = make([]int, clen)
 	enc.aligns = make([]Align, clen)
 	copy(enc.maxWidths, enc.widths)
@@ -154,12 +156,12 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 	var cmdBuf io.WriteCloser
 	for {
 		var vals [][]*Value
-		// buffer
+		// read the next batch
 		vals, err = enc.nextResults()
 		if err != nil {
 			return err
 		}
-		// no more values
+		// no more rows
 		if len(vals) == 0 {
 			break
 		}
@@ -201,7 +203,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 			}
 			enc.w = bufio.NewWriterSize(cmdBuf, 2048)
 		}
-		// print header if not already done
+		// write the header if the encoder did not write it yet
 		if !wroteHeader {
 			wroteHeader = true
 			enc.header()
@@ -209,12 +211,24 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		if err := enc.encodeVals(vals); err != nil {
 			return checkErr(err, cmd)
 		}
-		// draw end border
+		// draw the end border
 		if enc.border >= 2 {
 			enc.divider(enc.rowStyle(enc.lineStyle.End))
 		}
 	}
-	// add summary
+	// psql draws the lines of a result set that has no columns and no rows.
+	//
+	// Note: psql also draws the header of a result set that has columns and
+	// no rows, and this encoder does not. See B1 in docs/BACKLOG.md.
+	if clen == 0 && enc.scanCount == 0 {
+		if !wroteHeader {
+			enc.header()
+		}
+		if enc.border >= 2 {
+			enc.divider(enc.rowStyle(enc.lineStyle.End))
+		}
+	}
+	// write the summary
 	if err := summarize(enc.w, enc.summary, enc.scanCount); err != nil {
 		return err
 	}
@@ -230,7 +244,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 
 func (enc *TableEncoder) encodeVals(vals [][]*Value) error {
 	rs := enc.rowStyle(enc.lineStyle.Row)
-	// print buffered vals
+	// write the rows of the batch
 	for i := range vals {
 		enc.row(vals[i], rs)
 		if i+1%1000 == 0 {
@@ -243,7 +257,8 @@ func (enc *TableEncoder) encodeVals(vals [][]*Value) error {
 	return nil
 }
 
-// EncodeAll encodes all result sets to the writer using the encoder settings.
+// EncodeAll encodes each result set to the writer with the options of the
+// encoder.
 func (enc *TableEncoder) EncodeAll(w io.Writer) error {
 	if err := enc.Encode(w); err != nil {
 		return err
@@ -259,18 +274,19 @@ func (enc *TableEncoder) EncodeAll(w io.Writer) error {
 	return nil
 }
 
-// nextResults reads the next enc.count values, or all values if enc.count = 0.
+// nextResults reads the next batch of enc.count rows, or all the rows if
+// enc.count is 0.
 func (enc *TableEncoder) nextResults() ([][]*Value, error) {
 	var vals [][]*Value
 	if enc.count != 0 {
 		vals = make([][]*Value, 0, enc.count)
 	}
-	// read to count (or all)
+	// read enc.count rows, or all the rows
 	var i int
 	var r []any
 	for enc.resultSet.Next() {
 		if i == 0 {
-			// set up storage for results
+			// set up the storage for the scanned values
 			var err error
 			r, err = buildColumnTypes(enc.resultSet, len(enc.headers), enc.columnTypes)
 			if err != nil {
@@ -282,7 +298,7 @@ func (enc *TableEncoder) nextResults() ([][]*Value, error) {
 			return vals, err
 		}
 		vals, i = append(vals, v), i+1
-		// read by batches of enc.count rows
+		// read in batches of enc.count rows
 		if enc.count != 0 && i%enc.count == 0 {
 			break
 		}
@@ -291,7 +307,7 @@ func (enc *TableEncoder) nextResults() ([][]*Value, error) {
 }
 
 func (enc *TableEncoder) calcWidth(vals [][]*Value) {
-	// calc offsets and widths for this batch of rows
+	// calculate the offsets and the widths for this batch
 	var offset int
 	rs := enc.rowStyle(enc.lineStyle.Row)
 	offset += runewidth.StringWidth(string(rs.left))
@@ -299,11 +315,11 @@ func (enc *TableEncoder) calcWidth(vals [][]*Value) {
 		if i != 0 {
 			offset += runewidth.StringWidth(string(rs.middle))
 		}
-		// store offset
+		// store the offset
 		enc.offsets[i] = offset
-		// header's widths are the minimum
+		// the width of the header is the minimum
 		enc.maxWidths[i] = max(enc.maxWidths[i], h.MaxWidth(offset, enc.tab))
-		// from top to bottom, find max column width
+		// find the maximum width of the column, from the first row to the last
 		for j := range vals {
 			cell := vals[j][i]
 			if cell == nil {
@@ -311,13 +327,14 @@ func (enc *TableEncoder) calcWidth(vals [][]*Value) {
 			}
 			enc.maxWidths[i] = max(enc.maxWidths[i], cell.MaxWidth(offset, enc.tab))
 		}
-		// a null cell has no type of its own to align by, so it follows the
+		// a null value has no type of its own to align by, so it follows the
 		// column, the way psql aligns the null string by the column's type. A
-		// batch with nothing to learn from keeps what an earlier one found.
+		// batch that has no non-null value keeps the alignment of an earlier
+		// batch.
 		if align, ok := columnAlign(vals, i); ok {
 			enc.aligns[i] = align
 		}
-		// add column width, and one space for newline indicator
+		// add the width of the column, and one space for the wrap indicator
 		offset += enc.maxWidths[i]
 		if rs.hasWrapping && enc.border != 0 {
 			offset++
@@ -332,29 +349,29 @@ func (enc *TableEncoder) header() {
 		enc.writeAligned(enc.title.Buf, rs.filler, AlignRight, maxWidth-enc.title.Width)
 		_, _ = enc.w.Write(enc.newline)
 	}
-	// draw top border
+	// draw the top border
 	if enc.border >= 2 && !enc.inline {
 		enc.divider(enc.rowStyle(enc.lineStyle.Top))
 	}
-	// draw the header row with top border style
+	// draw the header with the style of the top line
 	if enc.inline {
 		rs = enc.rowStyle(enc.lineStyle.Top)
 	}
-	// write header
+	// write the header
 	enc.row(enc.headers, rs)
 	if !enc.inline {
-		// draw mid divider
+		// draw the middle divider
 		enc.divider(enc.rowStyle(enc.lineStyle.Mid))
 	}
 }
 
-// rowStyle returns the left, right and middle borders. It also provides the
-// filler string, and indicates if this style uses a wrapping indicator.
+// rowStyle returns the left, right, and middle borders. It also returns the
+// filler string, and tells if this style uses a wrap indicator.
 func (enc *TableEncoder) rowStyle(r [4]rune) rowStyle {
 	var left, right, middle, spacer, filler string
 	spacer = strings.Repeat(string(r[1]), runewidth.RuneWidth(enc.lineStyle.Row[1]))
 	filler = string(r[1])
-	// compact output, r[1] is set to \0
+	// for compact output, r[1] is \0
 	if r[1] == 0 {
 		filler = " "
 	}
@@ -363,7 +380,7 @@ func (enc *TableEncoder) rowStyle(r [4]rune) rowStyle {
 		left = string(r[0])
 		right = string(r[3])
 	}
-	// initial spacer when borders are set
+	// if the border is set, add a spacer at the start
 	if enc.border > 0 {
 		left += spacer
 	}
@@ -388,7 +405,7 @@ func (enc *TableEncoder) divider(rs rowStyle) {
 	for i, width := range enc.maxWidths {
 		// column
 		_, _ = enc.w.Write(bytes.Repeat(rs.filler, width))
-		// line feed indicator
+		// wrap indicator
 		if rs.hasWrapping && enc.border >= 1 {
 			_, _ = enc.w.Write(rs.filler)
 		}
@@ -397,11 +414,15 @@ func (enc *TableEncoder) divider(rs rowStyle) {
 			_, _ = enc.w.Write(rs.middle)
 		}
 	}
+	// psql draws one more filler when there are no columns
+	if len(enc.maxWidths) == 0 && rs.hasWrapping && enc.border >= 1 {
+		_, _ = enc.w.Write(rs.filler)
+	}
 	// right
 	_, _ = enc.w.Write(rs.right)
 }
 
-// tableWidth calculates total table width.
+// tableWidth calculates the total width of the table.
 func (enc *TableEncoder) tableWidth() int {
 	rs := enc.rowStyle(enc.lineStyle.Mid)
 	width := runewidth.StringWidth(string(rs.left)) + runewidth.StringWidth(string(rs.right))
@@ -414,10 +435,14 @@ func (enc *TableEncoder) tableWidth() int {
 			width += runewidth.StringWidth(string(rs.middle))
 		}
 	}
+	// the filler that divider draws when there are no columns
+	if len(enc.maxWidths) == 0 && rs.hasWrapping && enc.border >= 1 {
+		width++
+	}
 	return width
 }
 
-// tableHeight calculates total table height.
+// tableHeight calculates the total height of the table.
 func (enc *TableEncoder) tableHeight(rows [][]*Value) int {
 	height := 0
 	if enc.title != nil && enc.title.Width != 0 {
@@ -449,15 +474,20 @@ func (enc *TableEncoder) tableHeight(rows [][]*Value) int {
 	if enc.border >= 2 {
 		height++
 	}
-	// scanCount at this point is not the final value but this is better than nothing
+	// scanCount is not the final count at this point, but it is better than no count
 	if enc.summary != nil && enc.summary[-1] != nil || enc.summary[enc.scanCount] != nil {
 		height++
 	}
 	return height
 }
 
-// row draws the a table row.
+// row draws a table row.
+//
+// Note: a row that has no values draws no line, as in psql.
 func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
+	if len(vals) == 0 {
+		return
+	}
 	var l int
 	for {
 		// left
@@ -472,7 +502,7 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 			}
 			// write value
 			if l <= len(v.Newlines) {
-				// determine start, end, width
+				// find the start, the end, and the width
 				start, end, width := 0, len(v.Buf), 0
 				if l > 0 {
 					start = v.Newlines[l-1][0] + 1
@@ -488,7 +518,8 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 					width += v.Width
 				}
 				padding := enc.maxWidths[i] - width
-				// no padding for last cell if no border and aligned left
+				// no padding for the last value if there is no outside border and
+				// the value is left aligned
 				if enc.border <= 1 && align == AlignLeft && i == len(vals)-1 && (!rs.hasWrapping || l >= len(v.Newlines)) {
 					padding = 0
 				}
@@ -496,7 +527,7 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 			} else if enc.border > 1 || i != len(vals)-1 {
 				_, _ = enc.w.Write(bytes.Repeat(rs.filler, enc.maxWidths[i]))
 			}
-			// write newline wrap value
+			// write the wrap indicator, or a filler
 			if rs.hasWrapping {
 				if l < len(v.Newlines) {
 					_, _ = enc.w.Write(rs.wrapper)
@@ -505,8 +536,8 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 				}
 			}
 			remaining = remaining || l < len(v.Newlines)
-			// middle separator. If border == 0, the new line indicator
-			// acts as the middle separator
+			// middle separator. If the border is 0, the wrap indicator is the
+			// middle separator
 			if i != len(enc.maxWidths)-1 && enc.border >= 1 {
 				_, _ = enc.w.Write(rs.middle)
 			}
@@ -521,7 +552,7 @@ func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
 }
 
 func (enc *TableEncoder) writeAligned(b, filler []byte, a Align, padding int) {
-	// calc padding
+	// calculate the padding
 	paddingLeft := 0
 	paddingRight := 0
 	switch a {
@@ -535,30 +566,32 @@ func (enc *TableEncoder) writeAligned(b, filler []byte, a Align, padding int) {
 		paddingLeft = 0
 		paddingRight = padding
 	}
-	// add padding left
+	// add the left padding
 	if paddingLeft > 0 {
 		_, _ = enc.w.Write(bytes.Repeat(filler, paddingLeft))
 	}
 	// write
 	_, _ = enc.w.Write(b)
-	// add padding right
+	// add the right padding
 	if paddingRight > 0 {
 		_, _ = enc.w.Write(bytes.Repeat(filler, paddingRight))
 	}
 }
 
-// rowStyle is the row style for a row, as arrays of bytes to print.
+// rowStyle is the style for a row, as the bytes to write.
 type rowStyle struct {
 	left, right, middle, filler, wrapper []byte
 	hasWrapping                          bool
 }
 
-// ExpandedEncoder is a buffered, lookahead expanded table encoder for result sets.
+// ExpandedEncoder is an encoder that writes a result set as an expanded
+// table. It writes each row as a record, with one line for each column. It
+// buffers a batch of rows ahead, as TableEncoder does.
 type ExpandedEncoder struct {
 	TableEncoder
 }
 
-// NewExpandedEncoder creates a new expanded table encoder using the provided options.
+// NewExpandedEncoder creates an expanded table encoder with the options.
 func NewExpandedEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	tableEnc, err := NewTableEncoder(resultSet, opts...)
 	if err != nil {
@@ -575,8 +608,8 @@ func NewExpandedEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	return enc, nil
 }
 
-// Encode encodes a single result set to the writer using the formatting
-// options specified in the encoder.
+// Encode encodes one result set to the writer with the options of the
+// encoder.
 func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 	// reset scan count
 	enc.scanCount = 0
@@ -584,15 +617,12 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 	if enc.resultSet == nil {
 		return ErrResultSetIsNil
 	}
-	// get and check columns
+	// get the column names, and stop on an error
 	clen, cols, err := buildColNames(enc.resultSet, enc.headerTransformer)
-	switch {
-	case err != nil:
+	if err != nil {
 		return err
-	case clen == 0:
-		return ErrResultSetHasNoColumns
 	}
-	// setup offsets, widths
+	// set up the offsets and the widths
 	enc.offsets = make([]int, 2)
 	enc.maxWidths = make([]int, 2)
 	enc.aligns = make([]Align, 2)
@@ -605,14 +635,19 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 	wroteTitle := enc.skipHeader
 	for {
 		var vals [][]*Value
-		// buffer
+		// read the next batch
 		vals, err = enc.nextResults()
 		if err != nil {
 			return err
 		}
-		// no more values
+		// no more rows
 		if len(vals) == 0 {
 			break
+		}
+		// psql writes no record for a result set that has no columns. It
+		// writes only the summary.
+		if clen == 0 {
+			continue
 		}
 		enc.calcWidth(vals)
 		if enc.pagerCmd != "" && cmd == nil &&
@@ -624,7 +659,7 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 			}
 			enc.w = bufio.NewWriterSize(cmdBuf, 2048)
 		}
-		// print title if not already done
+		// write the title if the encoder did not write it yet
 		if !wroteTitle {
 			wroteTitle = true
 			if enc.title != nil && enc.title.Width != 0 {
@@ -636,7 +671,7 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 			return checkErr(err, cmd)
 		}
 	}
-	// add summary
+	// write the summary
 	if err := summarize(w, enc.summary, enc.scanCount); err != nil {
 		return err
 	}
@@ -652,7 +687,7 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 
 func (enc *ExpandedEncoder) encodeVals(vals [][]*Value) error {
 	rs := enc.rowStyle(enc.lineStyle.Row)
-	// print buffered vals
+	// write the rows of the batch
 	for i := range vals {
 		enc.record(i, vals[i], rs)
 		if i+1%1000 == 0 {
@@ -662,14 +697,15 @@ func (enc *ExpandedEncoder) encodeVals(vals [][]*Value) error {
 			}
 		}
 	}
-	// draw end border
+	// draw the end border
 	if enc.border >= 2 && enc.scanCount != 0 {
 		enc.divider(enc.rowStyle(enc.lineStyle.End))
 	}
 	return nil
 }
 
-// EncodeAll encodes all result sets to the writer using the encoder settings.
+// EncodeAll encodes each result set to the writer with the options of the
+// encoder.
 func (enc *ExpandedEncoder) EncodeAll(w io.Writer) error {
 	if err := enc.Encode(w); err != nil {
 		return err
@@ -689,7 +725,7 @@ func (enc *ExpandedEncoder) calcWidth(vals [][]*Value) {
 	rs := enc.rowStyle(enc.lineStyle.Row)
 	offset := runewidth.StringWidth(string(rs.left))
 	enc.offsets[0] = offset
-	// first column is always the column name
+	// the first column is always the column name
 	for _, h := range enc.headers {
 		enc.maxWidths[0] = max(enc.maxWidths[0], h.MaxWidth(offset, enc.tab))
 	}
@@ -700,7 +736,8 @@ func (enc *ExpandedEncoder) calcWidth(vals [][]*Value) {
 	mw := runewidth.StringWidth(string(rs.middle))
 	offset += mw
 	enc.offsets[1] = offset
-	// second column is any value from any row but no less than the record header
+	// the second column is as wide as the widest value in any row, but not
+	// narrower than the record header
 	enc.maxWidths[1] = max(0, len(enc.recordHeader(len(vals)-1))-enc.maxWidths[0]-mw-1)
 	for _, row := range vals {
 		for _, cell := range row {
@@ -712,14 +749,14 @@ func (enc *ExpandedEncoder) calcWidth(vals [][]*Value) {
 	}
 }
 
-// tableHeight calculates total table height.
+// tableHeight calculates the total height of the table.
 func (enc *ExpandedEncoder) tableHeight(rows [][]*Value) int {
 	height := 0
 	if enc.title != nil && enc.title.Width != 0 {
 		height += strings.Count(string(enc.title.Buf), "\n")
 	}
 	for _, row := range rows {
-		// header
+		// record header
 		height++
 		for _, cell := range row {
 			if cell == nil {
@@ -732,7 +769,7 @@ func (enc *ExpandedEncoder) tableHeight(rows [][]*Value) int {
 	if enc.border >= 2 {
 		height++
 	}
-	// scanCount at this point is not the final value but this is better than nothing
+	// scanCount is not the final count at this point, but it is better than no count
 	if enc.summary != nil && enc.summary[-1] != nil || enc.summary[enc.scanCount] != nil {
 		height++
 	}
@@ -741,7 +778,7 @@ func (enc *ExpandedEncoder) tableHeight(rows [][]*Value) int {
 
 func (enc *ExpandedEncoder) record(i int, vals []*Value, rs rowStyle) {
 	if !enc.skipHeader {
-		// write record header as a single record
+		// write the record header as one line
 		headerRS := rs
 		header := enc.recordHeader(i)
 		if enc.border != 0 {
@@ -756,11 +793,11 @@ func (enc *ExpandedEncoder) record(i int, vals []*Value, rs rowStyle) {
 		if padding > 0 {
 			_, _ = enc.w.Write(bytes.Repeat(headerRS.filler, padding))
 		}
-		// write newline wrap value
+		// write a filler in place of the wrap indicator
 		_, _ = enc.w.Write(headerRS.filler)
 		_, _ = enc.w.Write(headerRS.right)
 	}
-	// write each value with column name in first col
+	// write each value, with the column name in the first column
 	for j, v := range vals {
 		if v != nil {
 			v.Align = AlignLeft
@@ -797,28 +834,29 @@ func columnAlign(vals [][]*Value, i int) (Align, bool) {
 	return align, found
 }
 
-// JSONEncoder is an unbuffered JSON encoder for result sets.
+// JSONEncoder is an encoder that writes a result set as JSON. It does not
+// buffer rows.
 type JSONEncoder struct {
 	resultSet ResultSet
-	// newline is the record separator to use.
+	// newline is the record separator.
 	newline []byte
-	// formatter handles formatting values prior to output.
+	// formatter formats the values before the encoder writes them.
 	formatter Formatter
 	// empty is the empty value.
 	empty *Value
-	// headerTransformer is the column header transformer.
+	// headerTransformer is the transformer for the column names.
 	headerTransformer Transformer
-	// columnTypes is used to build column types for a result set.
+	// columnTypes builds the column types for a result set.
 	columnTypes func(ResultSet, []any, int) error
 }
 
-// NewJSONEncoder creates a new JSON encoder using the provided options.
+// NewJSONEncoder creates a JSON encoder with the options.
 func NewJSONEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	enc := &JSONEncoder{
 		resultSet: resultSet,
 		newline:   newline,
-		// note: the prefix is the indent of the column a value sits on, so
-		// that the lines of a nested object or array line up under it.
+		// note: the prefix is the indent of a value, so that the lines of a
+		// nested object or array line up under the value.
 		formatter: NewEscapeFormatter(WithIsJSON(true), WithJSONConfig(jsonValueIndent, jsonIndent, false)),
 		empty: &Value{
 			Buf:  []byte("null"),
@@ -834,16 +872,17 @@ func NewJSONEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	return enc, nil
 }
 
-// jsonIndent is the indent of one level of the JSON encoder's output, and
-// jsonRowIndent and jsonValueIndent the indents of a row and of a value.
+// jsonIndent is the indent for one level of the output of the JSON encoder.
+// jsonRowIndent is the indent of a row, and jsonValueIndent is the indent of a
+// value.
 const (
 	jsonIndent      = "  "
 	jsonRowIndent   = jsonIndent
 	jsonValueIndent = jsonIndent + jsonIndent
 )
 
-// Encode encodes a single result set to the writer using the formatting
-// options specified in the encoder.
+// Encode encodes one result set to the writer with the options of the
+// encoder.
 func (enc *JSONEncoder) Encode(w io.Writer) error {
 	if enc.resultSet == nil {
 		return ErrResultSetIsNil
@@ -858,13 +897,10 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		rowNL = append(append([]byte{}, enc.newline...), jsonRowIndent...)
 		valNL = append(append([]byte{}, enc.newline...), jsonValueIndent...)
 	)
-	// get and check columns
+	// get the column names, and stop on an error
 	clen, cols, err := buildColNames(enc.resultSet, enc.headerTransformer)
-	switch {
-	case err != nil:
+	if err != nil {
 		return err
-	case clen == 0:
-		return ErrResultSetHasNoColumns
 	}
 	cb := make([][]byte, clen)
 	for i := range clen {
@@ -875,7 +911,7 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		}
 		cb[i] = append(cb[i], ':', ' ')
 	}
-	// set up storage for results
+	// set up the storage for the scanned values
 	r, err := buildColumnTypes(enc.resultSet, clen, enc.columnTypes)
 	if err != nil {
 		return err
@@ -884,7 +920,7 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 	if _, err = w.Write(start); err != nil {
 		return err
 	}
-	// process
+	// write the rows
 	var v *Value
 	var vals []*Value
 	var count int
@@ -916,7 +952,7 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 			if _, err = w.Write(cb[i]); err != nil {
 				return err
 			}
-			// if raw, write the exact value
+			// if the value is raw, write it as is
 			if v.Raw {
 				if _, err = w.Write(v.Buf); err != nil {
 					return err
@@ -938,8 +974,11 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 				}
 			}
 		}
-		if _, err = w.Write(rowNL); err != nil {
-			return err
+		// a row that has no columns is {}
+		if clen != 0 {
+			if _, err = w.Write(rowNL); err != nil {
+				return err
+			}
 		}
 		if _, err = w.Write(cls); err != nil {
 			return err
@@ -949,8 +988,7 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	// end -- an empty result set stays [] rather than opening a line for
-	// nothing
+	// end. A result set that has no rows stays [], with no newline in it.
 	if count != 0 {
 		if _, err = w.Write(enc.newline); err != nil {
 			return err
@@ -960,7 +998,8 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 	return err
 }
 
-// EncodeAll encodes all result sets to the writer using the encoder settings.
+// EncodeAll encodes each result set to the writer with the options of the
+// encoder.
 func (enc *JSONEncoder) EncodeAll(w io.Writer) error {
 	if err := enc.Encode(w); err != nil {
 		return err
@@ -982,39 +1021,39 @@ func (enc *JSONEncoder) EncodeAll(w io.Writer) error {
 	return nil
 }
 
-// UnalignedEncoder is an unbuffered, unaligned encoder for result sets.
+// UnalignedEncoder is an encoder that writes a result set with no alignment.
+// It does not buffer rows.
 //
-// Provides a way of encoding unaligned result sets in formats such as
-// comma-separated value (CSV) or tab-separated value (TSV) files.
+// You can use it to encode a result set in formats such as comma-separated
+// values (CSV) or tab-separated values (TSV).
 //
-// By default uses a field separator of '|', no quote separator, and record
-// separator using the default newline for the platfom ("\r\n" on Windows, "\n"
-// otherwise).
+// By default, the field separator is '|', there is no quote character, and the
+// record separator is the default newline for the platform ("\r\n" on Windows,
+// "\n" otherwise).
 type UnalignedEncoder struct {
 	// resultSet is the result set to encode.
 	resultSet ResultSet
-	// sep is the separator to use.
+	// sep is the field separator.
 	sep rune
-	// quote is the quote to use.
+	// quote is the quote character.
 	quote rune
-	// newline is the record separator to use.
+	// newline is the record separator.
 	newline []byte
-	// formatter handles formatting values prior to output.
+	// formatter formats the values before the encoder writes them.
 	formatter Formatter
-	// skipHeader disables writing header.
+	// skipHeader turns off the header.
 	skipHeader bool
 	// summary is the summary map.
 	summary map[int]func(io.Writer, int) (int, error)
 	// empty is the empty value.
 	empty *Value
-	// headerTransformer is the column header transformer.
+	// headerTransformer is the transformer for the column names.
 	headerTransformer Transformer
-	// columnTypes is used to build column types for a result set.
+	// columnTypes builds the column types for a result set.
 	columnTypes func(ResultSet, []any, int) error
 }
 
-// NewUnalignedEncoder creates a new unaligned encoder using the provided
-// options.
+// NewUnalignedEncoder creates an unaligned encoder with the options.
 func NewUnalignedEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	sep, quote := rune('|'), rune(0)
 	enc := &UnalignedEncoder{
@@ -1036,10 +1075,10 @@ func NewUnalignedEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	return enc, nil
 }
 
-// NewCSVEncoder creates a new csv encoder using the provided options.
+// NewCSVEncoder creates a CSV encoder with the options.
 //
-// Creates an unaligned encoder using the default field separator ',' and field
-// quote of '"'.
+// It creates an unaligned encoder. By default, the field separator is ',' and
+// the field quote is '"'.
 func NewCSVEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	sep, quote := rune(','), rune('"')
 	enc := &UnalignedEncoder{
@@ -1061,22 +1100,19 @@ func NewCSVEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	return enc, nil
 }
 
-// Encode encodes a single result set to the writer using the formatting
-// options specified in the encoder.
+// Encode encodes one result set to the writer with the options of the
+// encoder.
 func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 	if enc.resultSet == nil {
 		return ErrResultSetIsNil
 	}
-	// get and check columns
+	// get the column names, and stop on an error
 	clen, cols, err := buildColNames(enc.resultSet, enc.headerTransformer)
-	switch {
-	case err != nil:
+	if err != nil {
 		return err
-	case clen == 0:
-		return ErrResultSetHasNoColumns
 	}
 	sep, quote := []byte(string(enc.sep)), []byte(string(enc.quote))
-	// write header
+	// write the header
 	if !enc.skipHeader {
 		headers, err := enc.formatter.Header(cols)
 		if err != nil {
@@ -1100,17 +1136,21 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 			return err
 		}
 	}
-	// set up storage for results
+	// set up the storage for the scanned values
 	r, err := buildColumnTypes(enc.resultSet, clen, enc.columnTypes)
 	if err != nil {
 		return err
 	}
-	// process
+	// write the rows
 	var count int
 	for enc.resultSet.Next() {
 		vals, err := scanAndFormat(enc.resultSet, r, enc.formatter, &count)
-		if err != nil {
+		switch {
+		case err != nil:
 			return err
+		case clen == 0:
+			// psql writes no line for a row that has no columns
+			continue
 		}
 		for i := range clen {
 			if i != 0 {
@@ -1140,7 +1180,8 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 	return enc.resultSet.Err()
 }
 
-// EncodeAll encodes all result sets to the writer using the encoder settings.
+// EncodeAll encodes each result set to the writer with the options of the
+// encoder.
 func (enc *UnalignedEncoder) EncodeAll(w io.Writer) error {
 	if err := enc.Encode(w); err != nil {
 		return err
@@ -1156,31 +1197,34 @@ func (enc *UnalignedEncoder) EncodeAll(w io.Writer) error {
 	return nil
 }
 
-// TemplateEncoder is an unbuffered template encoder for result sets.
+// TemplateEncoder is a template encoder for result sets.
+//
+// Note: the encoder reads every row of a result set into memory before it
+// runs the template, because the template receives all the rows at once.
 type TemplateEncoder struct {
-	// ResultSet is the result set to encode.
+	// resultSet is the result set to encode.
 	resultSet ResultSet
-	// executor is the template executor function.
+	// executor is the function that runs the template.
 	executor func(io.Writer, *Template) error
-	// newline is the record separator to use.
+	// newline is the record separator.
 	newline []byte
-	// formatter handles formatting values prior to output.
+	// formatter formats the values before the encoder writes them.
 	formatter Formatter
 	// title is the title value.
 	title *Value
 	// empty is the empty value.
 	empty *Value
-	// skipHeader disables writing header.
+	// skipHeader turns off the header.
 	skipHeader bool
 	// attributes are extra table attributes.
 	attributes string
-	// headerTransformer is the column header transformer.
+	// headerTransformer is the transformer for the column names.
 	headerTransformer Transformer
-	// columnTypes is used to build column types for a result set.
+	// columnTypes builds the column types for a result set.
 	columnTypes func(ResultSet, []any, int) error
 }
 
-// NewTemplateEncoder creates a new template encoder using the provided options.
+// NewTemplateEncoder creates a template encoder with the options.
 func NewTemplateEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	enc := &TemplateEncoder{
 		resultSet: resultSet,
@@ -1199,37 +1243,32 @@ func NewTemplateEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	return enc, nil
 }
 
-// NewHTMLEncoder creates a new html template encoder using the provided
-// options.
+// NewHTMLEncoder creates a template encoder for HTML with the options.
 func NewHTMLEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	return NewTemplateEncoder(resultSet, append([]Option{WithTemplate("html")}, opts...)...)
 }
 
-// NewAsciiDocEncoder creates a new asciidoc template encoder using the
-// provided options.
+// NewAsciiDocEncoder creates a template encoder for AsciiDoc with the
+// options.
 func NewAsciiDocEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	return NewTemplateEncoder(resultSet, append([]Option{WithTemplate("asciidoc")}, opts...)...)
 }
 
-// NewVerticalEncoder creates a new vertical template encoder using the
-// provided options.
+// NewVerticalEncoder creates a vertical template encoder with the options.
 func NewVerticalEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	return NewTemplateEncoder(resultSet, append([]Option{WithTemplate("vertical")}, opts...)...)
 }
 
-// Encode encodes a single result set to the writer using the formatting
-// options specified in the encoder.
+// Encode encodes one result set to the writer with the options of the
+// encoder.
 func (enc *TemplateEncoder) Encode(w io.Writer) error {
 	if enc.resultSet == nil {
 		return ErrResultSetIsNil
 	}
-	// get and check columns
+	// get the column names, and stop on an error
 	clen, cols, err := buildColNames(enc.resultSet, enc.headerTransformer)
-	switch {
-	case err != nil:
+	if err != nil {
 		return err
-	case clen == 0:
-		return ErrResultSetHasNoColumns
 	}
 	headers, err := enc.formatter.Header(cols)
 	if err != nil {
@@ -1240,12 +1279,12 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 			headers[i] = enc.empty
 		}
 	}
-	// set up storage for results
+	// set up the storage for the scanned values
 	r, err := buildColumnTypes(enc.resultSet, clen, enc.columnTypes)
 	if err != nil {
 		return err
 	}
-	// process
+	// write the rows
 	var rows [][]*Value
 	var count int
 	for enc.resultSet.Next() {
@@ -1258,7 +1297,7 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 	if err := enc.resultSet.Err(); err != nil {
 		return err
 	}
-	// a null cell has no type of its own to align by, so it follows the
+	// a null value has no type of its own to align by, so it follows the
 	// column, the way psql aligns the null string by the column's type
 	for i := range clen {
 		empty := enc.empty
@@ -1286,7 +1325,8 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 	})
 }
 
-// EncodeAll encodes all result sets to the writer using the encoder settings.
+// EncodeAll encodes each result set to the writer with the options of the
+// encoder.
 func (enc *TemplateEncoder) EncodeAll(w io.Writer) error {
 	if err := enc.Encode(w); err != nil {
 		return err
@@ -1302,7 +1342,8 @@ func (enc *TemplateEncoder) EncodeAll(w io.Writer) error {
 	return nil
 }
 
-// errEncoder provides a no-op encoder that always returns the wrapped error.
+// errEncoder is an encoder that does nothing and always returns the wrapped
+// error.
 type errEncoder struct {
 	err error
 }
@@ -1317,7 +1358,7 @@ func (err *errEncoder) EncodeAll(io.Writer) error {
 	return err.err
 }
 
-// newErrEncoder creates a no-op error encoder.
+// newErrEncoder creates an errEncoder, which does nothing.
 func newErrEncoder(_ ResultSet, opts ...Option) (Encoder, error) {
 	enc := &errEncoder{}
 	for _, o := range opts {
@@ -1328,7 +1369,8 @@ func newErrEncoder(_ ResultSet, opts ...Option) (Encoder, error) {
 	return enc, enc.err
 }
 
-// scanAndFormat scans and formats values from the result set.
+// scanAndFormat scans the values of one row from the result set, and formats
+// them.
 func scanAndFormat(resultSet ResultSet, vals []any, formatter Formatter, count *int) ([]*Value, error) {
 	if err := resultSet.Err(); err != nil {
 		return nil, err
@@ -1355,7 +1397,7 @@ func buildColNames(resultSet ResultSet, transformer Transformer) (int, []string,
 	return clen, cols, nil
 }
 
-// buildColumnTypes builds a []interface{} for storing scan results.
+// buildColumnTypes builds a []interface{} to store the scanned values.
 func buildColumnTypes(resultSet ResultSet, n int, columnTypes func(ResultSet, []any, int) error) ([]any, error) {
 	r := make([]any, n)
 	if columnTypes != nil {
@@ -1370,9 +1412,9 @@ func buildColumnTypes(resultSet ResultSet, n int, columnTypes func(ResultSet, []
 	return r, nil
 }
 
-// summarize writes the table scan count summary.
+// summarize writes the summary for the count of scanned rows.
 func summarize(w io.Writer, summary Summary, count int) error {
-	// do summary
+	// write the summary
 	if summary == nil {
 		return nil
 	}
@@ -1407,7 +1449,8 @@ func startPager(pagerCmd string, w io.Writer) (*exec.Cmd, io.WriteCloser, error)
 
 func checkErr(err error, cmd *exec.Cmd) error {
 	if cmd != nil && errors.Is(err, syscall.EPIPE) {
-		// broken pipe means pager quit before consuming all data, which might be expected
+		// a broken pipe means that the pager stopped before it read all the
+		// data, and this can be normal
 		return nil
 	}
 	return err

@@ -130,8 +130,8 @@ func ExampleEncodeTemplateAll() {
 //	// (3 rows)
 //}
 
-// getDatabaseResults returns a tblfmt.ResultSet, which is an interface that is
-// compatible with Go's standard.
+// getDatabaseResults returns a tblfmt.ResultSet. A *sql.Rows from the
+// database/sql package also implements that interface.
 func getDatabaseResults() tblfmt.ResultSet {
 	return &result{
 		cols: []string{"author_id", "name", "z"},
@@ -143,7 +143,7 @@ func getDatabaseResults() tblfmt.ResultSet {
 	}
 }
 
-// result is a simple type providing a tblfmt.ResultSet.
+// result is a type that implements the tblfmt.ResultSet interface.
 type result struct {
 	pos  int
 	cols []string

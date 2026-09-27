@@ -146,7 +146,7 @@ func (r *RS) NextResultSet() bool {
 	return r.rs < len(r.vals)
 }
 
-// Reset resets the rset so that it can be used repeatedly.
+// Reset resets the result set, so that it can be used again.
 func (r *RS) Reset() {
 	r.pos, r.rs = 0, 0
 }
@@ -215,7 +215,7 @@ func rtime(src *rand.Rand) time.Time {
 	return time.Unix(src.Int63n(delta)+a, 0).UTC()
 }
 
-// rset returns predefined record set values.
+// rset returns the values of a predefined result set.
 func rset(i int) [][]any {
 	return [][]any{
 		{float64(i), "a\tb\tc\td", "x"},
@@ -242,8 +242,8 @@ type ResultSet interface {
 	NextResultSet() bool
 }
 
-// PsqlEncodeAll does a values query for each of the values in the result set,
-// writing captured output to the writer.
+// PsqlEncodeAll runs one values query in psql for each result set. It writes
+// the output that it captures to the writer.
 func PsqlEncodeAll(w io.Writer, resultSet ResultSet, params map[string]string, dsn string) error {
 	if err := PsqlEncode(w, resultSet, params, dsn); err != nil {
 		return err
@@ -262,8 +262,8 @@ func PsqlEncodeAll(w io.Writer, resultSet ResultSet, params map[string]string, d
 	return nil
 }
 
-// PsqlEncode does a single value query using psql, writing the captured output
-// to the writer.
+// PsqlEncode runs one values query with psql. It writes the output that it
+// captures to the writer.
 func PsqlEncode(w io.Writer, resultSet ResultSet, params map[string]string, dsn string) error {
 	// read values
 	var vals strings.Builder

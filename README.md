@@ -1,7 +1,9 @@
 # About tblfmt
 
-Package `tblfmt` provides streaming table encoders for result sets (ie, from a
-database), creating tables like the following:
+Package `tblfmt` writes result sets as text tables. A result set is the rows
+and columns that a database query returns. `tblfmt` reads a result set one row
+at a time, so it does not keep the whole result in memory. It writes tables
+like this one:
 
 ```text
  author_id | name                  | z
@@ -19,8 +21,8 @@ database), creating tables like the following:
 (6 rows)
 ```
 
-Additionally, there are standard encoders for JSON, CSV, HTML, unaligned and
-other display variants [supported by `usql`][usql].
+`tblfmt` also has encoders for JSON, CSV, HTML, AsciiDoc, unaligned text and
+the other formats that [`usql`][usql] supports.
 
 [![Unit Tests][tblfmt-ci-status]][tblfmt-ci]
 [![Go Reference][goref-tblfmt-status]][goref-tblfmt]
@@ -35,7 +37,7 @@ other display variants [supported by `usql`][usql].
 
 ## Installing
 
-Install in the usual [Go][go-project] fashion:
+Install `tblfmt` with the [Go][go-project] tool:
 
 ```sh
 $ go get -u github.com/xo/tblfmt
@@ -43,8 +45,8 @@ $ go get -u github.com/xo/tblfmt
 
 ## Using
 
-`tblfmt` was designed for use by [`usql`][usql] and Go's native `database/sql`
-types, but will handle any type with the following interface:
+`tblfmt` is for [`usql`][usql] and for the `database/sql` types of Go. It
+accepts any type that has this interface:
 
 ```go
 // ResultSet is the shared interface for a result set.
@@ -58,7 +60,7 @@ type ResultSet interface {
 }
 ```
 
-`tblfmt` can be used similar to the following:
+This program uses `tblfmt`:
 
 ```go
 // _example/example.go
@@ -95,7 +97,7 @@ func main() {
 }
 ```
 
-Which can produce output like the following:
+The program writes output like this:
 
 ```text
 ╔══════════════════════╦═══════════════════════════╦═══╗
@@ -110,18 +112,19 @@ Which can produce output like the following:
 (3 rows)
 ```
 
-Please see the [Go Reference][goref-tblfmt] for the full API.
+The [Go Reference][goref-tblfmt] has the full API.
 
 ## Differences from `psql`
 
-`tblfmt` follows `psql`'s output closely. The differences below are deliberate;
-anything else is a bug worth reporting.
+`tblfmt` writes the same output as `psql`. The differences below are
+deliberate. If you find a different difference, report it as a bug.
 
 ### Trailing space on the last column
 
-`tblfmt` pads the last column of a bordered table, so that every line of a
-table is the same width. `psql` pads the header but trims the data rows,
-leaving them ragged.
+`tblfmt` pads the last column of a table that has a border, so that every
+line of the table has the same width. `psql` pads the header, but it does not
+pad the data rows. As a result, the right edge of a `psql` table is not
+straight.
 
 For `select 42 as n, 'a'::text as t union all select 7, 'bb';`, with trailing
 spaces written as `·` and the width of each line at the right:
@@ -134,14 +137,29 @@ psql 18.6                 tblfmt
   7 | bb           8        7 | bb ·         9
 ```
 
-`psql` is wrong here. A table whose lines do not share a width is awkward to
-select from a terminal, to diff, and to lay out in anything that measures the
-block, and the ragged edge carries no information. It is also inconsistent with
-`psql`'s own header, which is padded. `tblfmt` will not follow it.
+`tblfmt` does not follow `psql` here, for these reasons:
+
+1. A table that has lines of different widths is difficult to select in a
+   terminal, to compare with `diff`, and to lay out in a program that measures
+   the block.
+2. The uneven edge gives no information.
+3. `psql` pads its own header, so the data rows do not agree with it.
+
+See D28 in [docs/PLAN.md](docs/PLAN.md). For a left aligned last column, the
+code does not match this section yet. See open question 1 there.
+
+## Documentation
+
+| Document | What it holds |
+| --- | --- |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | What a change must do, and the commands to run before a pull request |
+| [docs/PLAN.md](docs/PLAN.md) | Each decision that shapes `tblfmt`, and the reason for it |
+| [docs/BACKLOG.md](docs/BACKLOG.md) | Known faults and work that is not done |
+| [AGENTS.md](AGENTS.md) | The rules for a coding agent. `CLAUDE.md` imports it |
 
 ## Testing
 
-Run using standard `go test`:
+Run the tests with `go test`:
 
 ```sh
 $ go test -v

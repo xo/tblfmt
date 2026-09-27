@@ -11,18 +11,19 @@ import (
 	"github.com/nathan-fiscaletti/consolesize-go"
 )
 
-// Builder is the shared builder interface.
+// Builder is a func that creates an encoder for a result set.
 type Builder = func(ResultSet, ...Option) (Encoder, error)
 
-// Summary is the interface for a summary map.
+// Summary maps a row count to the func that writes the summary for that
+// count. The key -1 holds the func for any other count.
 type Summary = map[int]func(io.Writer, int) (int, error)
 
-// Option is a Encoder option.
+// Option is an encoder option.
 type Option interface {
 	apply(any) error
 }
 
-// option wraps setting an option on an encoder.
+// option holds the funcs that set an option on each type of encoder.
 type option struct {
 	table     func(*TableEncoder) error
 	expanded  func(*ExpandedEncoder) error
@@ -75,11 +76,11 @@ func (opt option) apply(o any) error {
 	panic(fmt.Sprintf("option cannot be applied to %T", o))
 }
 
-// FromMap creates an encoder for the provided result set, applying the named
-// options.
+// FromMap returns the Builder and the options for the format and the other
+// parameters in the map.
 //
-// Note: this func is primarily a helper func to accommodate psql-like format
-// option names.
+// Note: this func is mainly a helper for parameter names that are like the
+// format option names of psql.
 func FromMap(opts map[string]string) (Builder, []Option) {
 	// unaligned, aligned, wrapped, html, asciidoc, latex, latex-longtable, troff-ms, json, csv
 	switch format := opts["format"]; format {
@@ -133,7 +134,7 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			opts["footer"] = "off"
 		}
 		if s, ok := opts["footer"]; ok && s == "off" {
-			// use an empty summary map to skip drawing the footer
+			// an empty summary map turns off the summary
 			tableOpts = append(tableOpts, WithSummary(Summary{}))
 		}
 		return enc, tableOpts
@@ -167,7 +168,7 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			tableOpts = append(tableOpts, WithEmpty(s))
 		}
 		if s, ok := opts["footer"]; ok && s == "off" {
-			// use an empty summary map to skip drawing the footer
+			// an empty summary map turns off the summary
 			tableOpts = append(tableOpts, WithSummary(Summary{}))
 		}
 		tableOpts = pagerOpts(tableOpts, opts)
@@ -193,7 +194,7 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			tableOpts = append(tableOpts, WithEmpty(s))
 		}
 		if s, ok := opts["footer"]; ok && s == "off" {
-			// use an empty summary map to skip drawing the footer
+			// an empty summary map turns off the summary
 			tableOpts = append(tableOpts, WithSummary(Summary{}))
 		}
 		if s, ok := opts["linestyle"]; ok {
@@ -232,8 +233,8 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 	return newErrEncoder, []Option{withError(ErrInvalidFormat)}
 }
 
-// FormatterOptionFromMap builds formatter encoding options from the named
-// options.
+// FormatterOptionFromMap builds an option that sets the formatter options
+// from the parameters in the map.
 func FormatterOptionFromMap(opts map[string]string) Option {
 	// time format
 	timeFormat := opts["time"]
@@ -260,7 +261,7 @@ func FormatterOptionFromMap(opts map[string]string) Option {
 	)
 }
 
-// WithCount is a encoder option to set the buffered line count.
+// WithCount is an encoder option that sets the number of rows to buffer.
 func WithCount(count int) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
@@ -274,7 +275,7 @@ func WithCount(count int) Option {
 	}
 }
 
-// WithLineStyle is a encoder option to set the table line style.
+// WithLineStyle is an encoder option that sets the line style of the table.
 func WithLineStyle(lineStyle LineStyle) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
@@ -288,7 +289,7 @@ func WithLineStyle(lineStyle LineStyle) Option {
 	}
 }
 
-// WithFormatter is a encoder option to set a formatter for formatting values.
+// WithFormatter is an encoder option that sets the formatter for values.
 func WithFormatter(formatter Formatter) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
@@ -318,7 +319,7 @@ func WithFormatter(formatter Formatter) Option {
 	}
 }
 
-// WithFormatterOptions is a encoder option to add additional formatter
+// WithFormatterOptions is an encoder option that adds more formatter
 // options.
 func WithFormatterOptions(opts ...EscapeFormatterOption) Option {
 	apply := func(formatter Formatter) {
@@ -355,7 +356,7 @@ func WithFormatterOptions(opts ...EscapeFormatterOption) Option {
 	}
 }
 
-// WithSummary is a encoder option to set a table summary.
+// WithSummary is an encoder option that sets the summary of the table.
 func WithSummary(summary Summary) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
@@ -368,7 +369,7 @@ func WithSummary(summary Summary) Option {
 			enc.isCustomSummary = true
 			return nil
 		},
-		// FIXME: all of these should have a summary option as well ...
+		// FIXME: all of these encoders need a summary option too
 		json: func(*JSONEncoder) error {
 			return nil
 		},
@@ -382,7 +383,8 @@ func WithSummary(summary Summary) Option {
 	}
 }
 
-// WithSkipHeader is a encoder option to disable writing a header.
+// WithSkipHeader is an encoder option that stops the encoder from writing the
+// header.
 func WithSkipHeader(s bool) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
@@ -404,8 +406,8 @@ func WithSkipHeader(s bool) Option {
 	}
 }
 
-// WithInline is a encoder option to set the column headers as inline to the
-// top line.
+// WithInline is an encoder option that writes the header inline with the top
+// line.
 func WithInline(inline bool) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
@@ -415,7 +417,7 @@ func WithInline(inline bool) Option {
 	}
 }
 
-// WithTitle is a encoder option to set the table title.
+// WithTitle is an encoder option that sets the title of the table.
 func WithTitle(title string) Option {
 	encode := func(formatter Formatter, empty *Value) *Value {
 		if title == "" {
@@ -442,8 +444,7 @@ func WithTitle(title string) Option {
 	}
 }
 
-// WithEmpty is a encoder option to set the value used in empty (nil)
-// cells.
+// WithEmpty is an encoder option that sets the value for empty (nil) cells.
 func WithEmpty(empty string) Option {
 	encode := func(formatter Formatter) *Value {
 		z := new(any)
@@ -481,7 +482,7 @@ func WithEmpty(empty string) Option {
 	}
 }
 
-// WithWidths is a encoder option to set (minimum) widths for a column.
+// WithWidths is an encoder option that sets the (minimum) width of each column.
 func WithWidths(widths ...int) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
@@ -493,21 +494,21 @@ func WithWidths(widths ...int) Option {
 			return nil
 		},
 		unaligned: func(*UnalignedEncoder) error {
-			// FIXME: unaligned encoder should be able to support minimum
-			// column widths
+			// FIXME: add support for minimum column widths to the
+			// unaligned encoder
 			// enc.widths = widths
 			return nil
 		},
 		template: func(*TemplateEncoder) error {
-			// FIXME: template encoder should be able to support minimum column
-			// widths
+			// FIXME: add support for minimum column widths to the
+			// template encoder
 			// enc.widths = widths
 			return nil
 		},
 	}
 }
 
-// WithSeparator is a encoder option to set the field separator.
+// WithSeparator is an encoder option that sets the field separator.
 func WithSeparator(sep rune) Option {
 	return option{
 		unaligned: func(enc *UnalignedEncoder) error {
@@ -517,7 +518,7 @@ func WithSeparator(sep rune) Option {
 	}
 }
 
-// WithQuote is a encoder option to set the field quote.
+// WithQuote is an encoder option that sets the quote character for fields.
 func WithQuote(quote rune) Option {
 	return option{
 		unaligned: func(enc *UnalignedEncoder) error {
@@ -527,7 +528,7 @@ func WithQuote(quote rune) Option {
 	}
 }
 
-// WithNewline is a encoder option to set the newline.
+// WithNewline is an encoder option that sets the newline.
 func WithNewline(newline string) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
@@ -553,7 +554,7 @@ func WithNewline(newline string) Option {
 	}
 }
 
-// WithBorder is a encoder option to set the border size.
+// WithBorder is an encoder option that sets the border size.
 func WithBorder(border int) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
@@ -567,7 +568,7 @@ func WithBorder(border int) Option {
 	}
 }
 
-// WithTableAttributes is a encoder option to set the table attributes.
+// WithTableAttributes is an encoder option that sets the table attributes.
 func WithTableAttributes(a string) Option {
 	return option{
 		template: func(enc *TemplateEncoder) error {
@@ -577,7 +578,7 @@ func WithTableAttributes(a string) Option {
 	}
 }
 
-// WithExecutor is a encoder option to set the executor.
+// WithExecutor is an encoder option that sets the executor.
 func WithExecutor(executor func(io.Writer, *Template) error) Option {
 	return option{
 		template: func(enc *TemplateEncoder) error {
@@ -587,7 +588,7 @@ func WithExecutor(executor func(io.Writer, *Template) error) Option {
 	}
 }
 
-// WithTemplate is a encoder option to set a named template.
+// WithTemplate is an encoder option that sets the template by its name.
 func WithTemplate(name string) Option {
 	return option{
 		template: func(enc *TemplateEncoder) error {
@@ -606,8 +607,8 @@ func WithTemplate(name string) Option {
 	}
 }
 
-// WithHeaderTransformer is a encoder option to set the column header transform
-// style.
+// WithHeaderTransformer is an encoder option that sets the transform style for
+// the header.
 func WithHeaderTransformer(headerTransformer Transformer) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
@@ -637,8 +638,8 @@ func WithHeaderTransformer(headerTransformer Transformer) Option {
 	}
 }
 
-// WithLowerColumnNames is a encoder option to lower case column names when
-// column names are all caps. See [TransformUpperToLower].
+// WithLowerColumnNames is an encoder option that changes the column names to
+// lower case when they are all upper case. See [TransformUpperToLower].
 func WithLowerColumnNames(lowerColumnNames bool) Option {
 	transformStyle := TransformNone
 	if lowerColumnNames {
@@ -647,8 +648,8 @@ func WithLowerColumnNames(lowerColumnNames bool) Option {
 	return WithHeaderTransformer(transformStyle)
 }
 
-// WithForceUpperColumnNames is a encoder option to force upper case column
-// names. See [TransformForceUpper].
+// WithForceUpperColumnNames is an encoder option that changes all column names
+// to upper case. See [TransformForceUpper].
 func WithForceUpperColumnNames(forceUpper bool) Option {
 	transformStyle := TransformNone
 	if forceUpper {
@@ -657,8 +658,8 @@ func WithForceUpperColumnNames(forceUpper bool) Option {
 	return WithHeaderTransformer(transformStyle)
 }
 
-// WithColumnTypes is a encoder option to set a func to use for building column
-// types.
+// WithColumnTypes is an encoder option that sets the func that builds the
+// column types.
 func WithColumnTypes(columnTypes func(ResultSet, []any, int) error) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
@@ -688,7 +689,8 @@ func WithColumnTypes(columnTypes func(ResultSet, []any, int) error) Option {
 	}
 }
 
-// WithUseColumnTypes is a encoder option to use the result set's column types.
+// WithUseColumnTypes is an encoder option that makes the encoder use the column
+// types of the result set.
 func WithUseColumnTypes(useColumnTypes bool) Option {
 	if !useColumnTypes {
 		return WithColumnTypes(nil)
@@ -705,8 +707,8 @@ func WithUseColumnTypes(useColumnTypes bool) Option {
 	})
 }
 
-// WithColumnTypesFunc is a encoder option to set a func to build each column's
-// type.
+// WithColumnTypesFunc is an encoder option that sets a func that builds the
+// type of each column.
 func WithColumnTypesFunc(f func(*sql.ColumnType) (any, error)) Option {
 	return WithColumnTypes(func(resultSet ResultSet, r []any, n int) error {
 		cols, err := resultSetColumns(resultSet, n)
@@ -722,7 +724,7 @@ func WithColumnTypesFunc(f func(*sql.ColumnType) (any, error)) Option {
 	})
 }
 
-// WithParams is a view option to set the column parameters.
+// WithParams is a view option that sets the column parameters.
 func WithParams(params ...string) Option {
 	return option{
 		crosstab: func(view *CrosstabView) error {
@@ -746,8 +748,8 @@ func WithParams(params ...string) Option {
 	}
 }
 
-// WithMinExpandWidth is a encoder option to set maximum width before switching
-// to expanded format.
+// WithMinExpandWidth is an encoder option that sets the maximum width before
+// the encoder switches to the expanded format.
 func WithMinExpandWidth(w int) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
@@ -761,8 +763,8 @@ func WithMinExpandWidth(w int) Option {
 	}
 }
 
-// WithMinPagerWidth is a encoder option to set maximum width before
-// redirecting output to pager.
+// WithMinPagerWidth is an encoder option that sets the maximum width before
+// the encoder sends the output to the pager.
 func WithMinPagerWidth(w int) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
@@ -776,8 +778,8 @@ func WithMinPagerWidth(w int) Option {
 	}
 }
 
-// WithMinPagerHeight is a encoder option to set maximum height before
-// redirecting output to pager.
+// WithMinPagerHeight is an encoder option that sets the maximum height before
+// the encoder sends the output to the pager.
 func WithMinPagerHeight(h int) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
@@ -791,7 +793,7 @@ func WithMinPagerHeight(h int) Option {
 	}
 }
 
-// WithPager is a encoder option to set the pager command.
+// WithPager is an encoder option that sets the pager command.
 func WithPager(p string) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
@@ -805,7 +807,7 @@ func WithPager(p string) Option {
 	}
 }
 
-// withError is a encoder option to force an error.
+// withError is an encoder option that forces an error.
 func withError(err error) Option {
 	return option{
 		err: func(enc *errEncoder) error {
@@ -815,8 +817,8 @@ func withError(err error) Option {
 	}
 }
 
-// resultSetColumns retrieves the columns from a result set and checks the
-// length.
+// resultSetColumns gets the column types from a result set, and makes sure
+// that the number of column types is n.
 func resultSetColumns(resultSet ResultSet, n int) ([]*sql.ColumnType, error) {
 	rs, ok := resultSet.(interface {
 		ColumnTypes() ([]*sql.ColumnType, error)

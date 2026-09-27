@@ -139,10 +139,10 @@ func TestFormatJSON(t *testing.T) {
 		},
 		";",
 	)
-	// note: compared by what the encodings decode to and not byte for byte,
-	// as more than one escaping of the same string is valid JSON, and
-	// FormatBytes and encoding/json legitimately differ: an invalid UTF-8
-	// byte becomes a \ufffd escape here, where encoding/json writes the
+	// note: the test compares what the two encodings decode to, not their
+	// bytes. More than one escaped form of a string is valid JSON, and
+	// FormatBytes and encoding/json write different forms. FormatBytes writes
+	// an invalid UTF-8 byte as a \ufffd escape, and encoding/json writes the
 	// U+FFFD replacement rune itself.
 	exp, err := json.Marshal(s, jsontext.AllowInvalidUTF8(true))
 	if err != nil {
@@ -222,13 +222,13 @@ func v(s string, check int) escTest {
 	return escTest{s, v, check}
 }
 
-// TestFormatNull checks that the generic database/sql Null type and other
-// driver.Valuer implementations format as their contained value, and that a
-// null value formats as the empty value.
+// TestFormatNull makes sure that the generic database/sql Null type and other
+// driver.Valuer implementations format as the value that they contain, and
+// that a null value formats as the empty value.
 //
-// MySQL's ColumnType.ScanType reports sql.Null[uint64] for a nullable BIGINT
-// UNSIGNED, and the value is above math.MaxInt64, so it cannot round trip
-// through the Null's own Value method.
+// For a nullable BIGINT UNSIGNED, MySQL's ColumnType.ScanType reports
+// sql.Null[uint64]. The test value is above math.MaxInt64, so it cannot make a
+// round trip through the Value method of the Null.
 func TestFormatNull(t *testing.T) {
 	t.Parallel()
 	loc, err := time.LoadLocation("UTC")
@@ -285,8 +285,8 @@ func TestFormatNull(t *testing.T) {
 	}
 }
 
-// TestEncodeJSONNull checks that the generic database/sql Null type encodes as
-// a bare JSON value, and as JSON null when not valid.
+// TestEncodeJSONNull makes sure that the generic database/sql Null type
+// encodes as a bare JSON value, and as JSON null when it is not valid.
 func TestEncodeJSONNull(t *testing.T) {
 	t.Parallel()
 	resultSet := internal.New([]string{"b"}, [][]any{
@@ -297,9 +297,9 @@ func TestEncodeJSONNull(t *testing.T) {
 	if err := EncodeJSONAll(buf, resultSet); err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
-	// note: compared by what it decodes to rather than by its text, as the
-	// encoder's layout is covered by the golden tests. b is a JSON string
-	// because it is a uint64; see TestEncodeJSONNumber.
+	// note: the test compares what the output decodes to, not its text,
+	// because the golden tests cover the layout of the encoder. b is a JSON
+	// string because it is a uint64. See TestEncodeJSONNumber.
 	var v []map[string]jsontext.Value
 	if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &v); err != nil {
 		t.Fatalf("expected %s to be valid json, got: %v", buf.String(), err)
@@ -334,15 +334,16 @@ func (errValuer) Value() (driver.Value, error) {
 	return nil, errors.New("invalid value")
 }
 
-// TestEncodeNumericLocale checks that a locale formatted number does not break
-// the csv and JSON encodings, where its grouping separator would otherwise be
-// read as a field separator, or as an invalid JSON number.
+// TestEncodeNumericLocale makes sure that a number formatted for a locale does
+// not break the CSV and JSON encodings. If an encoder does not handle the
+// grouping separator of the number, a reader reads it as a CSV field
+// separator, or as part of an invalid JSON number.
 func TestEncodeNumericLocale(t *testing.T) {
 	t.Parallel()
-	// note: the locales cover the three ways a grouping separator meets csv --
-	// a comma, which is the separator itself; a period paired with a decimal
-	// comma, where only the float needs quoting; and a non-breaking space,
-	// which is quoted as whitespace.
+	// note: the locales cover the three ways that a grouping separator
+	// affects CSV. A comma is the field separator itself. A period comes with
+	// a decimal comma, so only the float needs quotes. The encoder quotes a
+	// non-breaking space because it is whitespace.
 	tests := []struct {
 		locale string
 		n      string
@@ -394,16 +395,16 @@ func TestEncodeNumericLocale(t *testing.T) {
 			t.Fatalf("%s expected no error, got: %v", test.locale, err)
 		}
 		t.Logf("%s json: %s", test.locale, buf.String())
-		// note: json ignores the numeric locale, so the numbers stay numbers
-		// rather than becoming strings; they are compared as their raw text so
-		// that a uint64 above 2^53 is not rounded by decoding it to a float.
+		// note: the JSON encoder ignores the numeric locale, so the numbers
+		// stay numbers and do not become strings. The test compares their raw
+		// text, so that a decode to a float does not round a uint64 above 2^53.
 		var v []map[string]jsontext.Value
 		if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &v); err != nil {
 			t.Errorf("%s expected %s to be valid json, got: %v", test.locale, buf.String(), err)
 			continue
 		}
-		// note: b is above the int64 a JSON number is read as, so it is a
-		// JSON string -- of its exact digits, never locale formatted.
+		// note: b is a uint64, so it is a JSON string. The string holds its
+		// exact digits, and the numeric locale does not change them.
 		exp := map[string]string{
 			"n": "1234567",
 			"f": "1.23456725e+06",
@@ -424,10 +425,11 @@ func TestEncodeNumericLocale(t *testing.T) {
 	}
 }
 
-// TestEncodeJSONNumber checks that a number JSON cannot write as a number --
-// one above the int64 a JSON number is read as, and the values that are not
-// finite numbers at all -- is written as a string of the same text the other
-// formats show.
+// TestEncodeJSONNumber makes sure that the JSON encoder writes a number as a
+// string when JSON cannot write it as a number. One such number is above the
+// int64 range, and a reader reads a JSON number as an int64. The others are
+// the values that are not finite numbers. The string has the same text that
+// the other formats show.
 func TestEncodeJSONNumber(t *testing.T) {
 	t.Parallel()
 	resultSet := internal.New(
@@ -455,8 +457,8 @@ func TestEncodeJSONNumber(t *testing.T) {
 	if len(v) != 1 {
 		t.Fatalf("expected 1 json row, got: %d", len(v))
 	}
-	// note: compared as raw text, as decoding would round the large values it
-	// is the point of the quoting to keep exact.
+	// note: the test compares raw text, because decoding rounds the large
+	// values. The quotes are there to keep these values exact.
 	for _, test := range []struct {
 		col string
 		exp string
@@ -464,8 +466,8 @@ func TestEncodeJSONNumber(t *testing.T) {
 		{"u64max", `"18446744073709551615"`},
 		{"u64min", `"9223372036854775808"`},
 		{"i64max", `9223372036854775807`},
-		// note: quoted although it fits, as the decision is by type so that a
-		// column is one JSON type for all of its rows
+		// note: quoted although it fits, because the decision is by type, so
+		// that a column is one JSON type for all of its rows
 		{"u64ok", `"42"`},
 		{"nan", `"NaN"`},
 		{"inf", `"Infinity"`},
@@ -478,8 +480,8 @@ func TestEncodeJSONNumber(t *testing.T) {
 	}
 }
 
-// TestFormatNotANumber checks that the values that are not finite numbers use
-// PostgreSQL's spellings, which are what psql displays, in every format.
+// TestFormatNotANumber makes sure that the values that are not finite numbers
+// use the PostgreSQL spellings in every format. psql shows these spellings.
 func TestFormatNotANumber(t *testing.T) {
 	t.Parallel()
 	f := NewEscapeFormatter()

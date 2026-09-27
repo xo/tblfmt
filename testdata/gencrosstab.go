@@ -27,7 +27,7 @@ func main() {
 }
 
 func run(ctx context.Context, dsn, out string) error {
-	// setup data
+	// set up the data
 	if _, err := psqlExec(ctx, dsn, dropsql, createsql); err != nil {
 		return err
 	}

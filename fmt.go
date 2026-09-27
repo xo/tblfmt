@@ -21,68 +21,69 @@ import (
 	"golang.org/x/text/number"
 )
 
-// Formatter is the common interface for formatting values.
+// Formatter is the common interface that formats values.
 type Formatter interface {
-	// Header returns a slice of formatted values for the provided headers.
+	// Header returns a slice of formatted values for the column names of a
+	// header.
 	Header([]string) ([]*Value, error)
-	// Format returns a slice of formatted value the provided row values.
+	// Format returns a slice of formatted values for the values of a row.
 	Format([]any) ([]*Value, error)
 }
 
-// EscapeFormatter is an escaping formatter, that handles formatting the
-// standard Go types.
+// EscapeFormatter is a formatter that escapes values. It formats the standard
+// Go types.
 //
-// When the encoder is not nil, then it will be passed any
-// map[string]interface{} and []interface{} values encountered, otherwise the
-// stdlib's [encoding/json/v2] will be used.
+// If a marshal func is set with [WithEncoder], the formatter passes it each
+// map[string]interface{} and []interface{} value. Otherwise, the formatter
+// uses [encoding/json/v2] from the standard library.
 type EscapeFormatter struct {
-	// mask is used to format header values when the formatted value (after
-	// trimming spaces) is the empty string.
+	// mask is the text for a column name in the header that is empty after the
+	// formatter trims its spaces.
 	//
-	// Note: will have %d replaced with the column number (starting at 1).
+	// Note: the formatter replaces %d in mask with the column number, which
+	// starts at 1.
 	mask string
 	// timeFormat is the format to use for time values.
 	timeFormat string
 	// timeLocation is the location to use for time values.
 	timeLocation *time.Location
-	// encoder will be used to encode map[string]interface{} and []interface{}
+	// encoder is the marshal func for map[string]interface{} and []interface{}
 	// types.
 	//
-	// If nil, the standard [encoding/json/v2] will be used instead.
+	// If it is nil, the formatter uses the standard [encoding/json/v2].
 	encoder func(any) ([]byte, error)
-	// prefix is indent prefix used by the JSON encoder when encoder is nil.
+	// prefix is the indent prefix for [encoding/json/v2] when encoder is nil.
 	prefix string
-	// indent is the indent used by the JSON encoder when encoder is nil.
+	// indent is the indent for [encoding/json/v2] when encoder is nil.
 	indent string
-	// isJSON sets escaping JSON characters.
+	// isJSON sets whether to escape JSON characters.
 	isJSON bool
-	// escapeHTML sets the JSON encoder used when encoder is nil to escape HTML
-	// characters.
+	// escapeHTML sets whether [encoding/json/v2] escapes HTML characters when
+	// encoder is nil.
 	escapeHTML bool
-	// isRaw sets raw escaping.
+	// isRaw sets whether to use the raw escape.
 	isRaw bool
-	// sep is the separator to use for raw (csv) encoding.
+	// sep is the separator for the raw (csv) escape.
 	sep rune
-	// quote is the quote to use for raw (csv) encoding.
+	// quote is the quote for the raw (csv) escape.
 	quote rune
-	// invalid is the value used for invalid utf8 runes when escaping.
+	// invalid is the text that replaces an invalid UTF-8 rune in the escape.
 	invalid []byte
-	// invalidWidth is the rune width of the invalid value
+	// invalidWidth is the rune width of invalid.
 	invalidWidth int
-	// headerAlign is the default header values alignment
+	// headerAlign is the default alignment of the column names in the header.
 	headerAlign Align
-	// align is the forced alignment value.
+	// align is the forced alignment for values.
 	align Align
 	// numericLocalePrinter is the numeric locale printer.
 	numericLocalePrinter *message.Printer
 }
 
-// NewEscapeFormatter creates a escape formatter to handle basic Go values,
-// such as []byte, string, time.Time, sql.Null*, and any
-// [database/sql/driver.Valuer]. Formatting for
-// map[string]interface{} and []interface{} will be passed to a marshaler
-// provided by [WithEncoder], otherwise the standard [encoding/json/v2] will
-// be used to marshal those values.
+// NewEscapeFormatter creates an escape formatter for basic Go values, such as
+// []byte, string, time.Time, sql.Null*, and any [database/sql/driver.Valuer].
+// The formatter passes map[string]interface{} and []interface{} values to the
+// marshal func set with [WithEncoder]. Otherwise, it uses the standard
+// [encoding/json/v2] to marshal those values.
 func NewEscapeFormatter(opts ...EscapeFormatterOption) *EscapeFormatter {
 	f := &EscapeFormatter{
 		mask:       "%d",
@@ -132,18 +133,18 @@ func (f *EscapeFormatter) Format(vals []any) ([]*Value, error) {
 	return res, nil
 }
 
-// maxValuerDepth is the maximum number of times [EscapeFormatter.format] will
-// unwrap a [database/sql/driver.Valuer] before giving up and encoding the
-// value, bounding recursion for a value that wraps itself.
+// maxValuerDepth is the maximum number of times that [EscapeFormatter.format]
+// unwraps a [database/sql/driver.Valuer]. After that, it encodes the value.
+// This limit stops the recursion for a value that wraps itself.
 const maxValuerDepth = 10
 
-// format formats a single value, returning nil for a null value. depth is the
-// number of [database/sql/driver.Valuer] values already unwrapped.
+// format formats one value. It returns nil for a null value. depth is the
+// number of [database/sql/driver.Valuer] values that format already unwrapped.
 func (f *EscapeFormatter) format(val any, left, right Align, depth int) (*Value, error) {
 	// TODO: change time to v.AppendFormat() + pool
 	// TODO: use strconv.Format* for numeric times
-	// TODO: use pool
-	// TODO: allow configurable runes that can be escaped
+	// TODO: use a pool
+	// TODO: let the caller set the runes to escape
 	switch v := val.(type) {
 	case nil:
 		return nil, nil
@@ -281,9 +282,9 @@ func (f *EscapeFormatter) format(val any, left, right Align, depth int) (*Value,
 			}
 			break
 		}
-		// note: a Valuer returning an error is encoded below, as encoding the
-		// value is more useful to the reader than failing the entire result
-		// set.
+		// note: a Valuer that returns an error is encoded below. the reader
+		// gets more use from the encoded value than from an error for the
+		// whole result set
 		if z, err := v.Value(); err == nil && depth < maxValuerDepth {
 			return f.format(deref(z), left, right, depth+1)
 		}
@@ -291,11 +292,11 @@ func (f *EscapeFormatter) format(val any, left, right Align, depth int) (*Value,
 	return f.encode(val)
 }
 
-// encode encodes a value not otherwise handled by [EscapeFormatter.format]
-// using the configured encoder, or the standard [encoding/json/v2] when no
-// encoder was configured.
+// encode encodes a value that [EscapeFormatter.format] does not handle
+// otherwise. It uses the marshal func set with [WithEncoder], or the standard
+// [encoding/json/v2] if no marshal func is set.
 func (f *EscapeFormatter) encode(val any) (*Value, error) {
-	// TODO: pool
+	// TODO: use a pool
 	if f.encoder != nil {
 		buf, err := f.encoder(val)
 		if err != nil {
@@ -325,9 +326,10 @@ func (f *EscapeFormatter) encode(val any) (*Value, error) {
 
 // jsonOptions returns the [encoding/json/v2] options used to marshal a value.
 //
-// Note: the first four restore what the v1 encoding/json encoder did, as the
-// v2 defaults differ -- v2 leaves map keys in map order, rejects invalid
-// UTF-8, and writes a nil map or slice as {} or [] rather than null.
+// Note: the first four options restore the behavior of the v1 encoding/json
+// package, because the v2 defaults differ. By default, v2 leaves map keys in
+// map order, rejects invalid UTF-8, and writes a nil map or slice as {} or []
+// instead of null.
 func (f *EscapeFormatter) jsonOptions() []json.Options {
 	opts := []json.Options{
 		json.Deterministic(true),
@@ -336,11 +338,12 @@ func (f *EscapeFormatter) jsonOptions() []json.Options {
 		json.FormatNilSliceAsNull(true),
 		jsontext.EscapeForHTML(f.escapeHTML),
 	}
-	// note: jsontext panics when the prefix or indent is anything but spaces
-	// and tabs, where the v1 encoder accepted any string, so both are dropped
-	// when not usable. An empty indent indents by nothing rather than
-	// producing compact output, so as with the v1 encoder the output is
-	// compact only when the prefix and indent are both empty.
+	// note: jsontext panics if the prefix or the indent holds a character
+	// other than a space or a tab, but the v1 encoding/json package accepted
+	// any string. so a prefix or an indent that jsontext cannot use is
+	// dropped. an empty indent indents by nothing and does not give compact
+	// output. so, as with the v1 package, the output is compact only if the
+	// prefix and the indent are both empty
 	prefix, indent := f.prefix, f.indent
 	if !isSpaceOrTab(prefix) {
 		prefix = ""
@@ -367,14 +370,14 @@ func isSpaceOrTab(s string) bool {
 // nullPkgPath is the package path of the generic [database/sql.Null] type.
 var nullPkgPath = reflect.TypeOf(sql.Null[bool]{}).PkgPath()
 
-// unwrapNull returns the value contained in a generic [database/sql.Null]
-// value, and whether v is such a value. A nil value is returned for a null
-// (invalid) value.
+// unwrapNull returns the value in a generic [database/sql.Null] value, and
+// whether v is such a value. For a null (invalid) value, it returns a nil
+// value.
 //
-// The generic Null's own Value method cannot be used for this: it passes the
-// contained value through [database/sql/driver.DefaultParameterConverter],
-// which converts every unsigned integer to an int64 and rejects outright a
-// uint64 with its high bit set, such as MySQL's max BIGINT UNSIGNED.
+// The Value method of the generic Null cannot do this. That method passes the
+// value through [database/sql/driver.DefaultParameterConverter]. The
+// converter converts every unsigned integer to an int64. It rejects a uint64
+// that has its high bit set, such as the maximum MySQL BIGINT UNSIGNED.
 func unwrapNull(v any) (any, bool) {
 	typ := reflect.TypeOf(v)
 	if typ == nil {
@@ -392,7 +395,8 @@ func unwrapNull(v any) (any, bool) {
 		typ.Field(1).Name != "Valid" || typ.Field(1).Type.Kind() != reflect.Bool {
 		return nil, false
 	}
-	// note: val is invalid for a nil pointer, whose Value method would panic.
+	// note: val is invalid for a nil pointer, and a call to its Value method
+	// panics
 	if !val.IsValid() || !val.Field(1).Bool() {
 		return nil, true
 	}
@@ -401,25 +405,26 @@ func unwrapNull(v any) (any, bool) {
 
 // useNumericLocale reports whether numbers are formatted for a locale.
 //
-// Note: never for JSON, which has a number type but no syntax for a grouping
-// separator. Honoring it there would mean writing a number as a string, so
-// that a column's JSON type would follow a display option; ignoring it keeps
-// the type stable. csv, which has no types at all, applies it as psql does.
+// Note: never for JSON. JSON has a number type but no syntax for a grouping
+// separator. To use the locale there, the formatter must write a number as a
+// string, and then the JSON type of a column follows a display option. If the
+// formatter ignores the locale, the type does not change. csv has no types at
+// all, and it applies the locale as psql does.
 func (f *EscapeFormatter) useNumericLocale() bool {
 	return f.numericLocalePrinter != nil && !f.isJSON
 }
 
-// number returns a value for a formatted number. asString marks one that JSON
-// writes as a string rather than as a number.
+// number returns a value for a formatted number. asString marks a number that
+// JSON writes as a string instead of as a number.
 //
-// A number formatted for a locale is escaped as any other value would be, as
-// its grouping separator would otherwise be read as a csv field separator,
-// leaving a bare 1,234,567 to be read as three fields.
+// The formatter escapes a number formatted for a locale the same as any other
+// value. If it did not, a csv reader reads the grouping separator as a field
+// separator, and it reads a bare 1,234,567 as three fields.
 func (f *EscapeFormatter) number(s string, align Align, asString bool) *Value {
 	switch {
 	case f.isJSON && asString:
-		// note: written as a JSON string of the same text the other formats
-		// show, never locale formatted, which JSON ignores anyway.
+		// note: a JSON string of the same text that the other formats show.
+		// it is never locale formatted, because JSON ignores the locale
 		return newValue(s, align, false)
 	case !f.useNumericLocale():
 		return newValue(s, align, true)
@@ -430,11 +435,11 @@ func (f *EscapeFormatter) number(s string, align Align, asString bool) *Value {
 }
 
 // floatString returns the text of a float that is not a finite number, and
-// whether it is one.
+// whether f is such a float.
 //
-// Note: the spellings are PostgreSQL's, which are what psql displays. JSON has
-// no NaN or infinity at all, so these are written there as strings, as
-// PostgreSQL's own to_jsonb does.
+// Note: the spellings are those of PostgreSQL, which psql shows. JSON has no
+// NaN or infinity, so the JSON output writes these as strings. The to_jsonb
+// function of PostgreSQL does the same.
 func floatString(f float64) (string, bool) {
 	switch {
 	case math.IsNaN(f):
@@ -447,16 +452,16 @@ func floatString(f float64) (string, bool) {
 	return "", false
 }
 
-// unsignedInt64 reports whether v is an unsigned 64 bit integer, such as
-// MySQL's BIGINT UNSIGNED, which is written as a JSON string of its exact
-// digits so that it survives a consumer reading a JSON number as an int64 or
-// a float64.
+// unsignedInt64 reports whether v is an unsigned 64 bit integer, such as a
+// MySQL BIGINT UNSIGNED. JSON writes such a value as a string of its exact
+// digits. Then the value stays exact for a consumer that reads a JSON number
+// as an int64 or a float64.
 //
-// Note: by type and not by value, so that a column is one JSON type for every
-// one of its rows. Deciding by value would write {"n":42} for one row and
-// {"n":"18446744073709551615"} for the next, leaving a consumer unable to type
-// the column without reading every value. uint is included whatever its width,
-// so that the output does not differ between platforms.
+// Note: by type and not by value, so that a column has one JSON type in each
+// of its rows. A decision by value writes {"n":42} for one row and
+// {"n":"18446744073709551615"} for the next. Then a consumer cannot know the
+// type of the column until it reads every value. uint is included whatever
+// its width, so that the output does not differ between platforms.
 func unsignedInt64(v any) bool {
 	switch v.(type) {
 	case uint, uint64:
@@ -465,19 +470,18 @@ func unsignedInt64(v any) bool {
 	return false
 }
 
-// valueFromBuffer returns a value from a buffer known not to contain
-// characters to escape.
+// newValue returns a value for a string that has no characters to escape.
 func newValue(str string, align Align, raw bool) *Value {
 	v := &Value{Buf: []byte(str), Align: align, Raw: raw}
 	v.Width = len(v.Buf)
 	return v
 }
 
-// lowerhex is the set of lower hex characters.
+// lowerhex holds the lower case hex digits.
 const lowerhex = "0123456789abcdef"
 
-// FormatBytes parses src, saving escaped (encoded) and unescaped runes to a
-// Value, along with tab and newline positions in the generated buf.
+// FormatBytes escapes src to a Value. The Value holds the escaped (encoded)
+// and unescaped runes, and the positions of the tabs and newlines in its Buf.
 func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isRaw bool, sep, quote rune) *Value {
 	res := &Value{
 		Tabs: make([][][2]int, 1),
@@ -487,13 +491,13 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isRaw boo
 	var l, w int
 	for ; len(src) > 0; src = src[w:] {
 		r, w = rune(src[0]), 1
-		// lazy decode
+		// decode only a rune that is not ASCII
 		if r >= utf8.RuneSelf {
 			r, w = utf8.DecodeRune(src)
 		}
-		// invalid rune decoded
+		// the decoded rune is invalid
 		if w == 1 && r == utf8.RuneError {
-			// replace with invalid (if set), otherwise hex encode
+			// replace with invalid if it is set, otherwise escape as hex
 			switch {
 			case invalid != nil:
 				res.Buf = append(res.Buf, invalid...)
@@ -511,7 +515,7 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isRaw boo
 			}
 			continue
 		}
-		// handle json encoding
+		// escape for JSON
 		if isJSON {
 			switch r {
 			case '\a':
@@ -548,7 +552,7 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isRaw boo
 				continue
 			}
 		}
-		// handle raw encoding
+		// raw (csv) escape
 		if isRaw {
 			n := utf8.EncodeRune(tmp[:], r)
 			res.Buf = append(res.Buf, tmp[:n]...)
@@ -631,7 +635,7 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isRaw boo
 	return res
 }
 
-// Value contains information pertaining to a formatted value.
+// Value holds a formatted value and data about it.
 type Value struct {
 	// Buf is the formatted value.
 	Buf []byte
@@ -641,12 +645,12 @@ type Value struct {
 	Tabs [][][2]int
 	// Width is the remaining width.
 	Width int
-	// Align indicates value alignment.
+	// Align is the alignment of the value.
 	Align Align
-	// Raw tracks whether or not the value should be encoded or not.
+	// Raw is true when the JSON encoder writes Buf exactly, with no quotes.
 	Raw bool
-	// Quoted tracks whether or not a raw value should be quoted or not (ie,
-	// contains a space or non printable character).
+	// Quoted tracks whether a raw value must be quoted, that is, whether it
+	// contains a space or a non printable character.
 	Quoted bool
 }
 
@@ -654,7 +658,7 @@ func (v *Value) String() string {
 	return string(v.Buf)
 }
 
-// LineWidth returns the line width (in runes) of line l.
+// LineWidth returns the display width of line l.
 func (v *Value) LineWidth(l, offset, tab int) int {
 	var width int
 	if l < len(v.Newlines) {
@@ -669,10 +673,10 @@ func (v *Value) LineWidth(l, offset, tab int) int {
 	return width
 }
 
-// MaxWidth calculates the maximum width (in runes) of the longest line
-// contained in Buf, relative to starting offset and the tab width.
+// MaxWidth calculates the display width of the longest line in Buf, from the
+// start offset and the tab width.
 func (v *Value) MaxWidth(offset, tab int) int {
-	// simple values do not have tabulations
+	// a simple value has no tabs
 	width := v.Width
 	for l := range len(v.Tabs) {
 		width = max(width, v.LineWidth(l, offset, tab))
@@ -680,10 +684,10 @@ func (v *Value) MaxWidth(offset, tab int) int {
 	return width
 }
 
-// Align indicates an alignment direction for a value.
+// Align is the alignment direction of a value.
 type Align int
 
-// Align values.
+// The Align directions.
 const (
 	AlignLeft Align = iota
 	AlignRight
@@ -703,8 +707,9 @@ func (a Align) String() string {
 	return fmt.Sprintf("Align(%d)", a)
 }
 
-// tabwidth returns the rune width of buf containing tabs from start position
-// in buf, a column offset, and given tab width.
+// tabwidth returns the rune width of a line in buf that contains tabs. It
+// uses the tab positions from the start of buf, a column offset, and the tab
+// width.
 func tabwidth(tabs [][2]int, offset, tab int) int {
 	// log.Printf("tabs: %v, offset: %d, tab: %d", tabs, offset, tab)
 	width := offset
@@ -719,15 +724,15 @@ func tabwidth(tabs [][2]int, offset, tab int) int {
 // EscapeFormatterOption is an escape formatter option.
 type EscapeFormatterOption func(*EscapeFormatter)
 
-// WithMask is an escape formatter option to set the mask used for empty
-// headers.
+// WithMask is an escape formatter option that sets the mask for an empty
+// column name in the header.
 func WithMask(mask string) EscapeFormatterOption {
 	return func(f *EscapeFormatter) {
 		f.mask = mask
 	}
 }
 
-// WithTimeFormat is an escape formatter option to set the time format used for
+// WithTimeFormat is an escape formatter option that sets the time format for
 // time values.
 func WithTimeFormat(timeFormat string) EscapeFormatterOption {
 	return func(f *EscapeFormatter) {
@@ -735,7 +740,7 @@ func WithTimeFormat(timeFormat string) EscapeFormatterOption {
 	}
 }
 
-// WithTimeLocation is an escape formatter option to set the time location used
+// WithTimeLocation is an escape formatter option that sets the time location
 // for time values.
 func WithTimeLocation(timeLocation *time.Location) EscapeFormatterOption {
 	return func(f *EscapeFormatter) {
@@ -743,26 +748,25 @@ func WithTimeLocation(timeLocation *time.Location) EscapeFormatterOption {
 	}
 }
 
-// WithEncoder is an escape formatter option to set a standard Go encoder to
-// use for encoding the value.
+// WithEncoder is an escape formatter option that sets a standard Go marshal
+// func to encode the value.
 func WithEncoder(encoder func(any) ([]byte, error)) EscapeFormatterOption {
 	return func(f *EscapeFormatter) {
 		f.encoder = encoder
 	}
 }
 
-// WithIsJSON is an escape formatter option to enable special escaping for JSON
-// characters in non-complex values.
+// WithIsJSON is an escape formatter option that turns on a special escape for
+// JSON characters in values that are not complex.
 func WithIsJSON(isJSON bool) EscapeFormatterOption {
 	return func(f *EscapeFormatter) {
 		f.isJSON = isJSON
 	}
 }
 
-// WithJSONConfig is an escape formatter option to set the JSON encoding
-// prefix, indent value, and whether or not to escape HTML. Passed to
-// [encoding/json/v2] when a marshaler has not been set on the escape
-// formatter.
+// WithJSONConfig is an escape formatter option that sets the JSON prefix, the
+// JSON indent, and whether to escape HTML. The formatter passes them to
+// [encoding/json/v2] if no marshal func is set on the escape formatter.
 //
 // The prefix and indent must contain only spaces and tabs, and are ignored
 // otherwise. Output is compact when both are empty.
@@ -772,16 +776,16 @@ func WithJSONConfig(prefix, indent string, escapeHTML bool) EscapeFormatterOptio
 	}
 }
 
-// WithIsRaw is an escape formatter option to enable special escaping for raw
-// characters in values.
+// WithIsRaw is an escape formatter option that turns on a special escape for
+// raw characters in values.
 func WithIsRaw(isRaw bool, sep, quote rune) EscapeFormatterOption {
 	return func(f *EscapeFormatter) {
 		f.isRaw, f.sep, f.quote = isRaw, sep, quote
 	}
 }
 
-// WithInvalid is an escape formatter option to set the invalid value used when
-// an invalid rune is encountered during escaping.
+// WithInvalid is an escape formatter option that sets the text that replaces
+// an invalid rune in the escape.
 func WithInvalid(invalid string) EscapeFormatterOption {
 	return func(f *EscapeFormatter) {
 		f.invalid = []byte(invalid)
@@ -789,7 +793,7 @@ func WithInvalid(invalid string) EscapeFormatterOption {
 	}
 }
 
-// WithHeaderAlign sets the alignment of header values.
+// WithHeaderAlign sets the alignment of the column names in the header.
 func WithHeaderAlign(a Align) EscapeFormatterOption {
 	return func(f *EscapeFormatter) {
 		f.headerAlign = a
@@ -803,13 +807,14 @@ func WithAlign(a Align) EscapeFormatterOption {
 	}
 }
 
-// WithNumericLocale sets the numeric locale printer, which groups the digits
-// of a number as the locale does, as psql's \pset numericlocale does.
+// WithNumericLocale sets the numeric locale printer. The printer groups the
+// digits of a number as the locale does, the same as \pset numericlocale in
+// psql.
 //
-// It has no effect on JSON output: a grouped number is not a JSON number, and
-// writing it as a JSON string would make a column's type depend on a display
-// option. Every other format applies it, csv quoting the fields that need it
-// exactly as psql does.
+// It has no effect on JSON output. A grouped number is not a JSON number. A
+// JSON string for it makes the JSON type of a column depend on a display
+// option. Every other format applies it. The csv output quotes each field
+// that needs it, exactly as psql does.
 func WithNumericLocale(enable bool, locale string) EscapeFormatterOption {
 	return func(f *EscapeFormatter) {
 		if enable {
