@@ -62,6 +62,8 @@ A line number in D1 to D30 is at `04af38a`.
 | [D36](#d36-an-agent-stages-a-change-and-ken-commits-it-decided) | An agent stages a change, and Ken commits it | Decided |
 | [D37](#d37-tblfmt-makes-no-promise-of-backward-compatibility-decided) | tblfmt makes no promise of backward compatibility | Decided |
 | [D38](#d38-the-agent-rules-are-in-agentsmd-and-claudemd-imports-them-amends-d34) | The agent rules are in AGENTS.md, and CLAUDE.md imports them | Amends D34 |
+| [D39](#d39-a-value-is-measured-by-grapheme-cluster-and-not-rune-by-rune-as-psql-does-decided) | A value is measured by grapheme cluster, and not rune by rune as psql does | Decided |
+| [D40](#d40-each-golden-set-has-an-emoji-version-and-the-test-writes-the-golden-files-amends-d7) | Each golden set has an emoji version, and the test writes the golden files | Amends D7 |
 
 ### D1. psql is the reference for the output. Decided.
 
@@ -738,6 +740,61 @@ the project wins where it conflicts with `go-pedantry`.
 
 This replaces item 1 of D34, which said that the rules were in `CLAUDE.md`
 and that there was no `AGENTS.md`.
+
+### D39. A value is measured by grapheme cluster, and not rune by rune as psql does. Decided.
+
+Certainty: High.
+
+Date: 2026-10-28.
+
+A grapheme cluster is the group of runes that a terminal draws as one
+character. Ken saw a column in usql that did not line up, and asked for the
+alignment to be fixed where possible. He does not want tblfmt to follow psql
+here, because psql counts each rune too.
+
+`FormatBytes` added the width of each rune. An emoji with a skin tone, such as
+U+1F44D U+1F3FD, is two wide runes, so it was counted 4 columns wide and a
+terminal draws it 2 wide. `FormatBytes` now copies the text that it does not
+escape, and measures each such run with `runewidth.StringWidth` when the run
+ends. A run ends at an escaped rune, a tab, a newline and the end of the
+value. `StringWidth` segments the run into grapheme clusters. tblfmt needs no
+new dependency for this, because go-runewidth v0.0.31 already segments text.
+
+The measure follows the current terminals that usql users are likely to have.
+xterm and some tmux configurations still draw each rune on its own, and there
+a column with such a cluster does not line up.
+
+One case is still wrong. go-runewidth counts a character that is text by
+default followed by U+FE0F, such as U+2764 U+FE0F, as 1 column, and a
+terminal draws it 2 wide. That fault is in go-runewidth. It is B38 in
+[BACKLOG.md](BACKLOG.md). Ken reports it upstream.
+
+`TestFormatBytesClusters` and `TestEncodeClusters` hold the cases. "Differences
+from `psql`" in `README.md` lists this difference.
+
+### D40. Each golden set has an emoji version, and the test writes the golden files. Amends D7.
+
+Certainty: High.
+
+Date: 2026-10-28.
+
+`testdata` has four more sets: `big-emoji`, `multi-emoji`, `tiny-emoji` and
+`wide-emoji`. Each uses the same 33 option files as the set it copies.
+`internal.BigEmoji` uses the seed `internal.BigEmojiSeed`, and its text adds
+emoji to the glyphs of `Big`. Some of the emoji are clusters of more than one
+rune: a skin tone, a flag, a keycap, U+FE0F, and emoji that U+200D joins.
+`MultiEmoji`, `TinyEmoji` and `WideEmoji` hold emoji next to a tab, a newline
+and an escaped rune. `Big` gives the same output as before.
+
+`go test -run TestFromMapFormats -update` writes each `NN.gld` from the output,
+and it writes a golden file that is missing. Before this, nothing could write
+a golden file. See B29.
+
+A golden file holds the output of tblfmt itself, so it cannot show that a
+column is padded wrong. `TestGoldenAlignment` can. It makes sure that each
+line of a table with border 2 has the same display width, with a tab stop
+every 8 columns. With the rune by rune measure of D39, all 32 tables with
+border 2 in the emoji sets fail it.
 
 ## Open questions for Ken
 

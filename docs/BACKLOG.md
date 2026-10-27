@@ -273,9 +273,10 @@ no program ran it.
 - Where: `testdata/genformats.go:73` and `testdata/genformats.go:83`.
 - Text: `w := gzip.NewWriter(out)` and `os.WriteFile(name+".gz", ...)`.
 - Plain description: `629b8a1` (2026-03-29) replaced the `.gz` files with the
-  `NN.in` and `NN.gld` files, and the tests no longer read `.gz`. So nothing
-  can regenerate the golden files. `a4a1779` removed the `go:generate` lines
-  that ran the generator.
+  `NN.in` and `NN.gld` files, and the tests no longer read `.gz`. `a4a1779`
+  removed the `go:generate` lines that ran the generator.
+- Since D40, `go test -run TestFromMapFormats -update .` writes the golden
+  files. `genformats.go` has no use now, and it can be removed.
 
 ### B30. The psql comparison helpers are dead code.
 
@@ -354,3 +355,17 @@ no program ran it.
 - Where: `_example/mysqltest.go`.
 - Plain description: `gofmt -l .` prints this file on main, so the check in
   `AGENTS.md` cannot print nothing until the file is formatted.
+
+### B38. go-runewidth counts an emoji variation sequence as 1 column.
+
+- Where: `graphemeWidth` in go-runewidth v0.0.31, which `FormatBytes` calls
+  through `runewidth.StringWidth`.
+- Plain description: a character that is text by default, followed by U+FE0F,
+  is one emoji 2 columns wide in a current terminal. Examples are U+2764
+  U+FE0F and the keycap U+0031 U+FE0F U+20E3. go-runewidth counts each of them
+  as 1 column, so tblfmt pads the cell by 1 column too many.
+- `TestFormatBytesClusters` holds the case for U+2764 U+FE0F with the width 1.
+  When go-runewidth counts it as 2, change the case, and write the golden
+  files again.
+- Status: on 2026-10-28, a report and a patch for go-runewidth were prepared.
+  Ken reports it upstream. See D39 in [PLAN.md](PLAN.md).

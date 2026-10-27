@@ -148,6 +148,18 @@ psql 18.6                 tblfmt
 See D28 in [docs/PLAN.md](docs/PLAN.md). For a left aligned last column, the
 code does not match this section yet. See open question 1 there.
 
+### Width of an emoji
+
+`tblfmt` measures the width of text by grapheme cluster. A grapheme cluster is
+the group of code points that a terminal draws as one character. `psql`
+measures each code point. An emoji with a skin tone, such as `👍🏽`, is two
+code points, and a current terminal draws it 2 columns wide. `psql` counts it
+4 columns wide and pads the cell by 2 columns too few. `tblfmt` counts it 2
+columns wide. See D39 in [docs/PLAN.md](docs/PLAN.md).
+
+A terminal that draws each code point on its own, such as xterm, does not line
+up such a column.
+
 ## Documentation
 
 | Document | What it holds |

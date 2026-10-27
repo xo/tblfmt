@@ -56,19 +56,48 @@ func Multi() *RS {
 	return r
 }
 
+// BigSeed is the seed of the big result set in the golden tests.
+const BigSeed = 1549508725559526476
+
+// BigEmojiSeed is the seed of the big result set with emoji in the golden
+// tests.
+const BigEmojiSeed = 20261028
+
 // Big creates a random, big result set using the provided seed.
 func Big(seed int64) *RS {
+	return big(seed, glyphs)
+}
+
+// BigEmoji creates a random, big result set using the provided seed. Its text
+// also holds emoji, and emoji clusters of more than one rune.
+func BigEmoji(seed int64) *RS {
+	return big(seed, emojiGlyphs)
+}
+
+// big creates a random, big result set, with text made from the glyphs.
+func big(seed int64, g []string) *RS {
 	src := rand.New(rand.NewSource(seed))
 	count := src.Intn(1000)
 	// generate rows
 	vals := make([][]any, count)
 	for i := range count {
-		p := newRrow(src)
+		p := newRrow(src, g)
 		vals[i] = []any{i + 1, p.name, p.dob, p.f, p.hash, p.char, p.z}
 	}
 	return &RS{
 		cols: []string{"id", "name", "dob", "float", "hash", "", "z"},
 		vals: [][][]any{vals},
+	}
+}
+
+// MultiEmoji creates a result set with multiple result sets, and with emoji.
+func MultiEmoji() *RS {
+	s, t := rsetEmoji(14), rsetEmoji(38)
+	return &RS{
+		cols: []string{"author_id", "name 👍🏽", "z"},
+		vals: [][][]any{
+			s[:2], s[2:], t,
+		},
 	}
 }
 
@@ -79,6 +108,18 @@ func Tiny() *RS {
 		vals: [][][]any{
 			{
 				{"x"},
+			},
+		},
+	}
+}
+
+// TinyEmoji creates a tiny result set with an emoji column name and value.
+func TinyEmoji() *RS {
+	return &RS{
+		cols: []string{"👍🏽"},
+		vals: [][][]any{
+			{
+				{"🇯🇵"},
 			},
 		},
 	}
@@ -102,6 +143,30 @@ func Wide() *RS {
 		vals: [][][]any{
 			{
 				{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+			},
+		},
+	}
+}
+
+// WideEmoji creates a wide result set. Each column name is 30 columns wide,
+// as the go-runewidth module measures it, and is made of emoji.
+func WideEmoji() *RS {
+	return &RS{
+		cols: []string{
+			strings.Repeat("👍🏽", 15),
+			strings.Repeat("🇯🇵", 15),
+			strings.Repeat("😀", 15),
+			strings.Repeat("日", 15),
+			strings.Repeat("🧑\u200d💻", 15),
+			strings.Repeat("1️⃣", 15),
+			strings.Repeat("👍🏿", 15),
+			strings.Repeat("🎉", 15),
+			strings.Repeat("❤️", 15),
+			strings.Repeat("e\u0301", 30),
+		},
+		vals: [][][]any{
+			{
+				{"👍🏽", "🇯🇵", "😀", "日", "🧑\u200d💻", "1️⃣", "👍🏿", "🎉", "❤️", "e\u0301"},
 			},
 		},
 	}
@@ -161,9 +226,9 @@ type rrow struct {
 	z    any
 }
 
-// newRrow creates a new random row using the rand source.
-func newRrow(src *rand.Rand) rrow {
-	hash := md5.Sum([]byte(rstr(src)))
+// newRrow creates a new random row using the rand source and the glyphs.
+func newRrow(src *rand.Rand, g []string) rrow {
+	hash := md5.Sum([]byte(rstr(src, g)))
 	var char []byte
 	if src.Intn(2) == 1 {
 		char = []byte{byte(int('a') + src.Intn(26))}
@@ -175,20 +240,20 @@ func newRrow(src *rand.Rand) rrow {
 		c := 1 + src.Intn(5)
 		m := make(map[string]any, c)
 		for range c {
-			r := []rune(rstr(src))
+			r := []rune(rstr(src, g))
 			m[string(r[0:3])] = string(r[3:])
 		}
 		z = m
 	case 3:
 		y := make([]any, 1+src.Intn(5))
 		for i := range y {
-			r := []rune(rstr(src))
+			r := []rune(rstr(src, g))
 			y[i] = string(r[0 : 1+src.Intn(6)])
 		}
 		z = y
 	}
 	return rrow{
-		name: rstr(src),
+		name: rstr(src, g),
 		dob:  rtime(src),
 		f:    src.Float64(),
 		hash: fmt.Appendf(nil, "%x", hash[:]),
@@ -197,14 +262,14 @@ func newRrow(src *rand.Rand) rrow {
 	}
 }
 
-// rstr creates a random string using the rand source.
-func rstr(src *rand.Rand) string {
+// rstr creates a random string of the glyphs using the rand source.
+func rstr(src *rand.Rand, g []string) string {
 	l := 6 + src.Intn(32)
-	r := make([]rune, l)
-	for i := range l {
-		r[i] = glyphs[src.Intn(len(glyphs))]
+	var sb strings.Builder
+	for range l {
+		sb.WriteString(g[src.Intn(len(g))])
 	}
-	return string(r)
+	return sb.String()
 }
 
 // rtime creates a random time using the rand source.
@@ -229,6 +294,24 @@ func rset(i int) [][]any {
 			fmt.Sprintf("test%d", i+8): "foo\bbar",
 		}},
 		{float64(i + 9), "slice", []string{"a", "b"}},
+	}
+}
+
+// rsetEmoji returns the values of a predefined result set that holds emoji.
+// Some emoji sit next to a tab, a newline or an escaped rune.
+func rsetEmoji(i int) [][]any {
+	return [][]any{
+		{float64(i), "👍🏽\t👍\t🇯🇵\t❤️", "😀"},
+		{float64(i + 1), "family\n👨\u200d👩\u200d👧\n", nil},
+		{float64(i + 2), "e\u0301 a\u0308 🧑\u200d💻", nil},
+		{float64(i + 3), "日本語\t👍🏿\t\t1️⃣", nil},
+		{float64(i + 4), "©️ ✔️ ☺️ ⌚\b🎉", "🎉\n"},
+		{float64(i + 5), "🏳️\u200d🌈\t🇺🇸🇯🇵\n\t👍🏽", nil},
+		{float64(i + 6), "emoji map", map[string]any{
+			"👍🏽":  "❤️",
+			"key": "🇯🇵\t日本",
+		}},
+		{float64(i + 7), "slice", []string{"😀", "👍🏽"}},
 	}
 }
 
@@ -327,7 +410,15 @@ func psqlEnc(n string, v any) string {
 	return "E'" + s[1:len(s)-1] + "'"
 }
 
-var glyphs = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _'\"\t\b\n\rゼ一二三四五六七八九十〇")
+var glyphs = strings.Split("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _'\"\t\b\n\rゼ一二三四五六七八九十〇", "")
+
+// emojiGlyphs are the glyphs and some emoji. Some emoji are clusters of more
+// than one rune: a skin tone, a flag, a keycap, the selector for the emoji
+// form (U+FE0F), and emoji joined with U+200D.
+var emojiGlyphs = append(append([]string{}, glyphs...),
+	"😀", "👍", "👍🏽", "👍🏿", "❤", "❤️", "🇯🇵", "🇺🇸", "1️⃣", "©️", "✔️", "☺️",
+	"⌚", "🎉", "🧑\u200d💻", "👨\u200d👩\u200d👧", "🏳️\u200d🌈", "e\u0301", "日本",
+)
 
 const psqlValuesQuery = `%s
 SELECT * FROM (

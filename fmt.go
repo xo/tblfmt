@@ -486,6 +486,18 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isRaw boo
 	res := &Value{
 		Tabs: make([][][2]int, 1),
 	}
+	// run is the start in Buf of the text that is copied as it is, or -1.
+	//
+	// note: the width of the text is measured by grapheme cluster when the
+	// run ends, and not rune by rune. A cluster such as an emoji with a skin
+	// tone holds two wide runes, and a terminal draws it 2 columns wide.
+	run := -1
+	measure := func() {
+		if run >= 0 {
+			res.Width += runewidth.StringWidth(string(res.Buf[run:]))
+			run = -1
+		}
+	}
 	var tmp [4]byte
 	var r rune
 	var l, w int
@@ -497,6 +509,7 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isRaw boo
 		}
 		// the decoded rune is invalid
 		if w == 1 && r == utf8.RuneError {
+			measure()
 			// replace with invalid if it is set, otherwise escape as hex
 			switch {
 			case invalid != nil:
@@ -519,34 +532,42 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isRaw boo
 		if isJSON {
 			switch r {
 			case '\a':
+				measure()
 				res.Buf = append(res.Buf, '\\', 'u', '0', '0', '0', '7')
 				res.Width += 6
 				continue
 			case '\b':
+				measure()
 				res.Buf = append(res.Buf, '\\', 'b')
 				res.Width += 2
 				continue
 			case '\f':
+				measure()
 				res.Buf = append(res.Buf, '\\', 'f')
 				res.Width += 2
 				continue
 			case '\n':
+				measure()
 				res.Buf = append(res.Buf, '\\', 'n')
 				res.Width += 2
 				continue
 			case '\r':
+				measure()
 				res.Buf = append(res.Buf, '\\', 'r')
 				res.Width += 2
 				continue
 			case '\t':
+				measure()
 				res.Buf = append(res.Buf, '\\', 't')
 				res.Width += 2
 				continue
 			case '"':
+				measure()
 				res.Buf = append(res.Buf, '\\', '"')
 				res.Width += 2
 				continue
 			case '\\':
+				measure()
 				res.Buf = append(res.Buf, '\\', '\\')
 				res.Width += 2
 				continue
@@ -554,15 +575,16 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isRaw boo
 		}
 		// raw (csv) escape
 		if isRaw {
+			if run < 0 {
+				run = len(res.Buf)
+			}
 			n := utf8.EncodeRune(tmp[:], r)
 			res.Buf = append(res.Buf, tmp[:n]...)
-			res.Width += runewidth.RuneWidth(r)
 			switch {
 			case r == sep:
 				res.Quoted = true
 			case r == quote && quote != 0:
 				res.Buf = append(res.Buf, tmp[:n]...)
-				res.Width += runewidth.RuneWidth(r)
 				res.Quoted = true
 			default:
 				res.Quoted = res.Quoted || unicode.IsSpace(r)
@@ -571,11 +593,14 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isRaw boo
 		}
 		// printable character
 		if strconv.IsGraphic(r) {
+			if run < 0 {
+				run = len(res.Buf)
+			}
 			n := utf8.EncodeRune(tmp[:], r)
 			res.Buf = append(res.Buf, tmp[:n]...)
-			res.Width += runewidth.RuneWidth(r)
 			continue
 		}
+		measure()
 		switch r {
 		// escape \a \b \f \r \v (Go special characters)
 		case '\a':
@@ -632,6 +657,7 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isRaw boo
 			}
 		}
 	}
+	measure()
 	return res
 }
 

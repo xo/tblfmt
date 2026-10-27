@@ -509,3 +509,80 @@ func TestFormatNotANumber(t *testing.T) {
 		}
 	}
 }
+
+// TestFormatBytesClusters makes sure that FormatBytes measures text by grapheme
+// cluster, as a current terminal draws it, and not rune by rune.
+//
+// Note: psql counts each rune, so it pads a cluster such as 👍🏽 by 2 columns
+// too few. tblfmt does not follow psql here. See D39 in docs/PLAN.md.
+func TestFormatBytesClusters(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		s     string
+		raw   bool
+		width int
+		lines []int
+		tabs  [][][2]int
+	}{
+		{"skin tone", "👍🏽", false, 2, nil, nil},
+		{"flag", "🇯🇵", false, 2, nil, nil},
+		{"combining mark", "é", false, 1, nil, nil},
+		{"wide text", "日本語", false, 6, nil, nil},
+		{"text around a cluster", "a👍🏽b", false, 4, nil, nil},
+		// note: go-runewidth v0.0.31 counts U+2764 U+FE0F as 1 column, and a
+		// current terminal draws it 2 wide. When go-runewidth counts it as 2,
+		// change this case to 2.
+		{"emoji presentation selector", "❤️", false, 1, nil, nil},
+		// U+200D is escaped as ‍, so the three emoji are measured apart
+		{"joined emoji", "👨‍👩‍👧", false, 2 + 6 + 2 + 6 + 2, nil, nil},
+		// \a is escaped, and ends the text on each side of it
+		{"escape between clusters", "👍🏽\a👍🏽", false, 2 + 2 + 2, nil, nil},
+		{"tab after a cluster", "👍🏽\t👍🏽", false, 2, nil, [][][2]int{{{8, 2}}}},
+		{"newline after a cluster", "👍🏽\n👍🏽👍🏽", false, 4, []int{2}, [][][2]int{nil, nil}},
+		{"raw", "👍🏽,👍🏽", true, 5, nil, nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			v := FormatBytes([]byte(test.s), nil, 0, false, test.raw, ',', '"')
+			if v.Width != test.width {
+				t.Errorf("expected width %d, got: %d", test.width, v.Width)
+			}
+			var lines []int
+			for _, nl := range v.Newlines {
+				lines = append(lines, nl[1])
+			}
+			if !reflect.DeepEqual(lines, test.lines) {
+				t.Errorf("expected line widths %v, got: %v", test.lines, lines)
+			}
+			if test.tabs == nil {
+				test.tabs = make([][][2]int, 1)
+			}
+			if !reflect.DeepEqual(v.Tabs, test.tabs) {
+				t.Errorf("expected tabs %v, got: %v", test.tabs, v.Tabs)
+			}
+		})
+	}
+}
+
+// TestEncodeClusters makes sure that an aligned table pads a column of
+// grapheme clusters to the same width on each line.
+func TestEncodeClusters(t *testing.T) {
+	t.Parallel()
+	buf := new(bytes.Buffer)
+	rs := internal.New([]string{"e", "n"}, [][]any{{"👍🏽", 1}, {"ab", 2}})
+	if err := EncodeAll(buf, rs, map[string]string{"format": "aligned", "border": "2"}); err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	exp := "+----+---+\n" +
+		"| e  | n |\n" +
+		"+----+---+\n" +
+		"| 👍🏽 | 1 |\n" +
+		"| ab | 2 |\n" +
+		"+----+---+\n" +
+		"(2 rows)\n"
+	if s := buf.String(); s != exp {
+		t.Errorf("expected:\n%s\ngot:\n%s", exp, s)
+	}
+}

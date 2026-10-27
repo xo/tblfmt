@@ -97,6 +97,14 @@ with `NN.gld`. It writes what it got to `NN.out`, so `diff NN.gld NN.out` shows
 a failure. `.gitattributes` marks both files as binary, because some of them
 hold a carriage return on purpose.
 
+Each set has an emoji version, such as `tiny-emoji`, with the same `.in`
+files. To write the golden files again after a change to the output, run
+`go test -run TestFromMapFormats -update .`. Then read the diff of the `.gld`
+files before you stage them. A golden file holds the output of `tblfmt`
+itself, so it cannot show that a column is padded wrong.
+`TestGoldenAlignment` makes sure that each line of a table with border 2 has
+the same display width.
+
 A test for a `psql` behavior holds the `psql` command and output in its
 comment. `TestEncodeNullAlign` and `TestEncodeNoColumns` are examples.
 

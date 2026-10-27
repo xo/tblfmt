@@ -2,13 +2,20 @@ package tblfmt
 
 import (
 	"bytes"
+	"errors"
+	"flag"
+	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
+	runewidth "github.com/mattn/go-runewidth"
 	"github.com/xo/tblfmt/internal"
 )
 
@@ -59,32 +66,32 @@ func TestFromMap(t *testing.T) {
 	}
 }
 
+// update makes TestFromMapFormats write each golden file from the output.
+var update = flag.Bool("update", false, "update the golden files")
+
+// goldenSets are the result sets of the golden tests, by the name of the
+// directory in testdata that holds their files.
+var goldenSets = map[string]func() *internal.RS{
+	"big":         func() *internal.RS { return internal.Big(internal.BigSeed) },
+	"multi":       internal.Multi,
+	"tiny":        internal.Tiny,
+	"wide":        internal.Wide,
+	"big-emoji":   func() *internal.RS { return internal.BigEmoji(internal.BigEmojiSeed) },
+	"multi-emoji": internal.MultiEmoji,
+	"tiny-emoji":  internal.TinyEmoji,
+	"wide-emoji":  internal.WideEmoji,
+}
+
 func TestFromMapFormats(t *testing.T) {
 	t.Parallel()
-	for _, typ := range []string{
-		"big",
-		"multi",
-		"tiny",
-		"wide",
-	} {
+	for _, typ := range slices.Sorted(maps.Keys(goldenSets)) {
 		t.Run(typ, func(t *testing.T) {
 			t.Parallel()
 			tests := loadTests(t, typ)
 			for _, test := range tests {
 				t.Run(test.idstr, func(t *testing.T) {
 					f, opts := FromMap(test.opts)
-					var rs ResultSet
-					switch typ {
-					case "big":
-						rs = internal.Big(1549508725559526476)
-					case "multi":
-						rs = internal.Multi()
-					case "tiny":
-						rs = internal.Tiny()
-					case "wide":
-						rs = internal.Wide()
-					}
-					enc, err := f(rs, opts...)
+					enc, err := f(goldenSets[typ](), opts...)
 					if err != nil {
 						t.Fatalf("expected no error, got: %v", err)
 					}
@@ -94,6 +101,12 @@ func TestFromMapFormats(t *testing.T) {
 					}
 					if err := os.WriteFile(test.out, buf.Bytes(), 0o644); err != nil {
 						t.Fatalf("expected no error, got: %v", err)
+					}
+					if *update {
+						if err := os.WriteFile(test.gld, buf.Bytes(), 0o644); err != nil {
+							t.Fatalf("expected no error, got: %v", err)
+						}
+						test.exp = buf.Bytes()
 					}
 					if s, exp := buf.String(), string(test.exp); s != exp {
 						t.Errorf("expected:\n%s\ngot:\n%s", exp, s)
@@ -169,7 +182,10 @@ func loadTests(t *testing.T, typ string) []goldTest {
 		opts := loadOpts(t, name)
 		gld := n + ".gld"
 		exp, err := os.ReadFile(gld)
-		if err != nil {
+		switch {
+		case *update && errors.Is(err, fs.ErrNotExist):
+			// -update writes the missing golden file
+		case err != nil:
 			t.Fatalf("unable to open %s: %v", gld, err)
 		}
 		tests = append(tests, goldTest{
@@ -228,4 +244,52 @@ loop:
 		}
 	}
 	return opts
+}
+
+// TestGoldenAlignment makes sure that each line of a table with border 2 in a
+// golden file has the same display width. A tab moves to the next multiple of
+// 8 columns, as in a terminal.
+//
+// Note: the golden files hold the output of tblfmt itself, so they cannot show
+// that a column is padded wrong. This test can.
+func TestGoldenAlignment(t *testing.T) {
+	t.Parallel()
+	for _, typ := range slices.Sorted(maps.Keys(goldenSets)) {
+		for _, test := range loadTests(t, typ) {
+			if test.opts["border"] != "2" || (test.opts["format"] != "aligned" && test.opts["format"] != "expanded") {
+				continue
+			}
+			t.Run(typ+"/"+test.idstr, func(t *testing.T) {
+				t.Parallel()
+				first := -1
+				for i, line := range strings.Split(string(test.exp), "\n") {
+					r, _ := utf8.DecodeRuneInString(line)
+					if !strings.ContainsRune("+|┌│├└╔║╠╚", r) {
+						first = -1
+						continue
+					}
+					w := displayWidth(line)
+					switch {
+					case first == -1:
+						first = w
+					case w != first:
+						t.Errorf("line %d is %d columns wide, expected %d: %q", i+1, w, first, line)
+					}
+				}
+			})
+		}
+	}
+}
+
+// displayWidth returns the width of the line in a terminal with a tab stop
+// every 8 columns.
+func displayWidth(line string) int {
+	var w int
+	for i, s := range strings.Split(line, "\t") {
+		if i != 0 {
+			w += 8 - w%8
+		}
+		w += runewidth.StringWidth(s)
+	}
+	return w
 }
