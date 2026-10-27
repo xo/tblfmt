@@ -494,7 +494,7 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isRaw boo
 	run := -1
 	measure := func() {
 		if run >= 0 {
-			res.Width += runewidth.StringWidth(string(res.Buf[run:]))
+			res.Width += runewidth.StringWidth(string(res.Buf[run:])) + emojiWidth(res.Buf[run:])
 			run = -1
 		}
 	}

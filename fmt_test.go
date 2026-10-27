@@ -530,10 +530,16 @@ func TestFormatBytesClusters(t *testing.T) {
 		{"combining mark", "é", false, 1, nil, nil},
 		{"wide text", "日本語", false, 6, nil, nil},
 		{"text around a cluster", "a👍🏽b", false, 4, nil, nil},
-		// note: go-runewidth v0.0.31 counts U+2764 U+FE0F as 1 column, and a
-		// current terminal draws it 2 wide. When go-runewidth counts it as 2,
-		// change this case to 2.
-		{"emoji presentation selector", "❤️", false, 1, nil, nil},
+		// note: go-runewidth v0.0.31 counts these as 1 column, and emojiWidth
+		// adds the missing column. See B38 in docs/BACKLOG.md.
+		{"emoji form", "\u2764\ufe0f", false, 2, nil, nil},
+		{"emoji form of a symbol", "\u00a9\ufe0f", false, 2, nil, nil},
+		{"keycap", "1\ufe0f\u20e3", false, 2, nil, nil},
+		{"emoji forms side by side", "\u2764\ufe0f\u2764\ufe0f", false, 4, nil, nil},
+		{"wide base with the selector", "\u231a\ufe0f", false, 2, nil, nil},
+		{"selector with no emoji form", "a\ufe0f", false, 1, nil, nil},
+		{"selector alone", "\ufe0f", false, 0, nil, nil},
+		{"joined in raw mode", "\U0001f3f3\ufe0f\u200d\U0001f308", true, 2, nil, nil},
 		// U+200D is escaped as ‍, so the three emoji are measured apart
 		{"joined emoji", "👨‍👩‍👧", false, 2 + 6 + 2 + 6 + 2, nil, nil},
 		// \a is escaped, and ends the text on each side of it

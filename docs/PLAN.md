@@ -62,8 +62,9 @@ A line number in D1 to D30 is at `04af38a`.
 | [D36](#d36-an-agent-stages-a-change-and-ken-commits-it-decided) | An agent stages a change, and Ken commits it | Decided |
 | [D37](#d37-tblfmt-makes-no-promise-of-backward-compatibility-decided) | tblfmt makes no promise of backward compatibility | Decided |
 | [D38](#d38-the-agent-rules-are-in-agentsmd-and-claudemd-imports-them-amends-d34) | The agent rules are in AGENTS.md, and CLAUDE.md imports them | Amends D34 |
-| [D39](#d39-a-value-is-measured-by-grapheme-cluster-and-not-rune-by-rune-as-psql-does-decided) | A value is measured by grapheme cluster, and not rune by rune as psql does | Decided |
+| [D39](#d39-a-value-is-measured-by-grapheme-cluster-and-not-rune-by-rune-as-psql-does-decided-amended-by-d41) | A value is measured by grapheme cluster, and not rune by rune as psql does | Decided. Amended by D41 |
 | [D40](#d40-each-golden-set-has-an-emoji-version-and-the-test-writes-the-golden-files-amends-d7) | Each golden set has an emoji version, and the test writes the golden files | Amends D7 |
+| [D41](#d41-tblfmt-counts-an-emoji-variation-sequence-as-2-columns-until-go-runewidth-does-amends-d39) | tblfmt counts an emoji variation sequence as 2 columns until go-runewidth does | Amends D39 |
 
 ### D1. psql is the reference for the output. Decided.
 
@@ -741,7 +742,7 @@ the project wins where it conflicts with `go-pedantry`.
 This replaces item 1 of D34, which said that the rules were in `CLAUDE.md`
 and that there was no `AGENTS.md`.
 
-### D39. A value is measured by grapheme cluster, and not rune by rune as psql does. Decided.
+### D39. A value is measured by grapheme cluster, and not rune by rune as psql does. Decided. Amended by D41.
 
 Certainty: High.
 
@@ -795,6 +796,30 @@ column is padded wrong. `TestGoldenAlignment` can. It makes sure that each
 line of a table with border 2 has the same display width, with a tab stop
 every 8 columns. With the rune by rune measure of D39, all 32 tables with
 border 2 in the emoji sets fail it.
+
+### D41. tblfmt counts an emoji variation sequence as 2 columns until go-runewidth does. Amends D39.
+
+Certainty: High.
+
+Date: 2026-10-28.
+
+D39 left one case wrong: go-runewidth v0.0.31 counts a narrow base followed
+by U+FE0F, such as U+2764 U+FE0F, as 1 column. Ken saw the emoji golden
+tables in a terminal, and the borders after such a sequence did not line up.
+He does not maintain go-runewidth, and a `replace` in `go.mod` does not reach
+a module that imports tblfmt. So tblfmt has a temporary workaround.
+
+`emojiWidth` in `emoji.go` adds 1 column for each base followed by U+FE0F that
+go-runewidth counts as 1 column. The bases come from
+`emoji-variation-sequences.txt` in Unicode 18.0.0, which names 371. A sequence
+that U+200D joins to another emoji is not counted, because go-runewidth
+already counts the joined cluster as 2. `emojiWidth` asks go-runewidth for the
+width of each sequence, so it adds nothing once go-runewidth is fixed.
+
+Each golden file is the same, byte for byte, as the output of tblfmt built
+with the patch that Ken sends to go-runewidth. `TestGoldenAlignment` counts
+these sequences as 2 columns too, so it fails on the golden files that D40
+wrote. B38 in [BACKLOG.md](BACKLOG.md) says how to remove the workaround.
 
 ## Open questions for Ken
 

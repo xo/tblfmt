@@ -1,86 +1,86 @@
-* Record 1                        
+* Record 1                         
 author_id 14 
 name 👍🏽   👍🏽	👍	🇯🇵	❤️ 
 z         😀 
-* Record 2                        
+* Record 2                         
 author_id 15 
-name 👍🏽   family                 +
-          👨\u200d👩\u200d👧     +
+name 👍🏽   family                  +
+          👨\u200d👩\u200d👧      +
            
 z          
 
-* Record 1                                
+* Record 1                                 
 author_id 16 
 name 👍🏽   é ä 🧑\u200d💻 
 z          
-* Record 2                                
+* Record 2                                 
 author_id 17 
 name 👍🏽   日本語	👍🏿		1️⃣ 
 z          
-* Record 3                                
+* Record 3                                 
 author_id 18 
 name 👍🏽   ©️ ✔️ ☺️ ⌚\b🎉 
-z         🎉                             +
+z         🎉                              +
            
-* Record 4                                
+* Record 4                                 
 author_id 19 
-name 👍🏽   🏳️\u200d🌈	🇺🇸🇯🇵             +
+name 👍🏽   🏳️\u200d🌈	🇺🇸🇯🇵              +
           	👍🏽 
 z          
-* Record 5                                
+* Record 5                                 
 author_id 20 
 name 👍🏽   emoji map 
-z         {                              +
-            "key": "🇯🇵\t日本",           +
+z         {                               +
+            "key": "🇯🇵\t日本",            +
             "👍🏽": "❤️"                    +
           } 
-* Record 6                                
+* Record 6                                 
 author_id 21 
 name 👍🏽   slice 
-z         [                              +
-            "😀",                        +
-            "👍🏽"                         +
+z         [                               +
+            "😀",                         +
+            "👍🏽"                          +
           ] 
 
-* Record 1                                
+* Record 1                                 
 author_id 38 
 name 👍🏽   👍🏽	👍	🇯🇵	❤️ 
 z         😀 
-* Record 2                                
+* Record 2                                 
 author_id 39 
-name 👍🏽   family                         +
-          👨\u200d👩\u200d👧             +
+name 👍🏽   family                          +
+          👨\u200d👩\u200d👧              +
            
 z          
-* Record 3                                
+* Record 3                                 
 author_id 40 
 name 👍🏽   é ä 🧑\u200d💻 
 z          
-* Record 4                                
+* Record 4                                 
 author_id 41 
 name 👍🏽   日本語	👍🏿		1️⃣ 
 z          
-* Record 5                                
+* Record 5                                 
 author_id 42 
 name 👍🏽   ©️ ✔️ ☺️ ⌚\b🎉 
-z         🎉                             +
+z         🎉                              +
            
-* Record 6                                
+* Record 6                                 
 author_id 43 
-name 👍🏽   🏳️\u200d🌈	🇺🇸🇯🇵             +
+name 👍🏽   🏳️\u200d🌈	🇺🇸🇯🇵              +
           	👍🏽 
 z          
-* Record 7                                
+* Record 7                                 
 author_id 44 
 name 👍🏽   emoji map 
-z         {                              +
-            "key": "🇯🇵\t日本",           +
+z         {                               +
+            "key": "🇯🇵\t日本",            +
             "👍🏽": "❤️"                    +
           } 
-* Record 8                                
+* Record 8                                 
 author_id 45 
 name 👍🏽   slice 
-z         [                              +
-            "😀",                        +
-            "👍🏽"                         +
+z         [                               +
+            "😀",                         +
+            "👍🏽"                          +
           ] 

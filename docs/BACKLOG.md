@@ -364,8 +364,12 @@ no program ran it.
   is one emoji 2 columns wide in a current terminal. Examples are U+2764
   U+FE0F and the keycap U+0031 U+FE0F U+20E3. go-runewidth counts each of them
   as 1 column, so tblfmt pads the cell by 1 column too many.
-- `TestFormatBytesClusters` holds the case for U+2764 U+FE0F with the width 1.
-  When go-runewidth counts it as 2, change the case, and write the golden
-  files again.
+- Workaround: since D41, `emojiWidth` in `emoji.go` adds the missing column.
+  It does nothing when go-runewidth counts the sequence as 2.
+- To remove the workaround after go-runewidth is fixed: move to the fixed
+  release, delete `emoji.go`, and delete the two calls to `emojiWidth`, in
+  `FormatBytes` and in `displayWidth` in `opts_test.go`. Then run
+  `go test -run TestFromMapFormats -update .`. The golden files must not
+  change.
 - Status: on 2026-10-28, a report and a patch for go-runewidth were prepared.
   Ken reports it upstream. See D39 in [PLAN.md](PLAN.md).

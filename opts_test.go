@@ -282,14 +282,15 @@ func TestGoldenAlignment(t *testing.T) {
 }
 
 // displayWidth returns the width of the line in a terminal with a tab stop
-// every 8 columns.
+// every 8 columns. It counts an emoji variation sequence as 2 columns, as a
+// current terminal draws it. See B38 in docs/BACKLOG.md.
 func displayWidth(line string) int {
 	var w int
 	for i, s := range strings.Split(line, "\t") {
 		if i != 0 {
 			w += 8 - w%8
 		}
-		w += runewidth.StringWidth(s)
+		w += runewidth.StringWidth(s) + emojiWidth([]byte(s))
 	}
 	return w
 }

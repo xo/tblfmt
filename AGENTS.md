@@ -80,6 +80,8 @@ are at the end of `docs/PLAN.md`.
 - `encode.go` holds every encoder: `TableEncoder`, `ExpandedEncoder`,
   `JSONEncoder`, `UnalignedEncoder` (and CSV) and `TemplateEncoder`.
 - `fmt.go` holds the `Formatter` interface, `EscapeFormatter` and `Value`.
+- `emoji.go` holds a temporary workaround for a width that go-runewidth
+  counts wrong. See D41 in `docs/PLAN.md`.
 - `opts.go` holds the `Option` funcs and `FromMap`, which reads `psql` `\pset`
   names.
 - `style.go` holds the line styles and the summary.
