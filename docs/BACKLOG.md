@@ -43,7 +43,6 @@ no program ran it.
   output starts with the summary line and then `-[ RECORD 1 ]-`.
 - Origin: `b4e589b` (2024-04-01). Before it, the method `enc.summarize` wrote
   to `enc.w` and ignored its argument.
-- It also bypasses the pager when one is running.
 
 ### B3. The flush after every 1000 rows never runs.
 
@@ -51,7 +50,7 @@ no program ran it.
   `ExpandedEncoder.encodeVals`.
 - Text: `if i+1%1000 == 0 {` with the comment `// check error every 1k rows`.
 - Plain description: `%` binds tighter than `+`, so the test is `i+1 == 0`,
-  which is never true. A write error, such as a closed pager, is found only at
+  which is never true. A write error, such as a closed pipe, is found only at
   the final flush.
 - Origin: `184dbaa` (2021-02-05). Read.
 
@@ -62,18 +61,6 @@ no program ran it.
 - Plain description: `WithCount(2)` with five rows and border 2 draws a
   bottom line after rows 2, 4 and 5, so one table looks like three.
 - Origin: `184dbaa` (2021-02-05) moved the end border into the loop. Probe.
-
-### B5. A pager that starts on a later batch loses the output before it.
-
-- Where: `encode.go:195-203`, and the same pattern at `encode.go:181-189` and
-  `encode.go:618-626`.
-- Text: `enc.w = bufio.NewWriterSize(cmdBuf, 2048)`.
-- Plain description: the pager check runs for each batch. When a later batch
-  starts the pager, `enc.w` is replaced without a flush, so the header and the
-  earlier rows in the old buffer are never written.
-- Probe: `WithCount(1)`, `WithPager("cat")` and `WithMinPagerHeight(6)`, with
-  a short first row and a tall second row. The output has only the second row
-  and the summary.
 
 ### B6. The expanded encoder ignores the formatter options.
 
@@ -94,15 +81,6 @@ no program ran it.
   `expanded: auto`, and prints no footer with `expanded: on`.
 - Probe. Which one is right is not recorded. See open question 3 in
   [PLAN.md](PLAN.md).
-
-### B8. The table height counts the mid divider in the wrong case.
-
-- Where: `encode.go:432-435`, in `TableEncoder.tableHeight`.
-- Text: `// mid divider`, then `if enc.inline {`.
-- Plain description: `header` draws the mid divider when `inline` is false,
-  and `tableHeight` counts it when `inline` is true. The height is one line off
-  in both cases, which moves the pager threshold by one line.
-- Read.
 
 ### B9. The summary line ends with the platform newline and not the encoder's newline.
 

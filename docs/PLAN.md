@@ -33,7 +33,7 @@ A line number in D1 to D30 is at `04af38a`.
 | [D7](#d7-the-output-is-checked-against-golden-files-decided) | The output is checked against golden files | Decided |
 | [D8](#d8-output-that-is-too-wide-switches-to-expanded-mode-as-with-psql-expanded-auto-decided) | Output that is too wide switches to expanded mode, as with psql `expanded auto` | Decided |
 | [D9](#d9-the-random-test-data-uses-a-fixed-seed-decided) | The random test data uses a fixed seed | Decided |
-| [D10](#d10-a-pager-that-quits-early-is-not-an-error-decided) | A pager that quits early is not an error | Decided |
+| [D10](#d10-a-pager-that-quits-early-is-not-an-error-superseded-by-d42) | A pager that quits early is not an error | Superseded by D42 |
 | [D11](#d11-tests-run-in-github-actions-on-linux-and-lint-has-a-config-but-no-ci-job-decided) | Tests run in GitHub Actions on Linux, and lint has a config but no CI job | Decided |
 | [D12](#d12-the-crosstab-view-follows-psql-crosstabview-decided) | The crosstab view follows psql `\crosstabview` | Decided |
 | [D13](#d13-a-crosstab-view-covers-one-result-set-decided) | A crosstab view covers one result set | Decided |
@@ -65,6 +65,7 @@ A line number in D1 to D30 is at `04af38a`.
 | [D39](#d39-a-value-is-measured-by-grapheme-cluster-and-not-rune-by-rune-as-psql-does-decided-amended-by-d41) | A value is measured by grapheme cluster, and not rune by rune as psql does | Decided. Amended by D41 |
 | [D40](#d40-each-golden-set-has-an-emoji-version-and-the-test-writes-the-golden-files-amends-d7) | Each golden set has an emoji version, and the test writes the golden files | Amends D7 |
 | [D41](#d41-tblfmt-counts-an-emoji-variation-sequence-as-2-columns-until-go-runewidth-does-amends-d39) | tblfmt counts an emoji variation sequence as 2 columns until go-runewidth does | Amends D39 |
+| [D42](#d42-tblfmt-does-not-run-a-pager-and-usql-does-supersedes-d10) | tblfmt does not run a pager, and usql does | Supersedes D10 |
 
 ### D1. psql is the reference for the output. Decided.
 
@@ -230,7 +231,7 @@ random time in UTC. The golden tests of D7 depend on this seed.
 
 Reason not recorded.
 
-### D10. A pager that quits early is not an error. Decided.
+### D10. A pager that quits early is not an error. Superseded by D42.
 
 Certainty: High.
 
@@ -820,6 +821,39 @@ Each golden file is the same, byte for byte, as the output of tblfmt built
 with the patch that Ken sends to go-runewidth. `TestGoldenAlignment` counts
 these sequences as 2 columns too, so it fails on the golden files that D40
 wrote. B38 in [BACKLOG.md](BACKLOG.md) says how to remove the workaround.
+
+### D42. tblfmt does not run a pager, and usql does. Supersedes D10.
+
+Certainty: High.
+
+Date: 2026-10-29.
+
+Ken decided to remove the pager from tblfmt completely. usql runs it in a new
+package, `usql/pager`. An encoder writes only to the `io.Writer` that the
+caller gives it.
+
+This change removes the options `WithPager`, `WithMinPagerWidth` and
+`WithMinPagerHeight`, the funcs `startPager`, `checkErr` and `pagerOpts`, and
+the `tableHeight` methods. `FromMap` does not read the keys `pager`,
+`pager_cmd` and `pager_min_lines`. It ignores them, as it ignores each key
+that it does not know.
+
+The pager in tblfmt had these faults:
+
+1. It ran `exec.Command(pagerCmd)`, so a command with arguments, such as
+   `PAGER="less -S"`, failed.
+2. Its output went to the writer that usql passed in. That writer is the
+   rline session and not the terminal, so `less` acted like `cat`.
+3. Only the table and expanded encoders started it. Other formats were never
+   paged.
+4. It decided from one batch of rows. When a later batch started it, the
+   output of the earlier batches was lost.
+
+usql now pages all of its output with one writer. The writer holds the output
+until it is taller or wider than the terminal, and then starts the pager on
+the terminal. tblfmt has no compatibility promise (D37). usql does not call
+the removed options, and it does not set the pager keys. `consolesize-go`
+stays, because `expanded: auto` uses it.
 
 ## Open questions for Ken
 

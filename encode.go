@@ -5,12 +5,9 @@ import (
 	"bytes"
 	"encoding/json/jsontext"
 	json "encoding/json/v2"
-	"errors"
 	"fmt"
 	"io"
-	"os/exec"
 	"strings"
-	"syscall"
 
 	runewidth "github.com/mattn/go-runewidth"
 )
@@ -64,18 +61,6 @@ type TableEncoder struct {
 	// minExpandWidth is the table width at which the encoder switches to the
 	// ExpandedEncoder. Zero turns off the switch.
 	minExpandWidth int
-	// minPagerWidth is the table width at which the encoder sends its output
-	// to the pager. Zero turns off the width test. The height test can still
-	// start the pager.
-	minPagerWidth int
-	// minPagerHeight is the table height at which the encoder sends its
-	// output to the pager. Zero turns off the height test. The width test can
-	// still start the pager.
-	minPagerHeight int
-	// pagerCmd is the pager command. The encoder starts it when the table
-	// height is minPagerHeight or more, or when the table width is
-	// minPagerWidth or more.
-	pagerCmd string
 	// scanCount is the number of rows that the encoder scanned from the result
 	// set.
 	scanCount int
@@ -152,8 +137,6 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	var cmd *exec.Cmd
-	var cmdBuf io.WriteCloser
 	for {
 		var vals [][]*Value
 		// read the next batch
@@ -180,28 +163,10 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 				return err
 			}
 			exp.calcWidth(vals)
-			if exp.pagerCmd != "" && cmd == nil &&
-				((exp.minPagerHeight != 0 && exp.tableHeight(vals) >= exp.minPagerHeight) ||
-					(exp.minPagerWidth != 0 && exp.tableWidth() >= exp.minPagerWidth)) {
-				cmd, cmdBuf, err = startPager(exp.pagerCmd, w)
-				if err != nil {
-					return err
-				}
-				exp.w = bufio.NewWriterSize(cmdBuf, 2048)
-			}
 			if err := exp.encodeVals(vals); err != nil {
-				return checkErr(err, cmd)
-			}
-			continue
-		}
-		if enc.pagerCmd != "" && cmd == nil &&
-			((enc.minPagerHeight != 0 && enc.tableHeight(vals) >= enc.minPagerHeight) ||
-				(enc.minPagerWidth != 0 && enc.tableWidth() >= enc.minPagerWidth)) {
-			cmd, cmdBuf, err = startPager(enc.pagerCmd, w)
-			if err != nil {
 				return err
 			}
-			enc.w = bufio.NewWriterSize(cmdBuf, 2048)
+			continue
 		}
 		// write the header if the encoder did not write it yet
 		if !wroteHeader {
@@ -209,7 +174,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 			enc.header()
 		}
 		if err := enc.encodeVals(vals); err != nil {
-			return checkErr(err, cmd)
+			return err
 		}
 		// draw the end border
 		if enc.border >= 2 {
@@ -232,14 +197,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 	if err := summarize(enc.w, enc.summary, enc.scanCount); err != nil {
 		return err
 	}
-	if err := enc.w.Flush(); err != nil {
-		return checkErr(err, cmd)
-	}
-	if cmd != nil {
-		_ = cmdBuf.Close()
-		return cmd.Wait()
-	}
-	return nil
+	return enc.w.Flush()
 }
 
 func (enc *TableEncoder) encodeVals(vals [][]*Value) error {
@@ -442,45 +400,6 @@ func (enc *TableEncoder) tableWidth() int {
 	return width
 }
 
-// tableHeight calculates the total height of the table.
-func (enc *TableEncoder) tableHeight(rows [][]*Value) int {
-	height := 0
-	if enc.title != nil && enc.title.Width != 0 {
-		height += strings.Count(string(enc.title.Buf), "\n")
-	}
-	// top border
-	if enc.border >= 2 && !enc.inline {
-		height++
-	}
-	// header
-	height++
-	// mid divider
-	if enc.inline {
-		height++
-	}
-	for _, row := range rows {
-		largest := 1
-		for _, cell := range row {
-			if cell == nil {
-				cell = enc.empty
-			}
-			if len(cell.Newlines) > largest {
-				largest = len(cell.Newlines)
-			}
-		}
-		height += largest
-	}
-	// end border
-	if enc.border >= 2 {
-		height++
-	}
-	// scanCount is not the final count at this point, but it is better than no count
-	if enc.summary != nil && enc.summary[-1] != nil || enc.summary[enc.scanCount] != nil {
-		height++
-	}
-	return height
-}
-
 // row draws a table row.
 //
 // Note: a row that has no values draws no line, as in psql.
@@ -630,8 +549,6 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	var cmd *exec.Cmd
-	var cmdBuf io.WriteCloser
 	wroteTitle := enc.skipHeader
 	for {
 		var vals [][]*Value
@@ -650,15 +567,6 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 			continue
 		}
 		enc.calcWidth(vals)
-		if enc.pagerCmd != "" && cmd == nil &&
-			((enc.minPagerHeight != 0 && enc.tableHeight(vals) >= enc.minPagerHeight) ||
-				(enc.minPagerWidth != 0 && enc.tableWidth() >= enc.minPagerWidth)) {
-			cmd, cmdBuf, err = startPager(enc.pagerCmd, w)
-			if err != nil {
-				return err
-			}
-			enc.w = bufio.NewWriterSize(cmdBuf, 2048)
-		}
 		// write the title if the encoder did not write it yet
 		if !wroteTitle {
 			wroteTitle = true
@@ -668,21 +576,14 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 			}
 		}
 		if err := enc.encodeVals(vals); err != nil {
-			return checkErr(err, cmd)
+			return err
 		}
 	}
 	// write the summary
 	if err := summarize(w, enc.summary, enc.scanCount); err != nil {
 		return err
 	}
-	if err := enc.w.Flush(); err != nil {
-		return checkErr(err, cmd)
-	}
-	if cmd != nil {
-		_ = cmdBuf.Close()
-		return cmd.Wait()
-	}
-	return nil
+	return enc.w.Flush()
 }
 
 func (enc *ExpandedEncoder) encodeVals(vals [][]*Value) error {
@@ -747,33 +648,6 @@ func (enc *ExpandedEncoder) calcWidth(vals [][]*Value) {
 			enc.maxWidths[1] = max(enc.maxWidths[1], cell.MaxWidth(offset, enc.tab))
 		}
 	}
-}
-
-// tableHeight calculates the total height of the table.
-func (enc *ExpandedEncoder) tableHeight(rows [][]*Value) int {
-	height := 0
-	if enc.title != nil && enc.title.Width != 0 {
-		height += strings.Count(string(enc.title.Buf), "\n")
-	}
-	for _, row := range rows {
-		// record header
-		height++
-		for _, cell := range row {
-			if cell == nil {
-				cell = enc.empty
-			}
-			height += 1 + len(cell.Newlines)
-		}
-	}
-	// end border
-	if enc.border >= 2 {
-		height++
-	}
-	// scanCount is not the final count at this point, but it is better than no count
-	if enc.summary != nil && enc.summary[-1] != nil || enc.summary[enc.scanCount] != nil {
-		height++
-	}
-	return height
 }
 
 func (enc *ExpandedEncoder) record(i int, vals []*Value, rs rowStyle) {
@@ -1434,24 +1308,4 @@ func summarize(w io.Writer, summary Summary, count int) error {
 		}
 	}
 	return nil
-}
-
-func startPager(pagerCmd string, w io.Writer) (*exec.Cmd, io.WriteCloser, error) {
-	cmd := exec.Command(pagerCmd)
-	cmd.Stdout = w
-	cmd.Stderr = w
-	cmdBuf, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, nil, err
-	}
-	return cmd, cmdBuf, cmd.Start()
-}
-
-func checkErr(err error, cmd *exec.Cmd) error {
-	if cmd != nil && errors.Is(err, syscall.EPIPE) {
-		// a broken pipe means that the pager stopped before it read all the
-		// data, and this can be normal
-		return nil
-	}
-	return err
 }

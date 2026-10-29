@@ -171,7 +171,6 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			// an empty summary map turns off the summary
 			tableOpts = append(tableOpts, WithSummary(Summary{}))
 		}
-		tableOpts = pagerOpts(tableOpts, opts)
 		return NewTableEncoder, tableOpts
 	case "aligned":
 		tableOpts := []Option{
@@ -212,7 +211,6 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 				}
 			}
 		}
-		tableOpts = pagerOpts(tableOpts, opts)
 		builder := NewTableEncoder
 		if e, ok := opts["expanded"]; ok {
 			switch e {
@@ -763,50 +761,6 @@ func WithMinExpandWidth(w int) Option {
 	}
 }
 
-// WithMinPagerWidth is an encoder option that sets the maximum width before
-// the encoder sends the output to the pager.
-func WithMinPagerWidth(w int) Option {
-	return option{
-		table: func(enc *TableEncoder) error {
-			enc.minPagerWidth = w
-			return nil
-		},
-		expanded: func(enc *ExpandedEncoder) error {
-			enc.minPagerWidth = w
-			return nil
-		},
-	}
-}
-
-// WithMinPagerHeight is an encoder option that sets the maximum height before
-// the encoder sends the output to the pager.
-func WithMinPagerHeight(h int) Option {
-	return option{
-		table: func(enc *TableEncoder) error {
-			enc.minPagerHeight = h
-			return nil
-		},
-		expanded: func(enc *ExpandedEncoder) error {
-			enc.minPagerHeight = h
-			return nil
-		},
-	}
-}
-
-// WithPager is an encoder option that sets the pager command.
-func WithPager(p string) Option {
-	return option{
-		table: func(enc *TableEncoder) error {
-			enc.pagerCmd = p
-			return nil
-		},
-		expanded: func(enc *ExpandedEncoder) error {
-			enc.pagerCmd = p
-			return nil
-		},
-	}
-}
-
 // withError is an encoder option that forces an error.
 func withError(err error) Option {
 	return option{
@@ -834,31 +788,4 @@ func resultSetColumns(resultSet ResultSet, n int) ([]*sql.ColumnType, error) {
 		return nil, ErrResultSetReturnedInvalidColumnTypes
 	}
 	return cols, nil
-}
-
-// pagerOpts adds pager options to the table options.
-func pagerOpts(tableOpts []Option, opts map[string]string) []Option {
-	pager, pagerCmd := opts["pager"], opts["pager_cmd"]
-	if pager == "" || pagerCmd == "" {
-		return tableOpts
-	}
-	tableOpts = append(tableOpts, WithPager(pagerCmd))
-	switch pager {
-	case "on":
-		cols, rows := consolesize.GetConsoleSize()
-		if cstr, ok := opts["columns"]; ok && cstr != "" {
-			if c, err := strconv.ParseUint(cstr, 10, 32); err == nil && c != 0 {
-				cols = int(c)
-			}
-		}
-		if rstr, ok := opts["pager_min_lines"]; ok && rstr != "" {
-			if r, err := strconv.ParseUint(rstr, 10, 32); err == nil && r != 0 {
-				rows = int(r)
-			}
-		}
-		tableOpts = append(tableOpts, WithMinPagerWidth(cols+1), WithMinPagerHeight(rows+1))
-	case "always":
-		tableOpts = append(tableOpts, WithMinPagerWidth(-1), WithMinPagerHeight(-1))
-	}
-	return tableOpts
 }
