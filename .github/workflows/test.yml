@@ -17,9 +17,9 @@ jobs:
       run: |
         git config --global core.autocrlf input
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
     - name: Install Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v7
       with:
         go-version: stable
         cache-dependency-path: |
@@ -38,9 +38,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
     - name: Install Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v7
       with:
         go-version: stable
         cache-dependency-path: |
@@ -71,15 +71,15 @@ jobs:
       DBMETA_COMMIT: a58e5c09440898065ff4d2d099378cc85cf93ec1
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
     - name: Checkout dbmeta
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         repository: xo/dbmeta
         ref: ${{ env.DBMETA_COMMIT }}
         path: dbmeta
     - name: Install Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v7
       with:
         go-version: stable
         cache-dependency-path: |
