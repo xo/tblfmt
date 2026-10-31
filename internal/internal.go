@@ -2,31 +2,12 @@
 package internal
 
 import (
-	"bytes"
 	"crypto/md5"
-	"encoding/json/jsontext"
-	json "encoding/json/v2"
 	"fmt"
-	"io"
 	"math/rand"
-	"os/exec"
-	"runtime"
-	"strconv"
 	"strings"
 	"time"
-	"unicode"
 )
-
-func init() {
-	if runtime.GOOS == "windows" {
-		newline = []byte("\r\n")
-	} else {
-		newline = []byte("\n")
-	}
-}
-
-// Divider is a divider.
-const Divider = "==============================================="
 
 // RS is a result set.
 type RS struct {
@@ -315,101 +296,6 @@ func rsetEmoji(i int) [][]any {
 	}
 }
 
-// ResultSet is the shared interface for a result set.
-type ResultSet interface {
-	Next() bool
-	Scan(...any) error
-	Columns() ([]string, error)
-	Close() error
-	Err() error
-	NextResultSet() bool
-}
-
-// PsqlEncodeAll runs one values query in psql for each result set. It writes
-// the output that it captures to the writer.
-func PsqlEncodeAll(w io.Writer, resultSet ResultSet, params map[string]string, dsn string) error {
-	if err := PsqlEncode(w, resultSet, params, dsn); err != nil {
-		return err
-	}
-	for resultSet.NextResultSet() {
-		if _, err := w.Write(newline); err != nil {
-			return err
-		}
-		if err := PsqlEncode(w, resultSet, params, dsn); err != nil {
-			return err
-		}
-	}
-	if _, err := w.Write(newline); err != nil {
-		return err
-	}
-	return nil
-}
-
-// PsqlEncode runs one values query with psql. It writes the output that it
-// captures to the writer.
-func PsqlEncode(w io.Writer, resultSet ResultSet, params map[string]string, dsn string) error {
-	// read values
-	var vals strings.Builder
-	var i int
-	for resultSet.Next() {
-		var id, name, z any
-		if err := resultSet.Scan(&id, &name, &z); err != nil {
-			return err
-		}
-		var extra string
-		if i != 0 {
-			extra = ","
-		}
-		n := name.(string)
-		vals.WriteString(fmt.Sprintf("%s\n    (%v,E'%s', %s)", extra, id, psqlEsc(n), psqlEnc(n, z)))
-		i++
-	}
-	if err := resultSet.Err(); err != nil {
-		return err
-	}
-	// build pset
-	var pset strings.Builder
-	for k, v := range params {
-		pset.WriteString(fmt.Sprintf("\n\\pset %s '%s'", k, v))
-	}
-	// exec
-	stdout := new(bytes.Buffer)
-	q := fmt.Sprintf(psqlValuesQuery, pset.String(), vals.String())
-	cmd := exec.Command("psql", dsn, "-qX")
-	cmd.Stdin, cmd.Stdout = bytes.NewReader([]byte(q)), stdout
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-	if _, err := w.Write(bytes.TrimRightFunc(stdout.Bytes(), unicode.IsSpace)); err != nil {
-		return err
-	}
-	_, err := w.Write(newline)
-	return err
-}
-
-// psqlEsc escapes a string as a psql string.
-func psqlEsc(s string) string {
-	s = strings.ReplaceAll(s, "\n", `\n`)
-	s = strings.ReplaceAll(s, "\r", `\r`)
-	s = strings.ReplaceAll(s, "\t", `\t`)
-	s = strings.ReplaceAll(s, "\b", `\b`)
-	s = strings.ReplaceAll(s, "袈", `\u8888`)
-	return s
-}
-
-// psqlEnc encodes v based on n.
-func psqlEnc(n string, v any) string {
-	if n != "javascript" && n != "slice" {
-		return "NULL"
-	}
-	buf, err := json.Marshal(v, json.Deterministic(true), jsontext.WithIndent("  "), jsontext.EscapeForHTML(true))
-	if err != nil {
-		panic(err)
-	}
-	s := strconv.QuoteToASCII(string(buf))
-	return "E'" + s[1:len(s)-1] + "'"
-}
-
 var glyphs = strings.Split("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _'\"\t\b\n\rゼ一二三四五六七八九十〇", "")
 
 // emojiGlyphs are the glyphs and some emoji. Some emoji are clusters of more
@@ -419,11 +305,3 @@ var emojiGlyphs = append(append([]string{}, glyphs...),
 	"😀", "👍", "👍🏽", "👍🏿", "❤", "❤️", "🇯🇵", "🇺🇸", "1️⃣", "©️", "✔️", "☺️",
 	"⌚", "🎉", "🧑\u200d💻", "👨\u200d👩\u200d👧", "🏳️\u200d🌈", "e\u0301", "日本",
 )
-
-const psqlValuesQuery = `%s
-SELECT * FROM (
-  VALUES%s
-) AS t (author_id, name, z);`
-
-// newline is the default newline used by the system.
-var newline []byte
