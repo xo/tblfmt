@@ -1,0 +1,27 @@
+\begin{longtable}{l | l | l | l | l | l | l | l | l | l}
+\small\textbf{\textit{👍🏽👍🏽👍🏽👍🏽👍🏽👍🏽👍🏽👍🏽👍🏽👍🏽👍🏽👍🏽👍🏽👍🏽👍🏽}} & \small\textbf{\textit{🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵}} & \small\textbf{\textit{😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀}} & \small\textbf{\textit{日日日日日日日日日日日日日日日}} & \small\textbf{\textit{🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻}} & \small\textbf{\textit{1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣}} & \small\textbf{\textit{👍🏿👍🏿👍🏿👍🏿👍🏿👍🏿👍🏿👍🏿👍🏿👍🏿👍🏿👍🏿👍🏿👍🏿👍🏿}} & \small\textbf{\textit{🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉}} & \small\textbf{\textit{❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️}} & \small\textbf{\textit{éééééééééééééééééééééééééééééé}} \\
+\midrule
+\endfirsthead
+\small\textbf{\textit{👍🏽👍🏽👍🏽👍🏽👍🏽👍🏽👍🏽👍🏽👍🏽👍🏽👍🏽👍🏽👍🏽👍🏽👍🏽}} & \small\textbf{\textit{🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵🇯🇵}} & \small\textbf{\textit{😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀}} & \small\textbf{\textit{日日日日日日日日日日日日日日日}} & \small\textbf{\textit{🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻🧑‍💻}} & \small\textbf{\textit{1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣}} & \small\textbf{\textit{👍🏿👍🏿👍🏿👍🏿👍🏿👍🏿👍🏿👍🏿👍🏿👍🏿👍🏿👍🏿👍🏿👍🏿👍🏿}} & \small\textbf{\textit{🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉}} & \small\textbf{\textit{❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️}} & \small\textbf{\textit{éééééééééééééééééééééééééééééé}} \\
+\midrule
+\endhead
+\raggedright{👍🏽}
+&
+\raggedright{🇯🇵}
+&
+\raggedright{😀}
+&
+\raggedright{日}
+&
+\raggedright{🧑‍💻}
+&
+\raggedright{1️⃣}
+&
+\raggedright{👍🏿}
+&
+\raggedright{🎉}
+&
+\raggedright{❤️}
+&
+\raggedright{é} \tabularnewline
+\end{longtable}

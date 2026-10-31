@@ -1,0 +1,70 @@
+.LP
+.TS
+center;
+r | l | l.
+\fIauthor_id\fP	\fIname\fP	\fIz\fP
+_
+14	a	b	c	d	x
+15	aoeu
+test
+	
+.TE
+.DS L
+(2 rows)
+.DE
+
+.LP
+.TS
+center;
+r | l | l.
+\fIauthor_id\fP	\fIname\fP	\fIz\fP
+_
+16	foo\(rsx08bar	
+17	袈	袈		袈	
+18	a	b	\(rsr
+	a	a
+
+19	袈	袈		袈
+	
+20	javascript	{
+  "test21": "a value",
+  "test22": "foo\(rsbbar"
+}
+23	slice	[
+  "a",
+  "b"
+]
+.TE
+.DS L
+(6 rows)
+.DE
+
+.LP
+.TS
+center;
+r | l | l.
+\fIauthor_id\fP	\fIname\fP	\fIz\fP
+_
+38	a	b	c	d	x
+39	aoeu
+test
+	
+40	foo\(rsx08bar	
+41	袈	袈		袈	
+42	a	b	\(rsr
+	a	a
+
+43	袈	袈		袈
+	
+44	javascript	{
+  "test45": "a value",
+  "test46": "foo\(rsbbar"
+}
+47	slice	[
+  "a",
+  "b"
+]
+.TE
+.DS L
+(8 rows)
+.DE

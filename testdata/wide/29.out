@@ -1,31 +1,28 @@
-<table>
-  <caption></caption>
-  <thead>
-    <tr>
-      <th align="left">aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</th>
-      <th align="left">bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb</th>
-      <th align="left">cccccccccccccccccccccccccccccc</th>
-      <th align="left">dddddddddddddddddddddddddddddd</th>
-      <th align="left">eeeeeeeeeeeeeeeeeeeeeeeeeeeeee</th>
-      <th align="left">ffffffffffffffffffffffffffffff</th>
-      <th align="left">gggggggggggggggggggggggggggggg</th>
-      <th align="left">hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh</th>
-      <th align="left">iiiiiiiiiiiiiiiiiiiiiiiiiiiiii</th>
-      <th align="left">jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td align="left">1</td>
-      <td align="left">2</td>
-      <td align="left">3</td>
-      <td align="left">4</td>
-      <td align="left">5</td>
-      <td align="left">6</td>
-      <td align="left">7</td>
-      <td align="left">8</td>
-      <td align="left">9</td>
-      <td align="left">10</td>
-    </tr>
-  </tbody>
+<table border="1">
+  <tr>
+    <th align="center">aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</th>
+    <th align="center">bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb</th>
+    <th align="center">cccccccccccccccccccccccccccccc</th>
+    <th align="center">dddddddddddddddddddddddddddddd</th>
+    <th align="center">eeeeeeeeeeeeeeeeeeeeeeeeeeeeee</th>
+    <th align="center">ffffffffffffffffffffffffffffff</th>
+    <th align="center">gggggggggggggggggggggggggggggg</th>
+    <th align="center">hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh</th>
+    <th align="center">iiiiiiiiiiiiiiiiiiiiiiiiiiiiii</th>
+    <th align="center">jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj</th>
+  </tr>
+  <tr valign="top">
+    <td align="left">1</td>
+    <td align="left">2</td>
+    <td align="left">3</td>
+    <td align="left">4</td>
+    <td align="left">5</td>
+    <td align="left">6</td>
+    <td align="left">7</td>
+    <td align="left">8</td>
+    <td align="left">9</td>
+    <td align="left">10</td>
+  </tr>
 </table>
+<p>(1 row)<br />
+</p>

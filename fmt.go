@@ -144,7 +144,6 @@ func (f *EscapeFormatter) format(val any, left, right Align, depth int) (*Value,
 	// TODO: change time to v.AppendFormat() + pool
 	// TODO: use strconv.Format* for numeric times
 	// TODO: use a pool
-	// TODO: let the caller set the runes to escape
 	switch v := val.(type) {
 	case nil:
 		return nil, nil
@@ -368,7 +367,7 @@ func isSpaceOrTab(s string) bool {
 }
 
 // nullPkgPath is the package path of the generic [database/sql.Null] type.
-var nullPkgPath = reflect.TypeOf(sql.Null[bool]{}).PkgPath()
+var nullPkgPath = reflect.TypeFor[sql.Null[bool]]().PkgPath()
 
 // unwrapNull returns the value in a generic [database/sql.Null] value, and
 // whether v is such a value. For a null (invalid) value, it returns a nil
@@ -477,8 +476,11 @@ func newValue(str string, align Align, raw bool) *Value {
 	return v
 }
 
-// lowerhex holds the lower case hex digits.
-const lowerhex = "0123456789abcdef"
+// lowerhex and upperhex hold the hex digits.
+const (
+	lowerhex = "0123456789abcdef"
+	upperhex = "0123456789ABCDEF"
+)
 
 // FormatBytes escapes src to a Value. The Value holds the escaped (encoded)
 // and unescaped runes, and the positions of the tabs and newlines in its Buf.
@@ -604,21 +606,8 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isRaw boo
 		}
 		measure()
 		switch r {
-		// escape \a \b \f \r \v (Go special characters)
-		case '\a':
-			res.Buf = append(res.Buf, '\\', 'a')
-			res.Width += 2
-		case '\b':
-			res.Buf = append(res.Buf, '\\', 'b')
-			res.Width += 2
-		case '\f':
-			res.Buf = append(res.Buf, '\\', 'f')
-			res.Width += 2
 		case '\r':
 			res.Buf = append(res.Buf, '\\', 'r')
-			res.Width += 2
-		case '\v':
-			res.Buf = append(res.Buf, '\\', 'v')
 			res.Width += 2
 		case '\t':
 			// save position
@@ -634,17 +623,22 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isRaw boo
 			res.Tabs = append(res.Tabs, nil)
 			l++
 		default:
+			// psql writes a control character below U+0080 as \x00, and one
+			// from U+0080 as \u0000, with upper case hex digits. JSON uses
+			// \u0000 with lower case hex digits. A control character is below
+			// U+00A0, so it never needs the \U00000000 form.
+			hex := upperhex
+			if isJSON {
+				hex = lowerhex
+			}
 			switch {
-			// escape as \x00
-			case r < ' ' && !isJSON:
-				res.Buf = append(res.Buf, '\\', 'x', lowerhex[byte(r)>>4], lowerhex[byte(r)&0xf])
+			case r < utf8.RuneSelf && !isJSON:
+				res.Buf = append(res.Buf, '\\', 'x', hex[byte(r)>>4], hex[byte(r)&0xf])
 				res.Width += 4
-			// escape as \u0000. A control character is below U+00A0, so it
-			// never needs the \U00000000 form.
 			default:
 				res.Buf = append(res.Buf, '\\', 'u')
 				for s := 12; s >= 0; s -= 4 {
-					res.Buf = append(res.Buf, lowerhex[r>>uint(s)&0xf])
+					res.Buf = append(res.Buf, hex[r>>uint(s)&0xf])
 				}
 				res.Width += 6
 			}
@@ -677,28 +671,42 @@ func (v *Value) String() string {
 	return string(v.Buf)
 }
 
-// LineWidth returns the display width of line l.
-func (v *Value) LineWidth(l, offset, tab int) int {
+// tabWidth is the distance between two tab stops, as psql uses.
+const tabWidth = 8
+
+// line returns the start and the end of line l in Buf.
+func (v *Value) line(l int) (int, int) {
+	start, end := 0, len(v.Buf)
+	if l > 0 {
+		start = v.Newlines[l-1][0] + 1
+	}
+	if l < len(v.Newlines) {
+		end = v.Newlines[l][0]
+	}
+	return start, end
+}
+
+// LineWidth returns the display width of line l. A tab moves to the next
+// multiple of 8 columns from the start of the line, as psql writes it.
+func (v *Value) LineWidth(l int) int {
 	var width int
+	if l < len(v.Tabs) && len(v.Tabs[l]) != 0 {
+		width = tabwidth(v.Tabs[l])
+	}
 	if l < len(v.Newlines) {
 		width += v.Newlines[l][1]
-	}
-	if len(v.Tabs[l]) != 0 {
-		width += tabwidth(v.Tabs[l], offset, tab)
-	}
-	if l == len(v.Newlines) {
+	} else {
 		width += v.Width
 	}
 	return width
 }
 
-// MaxWidth calculates the display width of the longest line in Buf, from the
-// start offset and the tab width.
-func (v *Value) MaxWidth(offset, tab int) int {
+// MaxWidth returns the display width of the longest line in Buf.
+func (v *Value) MaxWidth() int {
 	// a simple value has no tabs
 	width := v.Width
 	for l := range len(v.Tabs) {
-		width = max(width, v.LineWidth(l, offset, tab))
+		width = max(width, v.LineWidth(l))
 	}
 	return width
 }
@@ -726,18 +734,15 @@ func (a Align) String() string {
 	return fmt.Sprintf("Align(%d)", a)
 }
 
-// tabwidth returns the rune width of a line in buf that contains tabs. It
-// uses the tab positions from the start of buf, a column offset, and the tab
-// width.
-func tabwidth(tabs [][2]int, offset, tab int) int {
-	// log.Printf("tabs: %v, offset: %d, tab: %d", tabs, offset, tab)
-	width := offset
+// tabwidth returns the width of a line up to and with its last tab. Each
+// entry of tabs holds the width of the text before a tab.
+func tabwidth(tabs [][2]int) int {
+	var width int
 	for i := range tabs {
 		width += tabs[i][1]
-		width += (tab - width%tab)
+		width += tabWidth - width%tabWidth
 	}
-	// log.Printf("res: %d", width-offset)
-	return width - offset
+	return width
 }
 
 // EscapeFormatterOption is an escape formatter option.
@@ -855,7 +860,7 @@ func deref(v any) any {
 		return *z
 	}
 	val := reflect.ValueOf(v)
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		if val.IsNil() {
 			return nil
 		}

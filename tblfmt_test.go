@@ -2,6 +2,7 @@ package tblfmt
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -12,65 +13,65 @@ import (
 
 func TestEncodeTableAll(t *testing.T) {
 	t.Parallel()
-	exp := `                       my table
-╔══════════════════════╦══════════════════════════╦═══╗
-║      author_id       ║           name           ║ z ║
-╠══════════════════════╬══════════════════════════╬═══╣
-║                   14 ║ a	b	c	d ║ x ║
-║                   15 ║ aoeu                    ↵║   ║
-║                      ║ test                    ↵║   ║
-║                      ║                          ║   ║
-╚══════════════════════╩══════════════════════════╩═══╝
+	exp := `                        my table
+╔══════════════════════╦═══════════════════════════╦═══╗
+║      author_id       ║           name            ║ z ║
+╠══════════════════════╬═══════════════════════════╬═══╣
+║                   14 ║ a       b       c       d ║ x ║
+║                   15 ║ aoeu                     ↵║   ║
+║                      ║ test                     ↵║   ║
+║                      ║                           ║   ║
+╚══════════════════════╩═══════════════════════════╩═══╝
 (2 rows)
 
-                                  my table
-╔══════════════════════╦═══════════════════════════╦════════════════════════╗
-║      author_id       ║           name            ║           z            ║
-╠══════════════════════╬═══════════════════════════╬════════════════════════╣
-║                   16 ║ foo\bbar                  ║                        ║
-║                   17 ║ 袈	袈		袈 ║                        ║
-║                   18 ║ a	b	\r        ↵║ a                     ↵║
-║                      ║ 	a                  ║                        ║
-║                   19 ║ 袈	袈		袈↵║                        ║
-║                      ║                           ║                        ║
-║                   20 ║ javascript                ║ {                     ↵║
-║                      ║                           ║   "test21": "a value",↵║
-║                      ║                           ║   "test22": "foo\bbar"↵║
-║                      ║                           ║ }                      ║
-║                   23 ║ slice                     ║ [                     ↵║
-║                      ║                           ║   "a",                ↵║
-║                      ║                           ║   "b"                 ↵║
-║                      ║                           ║ ]                      ║
-╚══════════════════════╩═══════════════════════════╩════════════════════════╝
+                                   my table
+╔══════════════════════╦════════════════════════════╦════════════════════════╗
+║      author_id       ║            name            ║           z            ║
+╠══════════════════════╬════════════════════════════╬════════════════════════╣
+║                   16 ║ foo\x08bar                 ║                        ║
+║                   17 ║ 袈      袈              袈 ║                        ║
+║                   18 ║ a       b       \r        ↵║ a                     ↵║
+║                      ║         a                  ║                        ║
+║                   19 ║ 袈      袈              袈↵║                        ║
+║                      ║                            ║                        ║
+║                   20 ║ javascript                 ║ {                     ↵║
+║                      ║                            ║   "test21": "a value",↵║
+║                      ║                            ║   "test22": "foo\bbar"↵║
+║                      ║                            ║ }                      ║
+║                   23 ║ slice                      ║ [                     ↵║
+║                      ║                            ║   "a",                ↵║
+║                      ║                            ║   "b"                 ↵║
+║                      ║                            ║ ]                      ║
+╚══════════════════════╩════════════════════════════╩════════════════════════╝
 (6 rows)
 
-                                  my table
-╔══════════════════════╦═══════════════════════════╦════════════════════════╗
-║      author_id       ║           name            ║           z            ║
-╠══════════════════════╬═══════════════════════════╬════════════════════════╣
-║                   38 ║ a	b	c	d  ║ x                      ║
-║                   39 ║ aoeu                     ↵║                        ║
-║                      ║ test                     ↵║                        ║
-║                      ║                           ║                        ║
-║                   40 ║ foo\bbar                  ║                        ║
-║                   41 ║ 袈	袈		袈 ║                        ║
-║                   42 ║ a	b	\r        ↵║ a                     ↵║
-║                      ║ 	a                  ║                        ║
-║                   43 ║ 袈	袈		袈↵║                        ║
-║                      ║                           ║                        ║
-║                   44 ║ javascript                ║ {                     ↵║
-║                      ║                           ║   "test45": "a value",↵║
-║                      ║                           ║   "test46": "foo\bbar"↵║
-║                      ║                           ║ }                      ║
-║                   47 ║ slice                     ║ [                     ↵║
-║                      ║                           ║   "a",                ↵║
-║                      ║                           ║   "b"                 ↵║
-║                      ║                           ║ ]                      ║
-╚══════════════════════╩═══════════════════════════╩════════════════════════╝
+                                   my table
+╔══════════════════════╦════════════════════════════╦════════════════════════╗
+║      author_id       ║            name            ║           z            ║
+╠══════════════════════╬════════════════════════════╬════════════════════════╣
+║                   38 ║ a       b       c       d  ║ x                      ║
+║                   39 ║ aoeu                      ↵║                        ║
+║                      ║ test                      ↵║                        ║
+║                      ║                            ║                        ║
+║                   40 ║ foo\x08bar                 ║                        ║
+║                   41 ║ 袈      袈              袈 ║                        ║
+║                   42 ║ a       b       \r        ↵║ a                     ↵║
+║                      ║         a                  ║                        ║
+║                   43 ║ 袈      袈              袈↵║                        ║
+║                      ║                            ║                        ║
+║                   44 ║ javascript                 ║ {                     ↵║
+║                      ║                            ║   "test45": "a value",↵║
+║                      ║                            ║   "test46": "foo\bbar"↵║
+║                      ║                            ║ }                      ║
+║                   47 ║ slice                      ║ [                     ↵║
+║                      ║                            ║   "a",                ↵║
+║                      ║                            ║   "b"                 ↵║
+║                      ║                            ║ ]                      ║
+╚══════════════════════╩════════════════════════════╩════════════════════════╝
 (8 rows)
 `
 	buf := new(bytes.Buffer)
-	if err := EncodeTableAll(buf, internal.Multi(), WithBorder(2), WithLineStyle(UnicodeDoubleLineStyle()), WithTitle("my table"), WithWidths(20, 20)); err != nil {
+	if err := EncodeTableAll(buf, internal.Multi(), WithBorder(2), WithLineStyle(UnicodeLineStyle(true, true, true)), WithTitle("my table"), WithWidths(20, 20)); err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 	actual := buf.String()
@@ -79,6 +80,8 @@ func TestEncodeTableAll(t *testing.T) {
 	}
 }
 
+// TestEncodeJSONAll makes sure that WithIndent indents the JSON, and that
+// EncodeAll writes each result set on its own line.
 func TestEncodeJSONAll(t *testing.T) {
 	t.Parallel()
 	exp := `[
@@ -92,7 +95,7 @@ func TestEncodeJSONAll(t *testing.T) {
     "name": "aoeu\ntest\n",
     "z": null
   }
-],
+]
 [
   {
     "author_id": 16,
@@ -130,7 +133,7 @@ func TestEncodeJSONAll(t *testing.T) {
       "b"
     ]
   }
-],
+]
 [
   {
     "author_id": 38,
@@ -181,12 +184,57 @@ func TestEncodeJSONAll(t *testing.T) {
 ]
 `
 	buf := new(bytes.Buffer)
-	if err := EncodeJSONAll(buf, internal.Multi()); err != nil {
+	if err := EncodeJSONAll(buf, internal.Multi(), WithIndent("  ")); err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 	actual := buf.String()
 	if actual != exp {
 		t.Errorf("expected:\n%q\n---\ngot:\n%q", exp, actual)
+	}
+}
+
+// TestEncodeJSONAllCompact makes sure that the JSON encoder writes compact
+// JSON by default, with each result set on its own line, as JSON Lines does.
+func TestEncodeJSONAllCompact(t *testing.T) {
+	t.Parallel()
+	exp := "[{\"author_id\":14,\"name\":\"a\\tb\\tc\\td\",\"z\":\"x\"},{\"author_id\":15,\"name\":\"aoeu\\ntest\\n\",\"z\":null}]\n[{\"author_id\":16,\"name\":\"foo\\bbar\",\"z\":null},{\"author_id\":17,\"name\":\"袈\\t袈\\t\\t袈\",\"z\":null},{\"author_id\":18,\"name\":\"a\\tb\\t\\r\\n\\ta\",\"z\":\"a\\n\"},{\"author_id\":19,\"name\":\"袈\\t袈\\t\\t袈\\n\",\"z\":null},{\"author_id\":20,\"name\":\"javascript\",\"z\":{\"test21\":\"a value\",\"test22\":\"foo\\bbar\"}},{\"author_id\":23,\"name\":\"slice\",\"z\":[\"a\",\"b\"]}]\n[{\"author_id\":38,\"name\":\"a\\tb\\tc\\td\",\"z\":\"x\"},{\"author_id\":39,\"name\":\"aoeu\\ntest\\n\",\"z\":null},{\"author_id\":40,\"name\":\"foo\\bbar\",\"z\":null},{\"author_id\":41,\"name\":\"袈\\t袈\\t\\t袈\",\"z\":null},{\"author_id\":42,\"name\":\"a\\tb\\t\\r\\n\\ta\",\"z\":\"a\\n\"},{\"author_id\":43,\"name\":\"袈\\t袈\\t\\t袈\\n\",\"z\":null},{\"author_id\":44,\"name\":\"javascript\",\"z\":{\"test45\":\"a value\",\"test46\":\"foo\\bbar\"}},{\"author_id\":47,\"name\":\"slice\",\"z\":[\"a\",\"b\"]}]\n"
+	buf := new(bytes.Buffer)
+	if err := EncodeJSONAll(buf, internal.Multi()); err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if s := buf.String(); s != exp {
+		t.Errorf("expected:\n%q\n---\ngot:\n%q", exp, s)
+	}
+}
+
+// TestEncodeAllResultSetSeparator makes sure that each encoder writes the
+// separator from WithResultSetSeparator between two result sets.
+func TestEncodeAllResultSetSeparator(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		format string
+		exp    string
+	}{
+		{"aligned", " a \n---\n 1\n(1 row)\n--\n b \n---\n 2\n(1 row)\n"},
+		{"unaligned", "a\n1\n(1 row)\n--\nb\n2\n(1 row)\n"},
+		{"json", "[{\"a\":1}]--\n[{\"b\":2}]\n"},
+		{"vertical", "*************************** 1. row ***************************\na: 1\n--\n*************************** 1. row ***************************\nb: 2\n"},
+	}
+	for _, test := range tests {
+		t.Run(test.format, func(t *testing.T) {
+			t.Parallel()
+			buf := new(bytes.Buffer)
+			rs := newColumnsRS(
+				columnsSet{cols: []string{"a"}, rows: [][]any{{1}}},
+				columnsSet{cols: []string{"b"}, rows: [][]any{{2}}},
+			)
+			if err := EncodeAll(buf, rs, map[string]string{"format": test.format}, WithResultSetSeparator("--\n")); err != nil {
+				t.Fatalf("expected no error, got: %v", err)
+			}
+			if s := buf.String(); s != test.exp {
+				t.Errorf("expected:\n%q\ngot:\n%q", test.exp, s)
+			}
+		})
 	}
 }
 
@@ -205,7 +253,7 @@ test
 
 Row 0:
   author_id = "16"
-  name = "foo\bbar"
+  name = "foo\x08bar"
   z = "<nil>"
 Row 1:
   author_id = "17"
@@ -249,7 +297,7 @@ test
   z = "<nil>"
 Row 2:
   author_id = "40"
-  name = "foo\bbar"
+  name = "foo\x08bar"
   z = "<nil>"
 Row 3:
   author_id = "41"
@@ -514,6 +562,13 @@ func TestEncodeNullAlign(t *testing.T) {
 //
 //	--
 //	(0 rows)
+//
+// In expanded mode, psql writes only the row count:
+//
+//	$ psql -x -c 'select; select from generate_series(1, 2);'
+//	(1 row)
+//
+//	(2 rows)
 func TestEncodeNoColumns(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -533,16 +588,17 @@ func TestEncodeNoColumns(t *testing.T) {
 		{"aligned tuples only", map[string]string{"format": "aligned", "tuples_only": "on"}, 1, ""},
 		{"aligned tuples only border 2 no rows", map[string]string{"format": "aligned", "tuples_only": "on", "border": "2"}, 0, "+--+\n"},
 		{"aligned tuples only border 2 one row", map[string]string{"format": "aligned", "tuples_only": "on", "border": "2"}, 1, "+--+\n"},
-		{"expanded", map[string]string{"format": "aligned", "expanded": "on"}, 1, ""},
-		{"expanded border 2", map[string]string{"format": "aligned", "expanded": "on", "border": "2"}, 3, ""},
+		{"expanded", map[string]string{"format": "aligned", "expanded": "on"}, 1, "(1 row)\n"},
+		{"expanded border 2", map[string]string{"format": "aligned", "expanded": "on", "border": "2"}, 3, "(3 rows)\n"},
 		{"unaligned no rows", map[string]string{"format": "unaligned"}, 0, "\n(0 rows)\n"},
 		{"unaligned three rows", map[string]string{"format": "unaligned"}, 3, "\n(3 rows)\n"},
 		{"unaligned tuples only", map[string]string{"format": "unaligned", "tuples_only": "on"}, 1, ""},
 		{"csv", map[string]string{"format": "csv"}, 3, "\n"},
 		{"json no rows", map[string]string{"format": "json"}, 0, "[]\n"},
-		{"json one row", map[string]string{"format": "json"}, 1, "[\n  {}\n]\n"},
-		{"json two rows", map[string]string{"format": "json"}, 2, "[\n  {},\n  {}\n]\n"},
-		{"html one row", map[string]string{"format": "html"}, 1, "<table>\n  <caption></caption>\n  <thead>\n    <tr>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n    </tr>\n  </tbody>\n</table>\n"},
+		{"json one row", map[string]string{"format": "json"}, 1, "[{}]\n"},
+		{"json two rows", map[string]string{"format": "json"}, 2, "[{},{}]\n"},
+		// psql -X -P format=html -c 'select'
+		{"html one row", map[string]string{"format": "html"}, 1, "<table border=\"1\">\n  <tr>\n  </tr>\n</table>\n<p>(1 row)<br />\n</p>\n"},
 		{"vertical no rows", map[string]string{"format": "vertical"}, 0, ""},
 	}
 	for _, test := range tests {
@@ -579,11 +635,9 @@ func TestEncodeAllNoColumnsFirst(t *testing.T) {
 		format string
 		exp    string
 	}{
-		// note: tblfmt pads a right-aligned last column, and psql does not.
-		// See README.md.
-		{"aligned", "--\n(1 row)\n\n a \n---\n 1 \n(1 row)\n"},
+		{"aligned", "--\n(1 row)\n\n a \n---\n 1\n(1 row)\n"},
 		{"unaligned", "\n(1 row)\n\na\n1\n(1 row)\n"},
-		{"json", "[\n  {}\n],\n[\n  {\n    \"a\": 1\n  }\n]\n"},
+		{"json", "[{}]\n[{\"a\":1}]\n"},
 	}
 	for _, test := range tests {
 		t.Run(test.format, func(t *testing.T) {
@@ -663,4 +717,132 @@ func (*columnsRS) Err() error {
 // Close satisfies the ResultSet interface.
 func (*columnsRS) Close() error {
 	return nil
+}
+
+// TestEncodeTemplateWriteError makes sure that a template encoder returns the
+// first write error. A template writer does not check each write.
+func TestEncodeTemplateWriteError(t *testing.T) {
+	t.Parallel()
+	const errWrite Error = "write failed"
+	for _, name := range []string{"html", "asciidoc", "vertical"} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			if err := EncodeTemplateAll(failWriter{err: errWrite}, internal.Multi(), WithTemplate(name)); !errors.Is(err, errWrite) {
+				t.Errorf("expected %v, got: %v", errWrite, err)
+			}
+		})
+	}
+}
+
+// failWriter is a writer whose writes fail.
+type failWriter struct {
+	err error
+}
+
+// Write satisfies the io.Writer interface.
+func (w failWriter) Write([]byte) (int, error) {
+	return 0, w.err
+}
+
+// TestEncodePsqlFormats makes sure that the latex, latex-longtable, troff-ms,
+// wrapped, html and asciidoc formats, and the expanded forms, write what psql
+// writes. TestPsql in the test module compares many more cases.
+//
+// Measured against psql 18.6. Each expected value is the output of this
+// command, with the \pset values of its case:
+//
+//	$ psql -X -q -P format=latex -c "select 1 as n, 'a_b'::text as t
+//	                                 union all select 22, E'c\nd'"
+//
+// The wrapped cases leave out the blank line that psql writes after a table
+// (D48). The last case is:
+//
+//	$ psql -X -q -P format=wrapped -P columns=12 \
+//	       -c "select 'abcdefghijklmnop'::text as t, 1 as n"
+//	   t    | n
+//	--------+---
+//	 abcdef.| 1
+//	.ghijkl.|
+//	.mnop   |
+//	(1 row)
+func TestEncodePsqlFormats(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		opts map[string]string
+		exp  string
+	}{
+		{"latex", map[string]string{"format": "latex"}, "\\begin{tabular}{r | l}\n\\textit{n} & \\textit{t} \\\\\n\\hline\n1 & a\\_b \\\\\n22 & c\\\\d \\\\\n\\end{tabular}\n\n\\noindent (2 rows) \\\\\n\n"},
+		{"latex-longtable", map[string]string{"format": "latex-longtable"}, "\\begin{longtable}{r | l}\n\\small\\textbf{\\textit{n}} & \\small\\textbf{\\textit{t}} \\\\\n\\midrule\n\\endfirsthead\n\\small\\textbf{\\textit{n}} & \\small\\textbf{\\textit{t}} \\\\\n\\midrule\n\\endhead\n\\raggedright{1}\n&\n\\raggedright{a\\_b} \\tabularnewline\n\\raggedright{22}\n&\n\\raggedright{c\\\\d} \\tabularnewline\n\\end{longtable}\n"},
+		{"troff-ms", map[string]string{"format": "troff-ms"}, ".LP\n.TS\ncenter;\nr | l.\n\\fIn\\fP\t\\fIt\\fP\n_\n1\ta_b\n22\tc\nd\n.TE\n.DS L\n(2 rows)\n.DE\n"},
+		{"latex expanded", map[string]string{"format": "latex", "expanded": "on"}, "\\begin{tabular}{c|l}\n\\multicolumn{2}{c}{\\textit{Record 1}} \\\\\n\\hline\nn & 1 \\\\\nt & a\\_b \\\\\n\\multicolumn{2}{c}{\\textit{Record 2}} \\\\\n\\hline\nn & 22 \\\\\nt & c\\\\d \\\\\n\\end{tabular}\n\n\\noindent \n"},
+		{"wrapped", map[string]string{"format": "wrapped", "columns": "12"}, " n  |  t  \n----+-----\n  1 | a_b\n 22 | c  +\n    | d\n(2 rows)\n"},
+		{"html", map[string]string{"format": "html"}, "<table border=\"1\">\n  <tr>\n    <th align=\"center\">n</th>\n    <th align=\"center\">t</th>\n  </tr>\n  <tr valign=\"top\">\n    <td align=\"right\">1</td>\n    <td align=\"left\">a_b</td>\n  </tr>\n  <tr valign=\"top\">\n    <td align=\"right\">22</td>\n    <td align=\"left\">c<br />\nd</td>\n  </tr>\n</table>\n<p>(2 rows)<br />\n</p>\n"},
+		{"asciidoc", map[string]string{"format": "asciidoc"}, "\n[options=\"header\",cols=\">l,<l\",frame=\"none\"]\n|====\n^l|n ^l|t\n|1 |a_b\n|22 |c\nd\n|====\n\n....\n(2 rows)\n....\n"},
+		{"html expanded", map[string]string{"format": "html", "expanded": "on"}, "<table border=\"1\">\n\n  <tr><td colspan=\"2\" align=\"center\">Record 1</td></tr>\n  <tr valign=\"top\">\n    <th>n</th>\n    <td align=\"right\">1</td>\n  </tr>\n  <tr valign=\"top\">\n    <th>t</th>\n    <td align=\"left\">a_b</td>\n  </tr>\n\n  <tr><td colspan=\"2\" align=\"center\">Record 2</td></tr>\n  <tr valign=\"top\">\n    <th>n</th>\n    <td align=\"right\">22</td>\n  </tr>\n  <tr valign=\"top\">\n    <th>t</th>\n    <td align=\"left\">c<br />\nd</td>\n  </tr>\n</table>\n\n"},
+		{"asciidoc expanded", map[string]string{"format": "asciidoc", "expanded": "on"}, "\n[cols=\"h,l\",frame=\"none\"]\n|====\n2+^|Record 1\n<l|n >l|1\n<l|t <l|a_b\n2+^|Record 2\n<l|n >l|22\n<l|t <l|c\nd\n|====\n"},
+		{"unaligned expanded", map[string]string{"format": "unaligned", "expanded": "on"}, "n|1\nt|a_b\n\nn|22\nt|c\nd\n"},
+		{"csv expanded", map[string]string{"format": "csv", "expanded": "on"}, "n,1\nt,a_b\nn,22\nt,\"c\nd\"\n"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			buf := new(bytes.Buffer)
+			rs := internal.New([]string{"n", "t"}, [][]any{{1, "a_b"}, {22, "c\nd"}})
+			if err := EncodeAll(buf, rs, test.opts); err != nil {
+				t.Fatalf("expected no error, got: %v", err)
+			}
+			if s := buf.String(); s != test.exp {
+				t.Errorf("expected:\n%q\ngot:\n%q", test.exp, s)
+			}
+		})
+	}
+	t.Run("wrap a value", func(t *testing.T) {
+		t.Parallel()
+		buf := new(bytes.Buffer)
+		rs := internal.New([]string{"t", "n"}, [][]any{{"abcdefghijklmnop", 1}})
+		if err := EncodeAll(buf, rs, map[string]string{"format": "wrapped", "columns": "12"}); err != nil {
+			t.Fatalf("expected no error, got: %v", err)
+		}
+		exp := "   t    | n \n--------+---\n abcdef.| 1\n.ghijkl.| \n.mnop   | \n(1 row)\n"
+		if s := buf.String(); s != exp {
+			t.Errorf("expected:\n%q\ngot:\n%q", exp, s)
+		}
+	})
+}
+
+// TestEncodeVertical makes sure that the vertical format right aligns the
+// column names, as the mysql client does for \G (D60). The null text is the
+// psql one, which is empty by default.
+//
+// Measured against the MariaDB 13.0.2 client:
+//
+//	$ mariadb -e "select 1 as a, 'x' as longname, null as z
+//	              union all select 22, 'yy', 'q'\G"
+//	*************************** 1. row ***************************
+//	       a: 1
+//	longname: x
+//	       z: NULL
+//	*************************** 2. row ***************************
+//	       a: 22
+//	longname: yy
+//	       z: q
+func TestEncodeVertical(t *testing.T) {
+	t.Parallel()
+	rs := internal.New([]string{"a", "longname", "z"}, [][]any{{1, "x", nil}, {22, "yy", "q"}})
+	buf := new(bytes.Buffer)
+	if err := EncodeAll(buf, rs, map[string]string{"format": "vertical"}); err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	exp := "*************************** 1. row ***************************\n" +
+		"       a: 1\n" +
+		"longname: x\n" +
+		"       z: \n" +
+		"*************************** 2. row ***************************\n" +
+		"       a: 22\n" +
+		"longname: yy\n" +
+		"       z: q\n"
+	if s := buf.String(); s != exp {
+		t.Errorf("expected:\n%q\ngot:\n%q", exp, s)
+	}
 }

@@ -1,0 +1,106 @@
+\begin{longtable}{r | l | l}
+\small\textbf{\textit{author\_id}} & \small\textbf{\textit{name 👍🏽}} & \small\textbf{\textit{z}} \\
+\midrule
+\endfirsthead
+\small\textbf{\textit{author\_id}} & \small\textbf{\textit{name 👍🏽}} & \small\textbf{\textit{z}} \\
+\midrule
+\endhead
+\raggedright{14}
+&
+\raggedright{👍🏽	👍	🇯🇵	❤️}
+&
+\raggedright{😀} \tabularnewline
+\raggedright{15}
+&
+\raggedright{family\\👨‍👩‍👧\\}
+&
+\raggedright{} \tabularnewline
+\end{longtable}
+
+\begin{longtable}{r | l | l}
+\small\textbf{\textit{author\_id}} & \small\textbf{\textit{name 👍🏽}} & \small\textbf{\textit{z}} \\
+\midrule
+\endfirsthead
+\small\textbf{\textit{author\_id}} & \small\textbf{\textit{name 👍🏽}} & \small\textbf{\textit{z}} \\
+\midrule
+\endhead
+\raggedright{16}
+&
+\raggedright{é ä 🧑‍💻}
+&
+\raggedright{} \tabularnewline
+\raggedright{17}
+&
+\raggedright{日本語	👍🏿		1️⃣}
+&
+\raggedright{} \tabularnewline
+\raggedright{18}
+&
+\raggedright{©️ ✔️ ☺️ ⌚\textbackslash{}x08🎉}
+&
+\raggedright{🎉\\} \tabularnewline
+\raggedright{19}
+&
+\raggedright{🏳️‍🌈	🇺🇸🇯🇵\\	👍🏽}
+&
+\raggedright{} \tabularnewline
+\raggedright{20}
+&
+\raggedright{emoji map}
+&
+\raggedright{\{\\  "key": "🇯🇵\textbackslash{}t日本",\\  "👍🏽": "❤️"\\\}} \tabularnewline
+\raggedright{21}
+&
+\raggedright{slice}
+&
+\raggedright{[\\  "😀",\\  "👍🏽"\\]} \tabularnewline
+\end{longtable}
+
+\begin{longtable}{r | l | l}
+\small\textbf{\textit{author\_id}} & \small\textbf{\textit{name 👍🏽}} & \small\textbf{\textit{z}} \\
+\midrule
+\endfirsthead
+\small\textbf{\textit{author\_id}} & \small\textbf{\textit{name 👍🏽}} & \small\textbf{\textit{z}} \\
+\midrule
+\endhead
+\raggedright{38}
+&
+\raggedright{👍🏽	👍	🇯🇵	❤️}
+&
+\raggedright{😀} \tabularnewline
+\raggedright{39}
+&
+\raggedright{family\\👨‍👩‍👧\\}
+&
+\raggedright{} \tabularnewline
+\raggedright{40}
+&
+\raggedright{é ä 🧑‍💻}
+&
+\raggedright{} \tabularnewline
+\raggedright{41}
+&
+\raggedright{日本語	👍🏿		1️⃣}
+&
+\raggedright{} \tabularnewline
+\raggedright{42}
+&
+\raggedright{©️ ✔️ ☺️ ⌚\textbackslash{}x08🎉}
+&
+\raggedright{🎉\\} \tabularnewline
+\raggedright{43}
+&
+\raggedright{🏳️‍🌈	🇺🇸🇯🇵\\	👍🏽}
+&
+\raggedright{} \tabularnewline
+\raggedright{44}
+&
+\raggedright{emoji map}
+&
+\raggedright{\{\\  "key": "🇯🇵\textbackslash{}t日本",\\  "👍🏽": "❤️"\\\}} \tabularnewline
+\raggedright{45}
+&
+\raggedright{slice}
+&
+\raggedright{[\\  "😀",\\  "👍🏽"\\]} \tabularnewline
+\end{longtable}

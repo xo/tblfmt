@@ -1,0 +1,21 @@
+.LP
+.TS
+center box;
+c s.
+\fIRecord 1\fP
+_
+.T&
+c l.
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	1
+bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb	2
+cccccccccccccccccccccccccccccc	3
+dddddddddddddddddddddddddddddd	4
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeee	5
+ffffffffffffffffffffffffffffff	6
+gggggggggggggggggggggggggggggg	7
+hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh	8
+iiiiiiiiiiiiiiiiiiiiiiiiiiiiii	9
+jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj	10
+.TE
+.DS L
+.DE

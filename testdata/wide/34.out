@@ -1,0 +1,27 @@
+\begin{longtable}{l | l | l | l | l | l | l | l | l | l}
+\small\textbf{\textit{aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}} & \small\textbf{\textit{bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb}} & \small\textbf{\textit{cccccccccccccccccccccccccccccc}} & \small\textbf{\textit{dddddddddddddddddddddddddddddd}} & \small\textbf{\textit{eeeeeeeeeeeeeeeeeeeeeeeeeeeeee}} & \small\textbf{\textit{ffffffffffffffffffffffffffffff}} & \small\textbf{\textit{gggggggggggggggggggggggggggggg}} & \small\textbf{\textit{hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh}} & \small\textbf{\textit{iiiiiiiiiiiiiiiiiiiiiiiiiiiiii}} & \small\textbf{\textit{jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj}} \\
+\midrule
+\endfirsthead
+\small\textbf{\textit{aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}} & \small\textbf{\textit{bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb}} & \small\textbf{\textit{cccccccccccccccccccccccccccccc}} & \small\textbf{\textit{dddddddddddddddddddddddddddddd}} & \small\textbf{\textit{eeeeeeeeeeeeeeeeeeeeeeeeeeeeee}} & \small\textbf{\textit{ffffffffffffffffffffffffffffff}} & \small\textbf{\textit{gggggggggggggggggggggggggggggg}} & \small\textbf{\textit{hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh}} & \small\textbf{\textit{iiiiiiiiiiiiiiiiiiiiiiiiiiiiii}} & \small\textbf{\textit{jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj}} \\
+\midrule
+\endhead
+\raggedright{1}
+&
+\raggedright{2}
+&
+\raggedright{3}
+&
+\raggedright{4}
+&
+\raggedright{5}
+&
+\raggedright{6}
+&
+\raggedright{7}
+&
+\raggedright{8}
+&
+\raggedright{9}
+&
+\raggedright{10} \tabularnewline
+\end{longtable}

@@ -1,58 +1,67 @@
-[%header]
-|===
-|author_id
-|name
-|z
-|14|a	b	c	d|x
-|15|aoeu
+
+[options="header",cols=">l,<l,<l",frame="none"]
+|====
+^l|author_id ^l|name ^l|z
+|14 |a	b	c	d |x
+|15 |aoeu
 test
-|
-|===
+ |
+|====
 
-[%header]
-|===
-|author_id
-|name
-|z
-|16|foo\bbar|
-|17|袈	袈		袈|
-|18|a	b	\r
-	a|a
+....
+(2 rows)
+....
 
-|19|袈	袈		袈
-|
-|20|javascript|{
+
+[options="header",cols=">l,<l,<l",frame="none"]
+|====
+^l|author_id ^l|name ^l|z
+|16 |foo\x08bar |
+|17 |袈	袈		袈 |
+|18 |a	b	\r
+	a |a
+
+|19 |袈	袈		袈
+ |
+|20 |javascript |{
   "test21": "a value",
   "test22": "foo\bbar"
 }
-|23|slice|[
+|23 |slice |[
   "a",
   "b"
 ]
-|===
+|====
 
-[%header]
-|===
-|author_id
-|name
-|z
-|38|a	b	c	d|x
-|39|aoeu
+....
+(6 rows)
+....
+
+
+[options="header",cols=">l,<l,<l",frame="none"]
+|====
+^l|author_id ^l|name ^l|z
+|38 |a	b	c	d |x
+|39 |aoeu
 test
-|
-|40|foo\bbar|
-|41|袈	袈		袈|
-|42|a	b	\r
-	a|a
+ |
+|40 |foo\x08bar |
+|41 |袈	袈		袈 |
+|42 |a	b	\r
+	a |a
 
-|43|袈	袈		袈
-|
-|44|javascript|{
+|43 |袈	袈		袈
+ |
+|44 |javascript |{
   "test45": "a value",
   "test46": "foo\bbar"
 }
-|47|slice|[
+|47 |slice |[
   "a",
   "b"
 ]
-|===
+|====
+
+....
+(8 rows)
+....

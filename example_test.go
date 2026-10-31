@@ -16,6 +16,17 @@ func Example() {
 	}); err != nil {
 		log.Fatal(err)
 	}
+	// Output:
+	// +-----------+----------------------------+---+
+	// | author_id |            name            | z |
+	// +-----------+----------------------------+---+
+	// |        14 | a       b       c       d  |   |
+	// |        15 | aoeu                      +|   |
+	// |           | test                      +|   |
+	// |           |                            |   |
+	// |         2 | 袈      袈              袈 |   |
+	// +-----------+----------------------------+---+
+	// (3 rows)
 }
 
 func ExampleEncodeAll() {
@@ -41,7 +52,7 @@ func ExampleNewTableEncoder() {
 	enc, err := tblfmt.NewTableEncoder(
 		res,
 		tblfmt.WithBorder(2),
-		tblfmt.WithLineStyle(tblfmt.UnicodeDoubleLineStyle()),
+		tblfmt.WithLineStyle(tblfmt.UnicodeLineStyle(true, false, false)),
 		tblfmt.WithWidths(20, 20),
 		tblfmt.WithSummary(tblfmt.DefaultTableSummary()),
 	)
@@ -52,15 +63,15 @@ func ExampleNewTableEncoder() {
 		log.Fatal(err)
 	}
 	// Output:
-	// ╔══════════════════════╦═══════════════════════════╦═══╗
-	// ║      author_id       ║           name            ║ z ║
-	// ╠══════════════════════╬═══════════════════════════╬═══╣
-	// ║                   14 ║ a	b	c	d  ║   ║
-	// ║                   15 ║ aoeu                     ↵║   ║
-	// ║                      ║ test                     ↵║   ║
-	// ║                      ║                           ║   ║
-	// ║                    2 ║ 袈	袈		袈 ║   ║
-	// ╚══════════════════════╩═══════════════════════════╩═══╝
+	// ╔══════════════════════╤════════════════════════════╤═══╗
+	// ║      author_id       │            name            │ z ║
+	// ╟──────────────────────┼────────────────────────────┼───╢
+	// ║                   14 │ a       b       c       d  │   ║
+	// ║                   15 │ aoeu                      ↵│   ║
+	// ║                      │ test                      ↵│   ║
+	// ║                      │                            │   ║
+	// ║                    2 │ 袈      袈              袈 │   ║
+	// ╚══════════════════════╧════════════════════════════╧═══╝
 	// (3 rows)
 }
 
@@ -70,65 +81,33 @@ func ExampleEncodeTemplateAll() {
 		log.Fatal(err)
 	}
 	// Output:
-	// <table>
-	//   <caption></caption>
-	//   <thead>
-	//     <tr>
-	//       <th align="left">author_id</th>
-	//       <th align="left">name</th>
-	//       <th align="left">z</th>
-	//     </tr>
-	//   </thead>
-	//   <tbody>
-	//     <tr>
-	//       <td align="right">14</td>
-	//       <td align="left">a	b	c	d</td>
-	//       <td align="left"></td>
-	//     </tr>
-	//     <tr>
-	//       <td align="right">15</td>
-	//       <td align="left">aoeu
-	// test
+	// <table border="1">
+	//   <tr>
+	//     <th align="center">author_id</th>
+	//     <th align="center">name</th>
+	//     <th align="center">z</th>
+	//   </tr>
+	//   <tr valign="top">
+	//     <td align="right">14</td>
+	//     <td align="left">a	b	c	d</td>
+	//     <td align="left">&nbsp; </td>
+	//   </tr>
+	//   <tr valign="top">
+	//     <td align="right">15</td>
+	//     <td align="left">aoeu<br />
+	// test<br />
 	// </td>
-	//       <td align="left"></td>
-	//     </tr>
-	//     <tr>
-	//       <td align="right">2</td>
-	//       <td align="left">袈	袈		袈</td>
-	//       <td align="left"></td>
-	//     </tr>
-	//   </tbody>
+	//     <td align="left">&nbsp; </td>
+	//   </tr>
+	//   <tr valign="top">
+	//     <td align="right">2</td>
+	//     <td align="left">袈	袈		袈</td>
+	//     <td align="left">&nbsp; </td>
+	//   </tr>
 	// </table>
+	// <p>(3 rows)<br />
+	// </p>
 }
-
-//func Example_fromMap() {
-//	res := getDatabaseResults()
-//	builder, opts := tblfmt.FromMap(map[string]string{
-//		"format": "table",
-//	})
-//	enc, err := builder(res, opts...)
-//	if err != nil {
-//		log.Fatal(err)
-//	}
-//	var buf bytes.Buffer
-//	if err := enc.EncodeAll(&buf); err != nil {
-//		log.Fatal(err)
-//	}
-//	// extra padding to deal with Go's example output
-//	b := append([]byte{'#'}, append(bytes.TrimSpace(buf.Bytes()), '#')...)
-//	b = bytes.ReplaceAll(b, []byte{'\n'}, []byte{'#', '\n', '#'})
-//	if _, err := os.Stdout.Write(b); err != nil {
-//		log.Fatal(err)
-//	}
-//	// Output:
-//	// AUTHOR_ID NAME                     Z
-//	// 14        a     b       c       d
-//	// 15        aoeu
-//	//           test
-//	//
-//	// 2         袈    袈              袈
-//	// (3 rows)
-//}
 
 // getDatabaseResults returns a tblfmt.ResultSet. A *sql.Rows from the
 // database/sql package also implements that interface.

@@ -13,9 +13,11 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	runewidth "github.com/mattn/go-runewidth"
+
 	"github.com/xo/tblfmt/internal"
 )
 
@@ -175,7 +177,9 @@ func loadTests(t *testing.T, typ string) []goldTest {
 			return nil
 		}
 		n := strings.TrimSuffix(name, ".in")
-		id, err := strconv.ParseInt(strings.TrimPrefix(n, base+"/"), 10, 64)
+		// note: filepath.Walk returns the separator of the platform, so the
+		// number comes from the base name
+		id, err := strconv.ParseInt(filepath.Base(n), 10, 64)
 		if err != nil {
 			t.Fatalf("unable to parse %q: %v", name, err)
 		}
@@ -256,7 +260,7 @@ func TestGoldenAlignment(t *testing.T) {
 	t.Parallel()
 	for _, typ := range slices.Sorted(maps.Keys(goldenSets)) {
 		for _, test := range loadTests(t, typ) {
-			if test.opts["border"] != "2" || (test.opts["format"] != "aligned" && test.opts["format"] != "expanded") {
+			if test.opts["border"] != "2" || (test.opts["format"] != "aligned" && test.opts["format"] != "wrapped") {
 				continue
 			}
 			t.Run(typ+"/"+test.idstr, func(t *testing.T) {
@@ -293,4 +297,33 @@ func displayWidth(line string) int {
 		w += runewidth.StringWidth(s) + emojiWidth([]byte(s))
 	}
 	return w
+}
+
+// TestWithFormatterOptionsError makes sure that WithFormatterOptions returns
+// an error, and does not panic, when the formatter is not an EscapeFormatter.
+func TestWithFormatterOptionsError(t *testing.T) {
+	t.Parallel()
+	for _, format := range []string{"aligned", "json", "csv", "html"} {
+		t.Run(format, func(t *testing.T) {
+			t.Parallel()
+			f, opts := FromMap(map[string]string{"format": format})
+			opts = append(opts, WithFormatter(otherFormatter{}), WithFormatterOptions(WithTimeFormat(time.Kitchen)))
+			if _, err := f(internal.Tiny(), opts...); !errors.Is(err, ErrFormatterIsNotEscapeFormatter) {
+				t.Errorf("expected %v, got: %v", ErrFormatterIsNotEscapeFormatter, err)
+			}
+		})
+	}
+}
+
+// otherFormatter is a formatter that is not an EscapeFormatter.
+type otherFormatter struct{}
+
+// Header satisfies the Formatter interface.
+func (otherFormatter) Header([]string) ([]*Value, error) {
+	return nil, nil
+}
+
+// Format satisfies the Formatter interface.
+func (otherFormatter) Format([]any) ([]*Value, error) {
+	return nil, nil
 }

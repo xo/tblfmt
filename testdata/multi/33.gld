@@ -1,0 +1,39 @@
+\begin{tabular}{r | l | l}
+\textit{author\_id} & \textit{name} & \textit{z} \\
+\hline
+14 & a	b	c	d & x \\
+15 & aoeu\\test\\ &  \\
+\end{tabular}
+
+\noindent (2 rows) \\
+
+
+\begin{tabular}{r | l | l}
+\textit{author\_id} & \textit{name} & \textit{z} \\
+\hline
+16 & foo\textbackslash{}x08bar &  \\
+17 & 袈	袈		袈 &  \\
+18 & a	b	\textbackslash{}r\\	a & a\\ \\
+19 & 袈	袈		袈\\ &  \\
+20 & javascript & \{\\  "test21": "a value",\\  "test22": "foo\textbackslash{}bbar"\\\} \\
+23 & slice & [\\  "a",\\  "b"\\] \\
+\end{tabular}
+
+\noindent (6 rows) \\
+
+
+\begin{tabular}{r | l | l}
+\textit{author\_id} & \textit{name} & \textit{z} \\
+\hline
+38 & a	b	c	d & x \\
+39 & aoeu\\test\\ &  \\
+40 & foo\textbackslash{}x08bar &  \\
+41 & 袈	袈		袈 &  \\
+42 & a	b	\textbackslash{}r\\	a & a\\ \\
+43 & 袈	袈		袈\\ &  \\
+44 & javascript & \{\\  "test45": "a value",\\  "test46": "foo\textbackslash{}bbar"\\\} \\
+47 & slice & [\\  "a",\\  "b"\\] \\
+\end{tabular}
+
+\noindent (8 rows) \\
+

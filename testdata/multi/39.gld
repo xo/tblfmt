@@ -1,0 +1,196 @@
+.LP
+.TS
+center box;
+c s.
+\fIRecord 1\fP
+_
+.T&
+c l.
+author_id	14
+name	a	b	c	d
+z	x
+_
+.T&
+c s.
+\fIRecord 2\fP
+_
+.T&
+c l.
+author_id	15
+name	aoeu
+test
+
+z	
+.TE
+.DS L
+.DE
+
+.LP
+.TS
+center box;
+c s.
+\fIRecord 1\fP
+_
+.T&
+c l.
+author_id	16
+name	foo\(rsx08bar
+z	
+_
+.T&
+c s.
+\fIRecord 2\fP
+_
+.T&
+c l.
+author_id	17
+name	袈	袈		袈
+z	
+_
+.T&
+c s.
+\fIRecord 3\fP
+_
+.T&
+c l.
+author_id	18
+name	a	b	\(rsr
+	a
+z	a
+
+_
+.T&
+c s.
+\fIRecord 4\fP
+_
+.T&
+c l.
+author_id	19
+name	袈	袈		袈
+
+z	
+_
+.T&
+c s.
+\fIRecord 5\fP
+_
+.T&
+c l.
+author_id	20
+name	javascript
+z	{
+  "test21": "a value",
+  "test22": "foo\(rsbbar"
+}
+_
+.T&
+c s.
+\fIRecord 6\fP
+_
+.T&
+c l.
+author_id	23
+name	slice
+z	[
+  "a",
+  "b"
+]
+.TE
+.DS L
+.DE
+
+.LP
+.TS
+center box;
+c s.
+\fIRecord 1\fP
+_
+.T&
+c l.
+author_id	38
+name	a	b	c	d
+z	x
+_
+.T&
+c s.
+\fIRecord 2\fP
+_
+.T&
+c l.
+author_id	39
+name	aoeu
+test
+
+z	
+_
+.T&
+c s.
+\fIRecord 3\fP
+_
+.T&
+c l.
+author_id	40
+name	foo\(rsx08bar
+z	
+_
+.T&
+c s.
+\fIRecord 4\fP
+_
+.T&
+c l.
+author_id	41
+name	袈	袈		袈
+z	
+_
+.T&
+c s.
+\fIRecord 5\fP
+_
+.T&
+c l.
+author_id	42
+name	a	b	\(rsr
+	a
+z	a
+
+_
+.T&
+c s.
+\fIRecord 6\fP
+_
+.T&
+c l.
+author_id	43
+name	袈	袈		袈
+
+z	
+_
+.T&
+c s.
+\fIRecord 7\fP
+_
+.T&
+c l.
+author_id	44
+name	javascript
+z	{
+  "test45": "a value",
+  "test46": "foo\(rsbbar"
+}
+_
+.T&
+c s.
+\fIRecord 8\fP
+_
+.T&
+c l.
+author_id	47
+name	slice
+z	[
+  "a",
+  "b"
+]
+.TE
+.DS L
+.DE

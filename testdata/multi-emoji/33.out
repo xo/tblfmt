@@ -1,0 +1,39 @@
+\begin{tabular}{r | l | l}
+\textit{author\_id} & \textit{name 👍🏽} & \textit{z} \\
+\hline
+14 & 👍🏽	👍	🇯🇵	❤️ & 😀 \\
+15 & family\\👨‍👩‍👧\\ &  \\
+\end{tabular}
+
+\noindent (2 rows) \\
+
+
+\begin{tabular}{r | l | l}
+\textit{author\_id} & \textit{name 👍🏽} & \textit{z} \\
+\hline
+16 & é ä 🧑‍💻 &  \\
+17 & 日本語	👍🏿		1️⃣ &  \\
+18 & ©️ ✔️ ☺️ ⌚\textbackslash{}x08🎉 & 🎉\\ \\
+19 & 🏳️‍🌈	🇺🇸🇯🇵\\	👍🏽 &  \\
+20 & emoji map & \{\\  "key": "🇯🇵\textbackslash{}t日本",\\  "👍🏽": "❤️"\\\} \\
+21 & slice & [\\  "😀",\\  "👍🏽"\\] \\
+\end{tabular}
+
+\noindent (6 rows) \\
+
+
+\begin{tabular}{r | l | l}
+\textit{author\_id} & \textit{name 👍🏽} & \textit{z} \\
+\hline
+38 & 👍🏽	👍	🇯🇵	❤️ & 😀 \\
+39 & family\\👨‍👩‍👧\\ &  \\
+40 & é ä 🧑‍💻 &  \\
+41 & 日本語	👍🏿		1️⃣ &  \\
+42 & ©️ ✔️ ☺️ ⌚\textbackslash{}x08🎉 & 🎉\\ \\
+43 & 🏳️‍🌈	🇺🇸🇯🇵\\	👍🏽 &  \\
+44 & emoji map & \{\\  "key": "🇯🇵\textbackslash{}t日本",\\  "👍🏽": "❤️"\\\} \\
+45 & slice & [\\  "😀",\\  "👍🏽"\\] \\
+\end{tabular}
+
+\noindent (8 rows) \\
+

@@ -1,0 +1,94 @@
+\begin{tabular}{c|l}
+\multicolumn{2}{c}{\textit{Record 1}} \\
+\hline
+author\_id & 14 \\
+name 👍🏽 & 👍🏽	👍	🇯🇵	❤️ \\
+z & 😀 \\
+\multicolumn{2}{c}{\textit{Record 2}} \\
+\hline
+author\_id & 15 \\
+name 👍🏽 & family\\👨‍👩‍👧\\ \\
+z &  \\
+\end{tabular}
+
+\noindent 
+
+\begin{tabular}{c|l}
+\multicolumn{2}{c}{\textit{Record 1}} \\
+\hline
+author\_id & 16 \\
+name 👍🏽 & é ä 🧑‍💻 \\
+z &  \\
+\multicolumn{2}{c}{\textit{Record 2}} \\
+\hline
+author\_id & 17 \\
+name 👍🏽 & 日本語	👍🏿		1️⃣ \\
+z &  \\
+\multicolumn{2}{c}{\textit{Record 3}} \\
+\hline
+author\_id & 18 \\
+name 👍🏽 & ©️ ✔️ ☺️ ⌚\textbackslash{}x08🎉 \\
+z & 🎉\\ \\
+\multicolumn{2}{c}{\textit{Record 4}} \\
+\hline
+author\_id & 19 \\
+name 👍🏽 & 🏳️‍🌈	🇺🇸🇯🇵\\	👍🏽 \\
+z &  \\
+\multicolumn{2}{c}{\textit{Record 5}} \\
+\hline
+author\_id & 20 \\
+name 👍🏽 & emoji map \\
+z & \{\\  "key": "🇯🇵\textbackslash{}t日本",\\  "👍🏽": "❤️"\\\} \\
+\multicolumn{2}{c}{\textit{Record 6}} \\
+\hline
+author\_id & 21 \\
+name 👍🏽 & slice \\
+z & [\\  "😀",\\  "👍🏽"\\] \\
+\end{tabular}
+
+\noindent 
+
+\begin{tabular}{c|l}
+\multicolumn{2}{c}{\textit{Record 1}} \\
+\hline
+author\_id & 38 \\
+name 👍🏽 & 👍🏽	👍	🇯🇵	❤️ \\
+z & 😀 \\
+\multicolumn{2}{c}{\textit{Record 2}} \\
+\hline
+author\_id & 39 \\
+name 👍🏽 & family\\👨‍👩‍👧\\ \\
+z &  \\
+\multicolumn{2}{c}{\textit{Record 3}} \\
+\hline
+author\_id & 40 \\
+name 👍🏽 & é ä 🧑‍💻 \\
+z &  \\
+\multicolumn{2}{c}{\textit{Record 4}} \\
+\hline
+author\_id & 41 \\
+name 👍🏽 & 日本語	👍🏿		1️⃣ \\
+z &  \\
+\multicolumn{2}{c}{\textit{Record 5}} \\
+\hline
+author\_id & 42 \\
+name 👍🏽 & ©️ ✔️ ☺️ ⌚\textbackslash{}x08🎉 \\
+z & 🎉\\ \\
+\multicolumn{2}{c}{\textit{Record 6}} \\
+\hline
+author\_id & 43 \\
+name 👍🏽 & 🏳️‍🌈	🇺🇸🇯🇵\\	👍🏽 \\
+z &  \\
+\multicolumn{2}{c}{\textit{Record 7}} \\
+\hline
+author\_id & 44 \\
+name 👍🏽 & emoji map \\
+z & \{\\  "key": "🇯🇵\textbackslash{}t日本",\\  "👍🏽": "❤️"\\\} \\
+\multicolumn{2}{c}{\textit{Record 8}} \\
+\hline
+author\_id & 45 \\
+name 👍🏽 & slice \\
+z & [\\  "😀",\\  "👍🏽"\\] \\
+\end{tabular}
+
+\noindent 

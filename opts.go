@@ -128,6 +128,7 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			WithSkipHeader(opts["tuples_only"] == "on"),
 			WithLowerColumnNames(opts["lower_column_names"] == "true"),
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
+			WithExpanded(opts["expanded"] == "on"),
 			FormatterOptionFromMap(opts),
 		}
 		if opts["tuples_only"] == "on" {
@@ -139,21 +140,33 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 		}
 		return enc, tableOpts
 	case "html", "asciidoc", "latex", "latex-longtable", "troff-ms", "vertical":
-		return NewTemplateEncoder, []Option{
+		tplOpts := []Option{
 			WithTemplate(format),
 			WithTableAttributes(opts["tableattr"]),
 			WithTitle(opts["title"]),
 			WithEmpty(opts["null"]),
 			WithLowerColumnNames(opts["lower_column_names"] == "true"),
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
+			WithExpanded(opts["expanded"] == "on"),
 			FormatterOptionFromMap(opts),
 		}
+		if s, ok := opts["border"]; ok {
+			border, _ := strconv.Atoi(s)
+			tplOpts = append(tplOpts, WithBorder(border))
+		}
+		if opts["tuples_only"] == "on" {
+			tplOpts = append(tplOpts, WithSkipHeader(true))
+		}
+		if opts["tuples_only"] == "on" || opts["footer"] == "off" {
+			// an empty summary map turns off the summary
+			tplOpts = append(tplOpts, WithSummary(Summary{}))
+		}
+		return NewTemplateEncoder, tplOpts
 	case "table":
 		tableOpts := []Option{
 			WithForceUpperColumnNames(true),
 			WithBorder(0),
 			WithLineStyle(TableLineStyle()),
-			WithInline(true),
 			WithFormatterOptions(
 				WithHeaderAlign(AlignLeft),
 				WithAlign(AlignLeft),
@@ -172,7 +185,7 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			tableOpts = append(tableOpts, WithSummary(Summary{}))
 		}
 		return NewTableEncoder, tableOpts
-	case "aligned":
+	case "aligned", "wrapped":
 		tableOpts := []Option{
 			WithLowerColumnNames(opts["lower_column_names"] == "true"),
 			WithUseColumnTypes(opts["use_column_types"] == "true"),
@@ -203,25 +216,21 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			case "old-ascii":
 				tableOpts = append(tableOpts, WithLineStyle(OldASCIILineStyle()))
 			case "unicode":
-				switch opts["unicode_border_linestyle"] {
-				case "single":
-					tableOpts = append(tableOpts, WithLineStyle(UnicodeLineStyle()))
-				case "double":
-					tableOpts = append(tableOpts, WithLineStyle(UnicodeDoubleLineStyle()))
-				}
+				tableOpts = append(tableOpts, WithLineStyle(UnicodeLineStyle(
+					opts["unicode_border_linestyle"] == "double",
+					opts["unicode_header_linestyle"] == "double",
+					opts["unicode_column_linestyle"] == "double",
+				)))
 			}
 		}
 		builder := NewTableEncoder
+		if format == "wrapped" {
+			tableOpts = append(tableOpts, WithWrapWidth(columns(opts)))
+		}
 		if e, ok := opts["expanded"]; ok {
 			switch e {
 			case "auto":
-				cols, _ := consolesize.GetConsoleSize()
-				if cstr, ok := opts["columns"]; ok && cstr != "" {
-					if c, err := strconv.ParseUint(cstr, 10, 32); err == nil && c != 0 {
-						cols = int(c)
-					}
-				}
-				tableOpts = append(tableOpts, WithMinExpandWidth(cols+1))
+				tableOpts = append(tableOpts, WithMinExpandWidth(columns(opts)+1))
 			case "on":
 				builder = NewExpandedEncoder
 			}
@@ -229,6 +238,18 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 		return builder, tableOpts
 	}
 	return newErrEncoder, []Option{withError(ErrInvalidFormat)}
+}
+
+// columns returns the width that psql wraps and expands to: the columns
+// variable, or else the width of the terminal.
+func columns(opts map[string]string) int {
+	if s := opts["columns"]; s != "" {
+		if c, err := strconv.ParseUint(s, 10, 32); err == nil && c != 0 {
+			return int(c)
+		}
+	}
+	cols, _ := consolesize.GetConsoleSize()
+	return cols
 }
 
 // FormatterOptionFromMap builds an option that sets the formatter options
@@ -318,43 +339,43 @@ func WithFormatter(formatter Formatter) Option {
 }
 
 // WithFormatterOptions is an encoder option that adds more formatter
-// options.
+// options. The formatter of the encoder must be an [EscapeFormatter]. For any
+// other formatter, the encoder returns ErrFormatterIsNotEscapeFormatter.
 func WithFormatterOptions(opts ...EscapeFormatterOption) Option {
-	apply := func(formatter Formatter) {
-		f := formatter.(*EscapeFormatter)
+	apply := func(formatter Formatter) error {
+		f, ok := formatter.(*EscapeFormatter)
+		if !ok {
+			return ErrFormatterIsNotEscapeFormatter
+		}
 		for _, o := range opts {
 			o(f)
 		}
+		return nil
 	}
 	return option{
 		table: func(enc *TableEncoder) error {
-			apply(enc.formatter)
-			return nil
+			return apply(enc.formatter)
 		},
 		expanded: func(enc *ExpandedEncoder) error {
-			apply(enc.formatter)
-			return nil
+			return apply(enc.formatter)
 		},
 		json: func(enc *JSONEncoder) error {
-			apply(enc.formatter)
-			return nil
+			return apply(enc.formatter)
 		},
 		unaligned: func(enc *UnalignedEncoder) error {
-			apply(enc.formatter)
-			return nil
+			return apply(enc.formatter)
 		},
 		template: func(enc *TemplateEncoder) error {
-			apply(enc.formatter)
-			return nil
+			return apply(enc.formatter)
 		},
 		crosstab: func(view *CrosstabView) error {
-			apply(view.formatter)
-			return nil
+			return apply(view.formatter)
 		},
 	}
 }
 
-// WithSummary is an encoder option that sets the summary of the table.
+// WithSummary is an encoder option that sets the summary of the table. The
+// JSON encoder writes no summary.
 func WithSummary(summary Summary) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
@@ -367,15 +388,14 @@ func WithSummary(summary Summary) Option {
 			enc.isCustomSummary = true
 			return nil
 		},
-		// FIXME: all of these encoders need a summary option too
-		json: func(*JSONEncoder) error {
-			return nil
-		},
 		unaligned: func(enc *UnalignedEncoder) error {
 			enc.summary = summary
+			enc.isCustomSummary = true
 			return nil
 		},
-		template: func(*TemplateEncoder) error {
+		template: func(enc *TemplateEncoder) error {
+			enc.summary = summary
+			enc.isCustomSummary = true
 			return nil
 		},
 	}
@@ -404,17 +424,6 @@ func WithSkipHeader(s bool) Option {
 	}
 }
 
-// WithInline is an encoder option that writes the header inline with the top
-// line.
-func WithInline(inline bool) Option {
-	return option{
-		table: func(enc *TableEncoder) error {
-			enc.inline = inline
-			return nil
-		},
-	}
-}
-
 // WithTitle is an encoder option that sets the title of the table.
 func WithTitle(title string) Option {
 	encode := func(formatter Formatter, empty *Value) *Value {
@@ -436,6 +445,10 @@ func WithTitle(title string) Option {
 			return nil
 		},
 		template: func(enc *TemplateEncoder) error {
+			enc.title = encode(enc.formatter, enc.empty)
+			return nil
+		},
+		unaligned: func(enc *UnalignedEncoder) error {
 			enc.title = encode(enc.formatter, enc.empty)
 			return nil
 		},
@@ -480,7 +493,8 @@ func WithEmpty(empty string) Option {
 	}
 }
 
-// WithWidths is an encoder option that sets the (minimum) width of each column.
+// WithWidths is an encoder option that sets the minimum width of each column.
+// Only the table encoders read it, because only they pad a column (D61).
 func WithWidths(widths ...int) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
@@ -489,18 +503,6 @@ func WithWidths(widths ...int) Option {
 		},
 		expanded: func(enc *ExpandedEncoder) error {
 			enc.widths = widths
-			return nil
-		},
-		unaligned: func(*UnalignedEncoder) error {
-			// FIXME: add support for minimum column widths to the
-			// unaligned encoder
-			// enc.widths = widths
-			return nil
-		},
-		template: func(*TemplateEncoder) error {
-			// FIXME: add support for minimum column widths to the
-			// template encoder
-			// enc.widths = widths
 			return nil
 		},
 	}
@@ -552,6 +554,87 @@ func WithNewline(newline string) Option {
 	}
 }
 
+// WithExpanded is an encoder option that writes each row as a record, as psql
+// does with the variable expanded on. The unaligned and csv encoders and the
+// html, asciidoc, latex, latex-longtable and troff-ms templates read it. The
+// table encoder has NewExpandedEncoder instead.
+func WithExpanded(expanded bool) Option {
+	return option{
+		template: func(enc *TemplateEncoder) error {
+			enc.expanded = expanded
+			return nil
+		},
+		unaligned: func(enc *UnalignedEncoder) error {
+			enc.expanded = expanded
+			return nil
+		},
+	}
+}
+
+// WithWrapWidth is an encoder option that wraps the values of a table, so that
+// the table fits in the width, as the psql format wrapped does. The encoder
+// does not make a column narrower than its name. Zero turns off wrapping.
+func WithWrapWidth(width int) Option {
+	return option{
+		table: func(enc *TableEncoder) error {
+			enc.wrapWidth = width
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
+			enc.wrapWidth = width
+			return nil
+		},
+	}
+}
+
+// WithResultSetSeparator is an encoder option that sets the text that
+// EncodeAll writes between two result sets. By default, EncodeAll writes the
+// newline.
+func WithResultSetSeparator(sep string) Option {
+	return option{
+		table: func(enc *TableEncoder) error {
+			enc.resultSetSep = []byte(sep)
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
+			enc.resultSetSep = []byte(sep)
+			return nil
+		},
+		json: func(enc *JSONEncoder) error {
+			enc.resultSetSep = []byte(sep)
+			return nil
+		},
+		unaligned: func(enc *UnalignedEncoder) error {
+			enc.resultSetSep = []byte(sep)
+			return nil
+		},
+		template: func(enc *TemplateEncoder) error {
+			enc.resultSetSep = []byte(sep)
+			return nil
+		},
+	}
+}
+
+// WithIndent is an encoder option that sets the indent of the JSON encoder.
+// By default, the indent is empty, and the encoder writes each result set as
+// compact JSON on one line.
+//
+// The indent must contain only spaces and tabs.
+func WithIndent(indent string) Option {
+	return option{
+		json: func(enc *JSONEncoder) error {
+			if !isSpaceOrTab(indent) {
+				return ErrInvalidIndent
+			}
+			enc.indent = indent
+			if f, ok := enc.formatter.(*EscapeFormatter); ok {
+				f.prefix, f.indent = indent+indent, indent
+			}
+			return nil
+		},
+	}
+}
+
 // WithBorder is an encoder option that sets the border size.
 func WithBorder(border int) Option {
 	return option{
@@ -560,6 +643,10 @@ func WithBorder(border int) Option {
 			return nil
 		},
 		expanded: func(enc *ExpandedEncoder) error {
+			enc.border = border
+			return nil
+		},
+		template: func(enc *TemplateEncoder) error {
 			enc.border = border
 			return nil
 		},
@@ -597,6 +684,12 @@ func WithTemplate(name string) Option {
 				enc.executor = WriteAsciidocTo
 			case "vertical":
 				enc.executor = WriteVerticalTo
+			case "latex":
+				enc.executor = WriteLaTeXTo
+			case "latex-longtable":
+				enc.executor = WriteLaTeXLongtableTo
+			case "troff-ms":
+				enc.executor = WriteTroffMSTo
 			default:
 				return ErrInvalidTemplate
 			}
@@ -720,6 +813,41 @@ func WithColumnTypesFunc(f func(*sql.ColumnType) (any, error)) Option {
 		}
 		return nil
 	})
+}
+
+// WithColumnAlign is an encoder option that sets the alignment of each column
+// from its database type, before the encoder reads a row. For each column, f
+// gets the *sql.ColumnType, and returns the alignment and true, or false to
+// align the column by its values. The alignment holds for each value of the
+// column, a null value too, and for a result set that has no rows.
+//
+// The result set must have a ColumnTypes method, as *sql.Rows has. The table
+// and template encoders read it.
+//
+// For example, psql right aligns the numbers, and the money type:
+//
+//	tblfmt.WithColumnAlign(func(col *sql.ColumnType) (tblfmt.Align, bool) {
+//		switch col.DatabaseTypeName() {
+//		case "INT2", "INT4", "INT8", "FLOAT4", "FLOAT8", "NUMERIC", "OID", "MONEY":
+//			return tblfmt.AlignRight, true
+//		}
+//		return tblfmt.AlignLeft, true
+//	})
+func WithColumnAlign(f func(*sql.ColumnType) (Align, bool)) Option {
+	return option{
+		table: func(enc *TableEncoder) error {
+			enc.columnAlign = f
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
+			enc.columnAlign = f
+			return nil
+		},
+		template: func(enc *TemplateEncoder) error {
+			enc.columnAlign = f
+			return nil
+		},
+	}
 }
 
 // WithParams is a view option that sets the column parameters.

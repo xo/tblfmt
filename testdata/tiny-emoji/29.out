@@ -1,13 +1,10 @@
-<table>
-  <caption></caption>
-  <thead>
-    <tr>
-      <th align="left">👍🏽</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td align="left">🇯🇵</td>
-    </tr>
-  </tbody>
+<table border="1">
+  <tr>
+    <th align="center">👍🏽</th>
+  </tr>
+  <tr valign="top">
+    <td align="left">🇯🇵</td>
+  </tr>
 </table>
+<p>(1 row)<br />
+</p>

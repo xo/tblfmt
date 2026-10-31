@@ -1,0 +1,9 @@
+\begin{longtable}{l}
+\small\textbf{\textit{z}} \\
+\midrule
+\endfirsthead
+\small\textbf{\textit{z}} \\
+\midrule
+\endhead
+\raggedright{x} \tabularnewline
+\end{longtable}

@@ -3,11 +3,14 @@ package tblfmt
 import (
 	"bufio"
 	"bytes"
+	"database/sql"
 	"encoding/json/jsontext"
 	json "encoding/json/v2"
-	"fmt"
 	"io"
+	"slices"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	runewidth "github.com/mattn/go-runewidth"
 )
@@ -24,14 +27,13 @@ type TableEncoder struct {
 	// Note: if count is 0, the encoder scans and buffers all the rows before
 	// it encodes the table.
 	count int
-	// tab is the tab width.
-	tab int
 	// newline is the record separator.
 	newline []byte
+	// resultSetSep is written between two result sets. When it is nil, the
+	// encoder writes newline.
+	resultSetSep []byte
 	// border is the display border size.
 	border int
-	// inline turns on writing the header inline with the top line.
-	inline bool
 	// lineStyle is the line style of the table.
 	lineStyle LineStyle
 	// formatter formats the values before the encoder writes them.
@@ -48,13 +50,29 @@ type TableEncoder struct {
 	empty *Value
 	// headers contains the formatted column names.
 	headers []*Value
-	// offsets are the column offsets.
-	offsets []int
 	// widths are the column widths that the user set.
 	widths []int
 	// maxWidths are the calculated maximum widths of the columns. Each one is
 	// at least the width that the user set.
 	maxWidths []int
+	// colWidths are the widths that the encoder draws the columns with. They
+	// are maxWidths, unless wrapWidth makes a column narrower.
+	colWidths []int
+	// headerWidths are the widths of the column names, and sums are the sums
+	// of the widths of the values in each column. psql wraps a column by
+	// their average.
+	headerWidths []int
+	sums         []int
+	// wide is true for each column that holds a character 2 columns wide.
+	// Wrapping does not make such a column narrower than 2.
+	wide []bool
+	// wrapWidth is the width that the encoder wraps the table to, as the
+	// psql format wrapped does. Zero turns off wrapping.
+	wrapWidth int
+	// columnAlign sets the alignment of a column from its type, and fixed
+	// holds what it set for the columns of the result set.
+	columnAlign func(*sql.ColumnType) (Align, bool)
+	fixed       []fixedAlign
 	// aligns are the calculated column alignments, followed by a column's null
 	// values, which have no type of their own to align by.
 	aligns []Align
@@ -74,13 +92,12 @@ type TableEncoder struct {
 
 // NewTableEncoder creates a table encoder with the options.
 //
-// By default, the table encoder has a border of 1 and a tab width of 8.
+// By default, the table encoder has a border of 1.
 func NewTableEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	enc := &TableEncoder{
 		resultSet: resultSet,
 		newline:   newline,
 		border:    1,
-		tab:       8,
 		lineStyle: ASCIILineStyle(),
 		formatter: NewEscapeFormatter(WithHeaderAlign(AlignCenter)),
 		summary:   DefaultTableSummary(),
@@ -94,26 +111,17 @@ func NewTableEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 			return nil, err
 		}
 	}
-	// make sure that each rune of the line style has a width of 1
-	// TODO: remove this loop
-	for _, l := range [][4]rune{
-		enc.lineStyle.Top,
-		enc.lineStyle.Mid,
-		enc.lineStyle.Row,
-		enc.lineStyle.Wrap,
-		enc.lineStyle.End,
-	} {
-		for _, r := range l {
-			if r != 0 && runewidth.RuneWidth(r) != 1 {
-				return nil, ErrInvalidLineStyle
-			}
-		}
+	if !enc.lineStyle.valid() {
+		return nil, ErrInvalidLineStyle
 	}
 	return enc, nil
 }
 
 // Encode encodes one result set to the writer with the options of the
 // encoder.
+//
+// The encoder draws the table as psql does in print_aligned_text, in
+// src/fe_utils/print.c.
 func (enc *TableEncoder) Encode(w io.Writer) error {
 	// reset scan count
 	enc.scanCount = 0
@@ -126,87 +134,105 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	// set up the offsets and the widths
-	enc.offsets = make([]int, clen)
-	wroteHeader := enc.skipHeader
 	// start with the widths that the user set
 	enc.maxWidths = make([]int, clen)
+	enc.headerWidths = make([]int, clen)
+	enc.sums = make([]int, clen)
+	enc.wide = make([]bool, clen)
 	enc.aligns = make([]Align, clen)
 	copy(enc.maxWidths, enc.widths)
 	enc.headers, err = enc.formatter.Header(cols)
 	if err != nil {
 		return err
 	}
-	for {
+	enc.fixed = columnAligns(enc.resultSet, clen, enc.columnAlign)
+	// table is true after the encoder draws the header or a row as a table.
+	// exp is set after the encoder switches a batch to expanded records.
+	var table bool
+	var exp *ExpandedEncoder
+	for first := true; ; first = false {
 		var vals [][]*Value
 		// read the next batch
 		vals, err = enc.nextResults()
 		if err != nil {
 			return err
 		}
-		// no more rows
-		if len(vals) == 0 {
+		// no more rows. psql draws the header of a result set that has no
+		// rows, so the first batch is drawn even when it is empty.
+		if len(vals) == 0 && !first {
 			break
 		}
 		enc.calcWidth(vals)
-		if enc.minExpandWidth != 0 && enc.tableWidth() >= enc.minExpandWidth {
-			t := *enc
-			t.formatter = NewEscapeFormatter()
-			exp := ExpandedEncoder{
-				TableEncoder: t,
+		// psql does not switch a table of one column, because the records
+		// would be wider than the table
+		if enc.minExpandWidth != 0 && clen > 1 && enc.tableWidth() >= enc.minExpandWidth {
+			if exp == nil {
+				if exp, err = enc.expanded(cols); err != nil {
+					return err
+				}
+				// psql writes the title of expanded records as it is
+				if !table {
+					exp.writeTitle()
+				}
 			}
-			exp.offsets = make([]int, 2)
-			exp.maxWidths = make([]int, 2)
-			exp.aligns = make([]Align, 2)
-			exp.headers, err = exp.formatter.Header(cols)
-			if err != nil {
+			exp.calcWidth(vals, enc.scanCount)
+			if err := exp.encodeVals(vals, enc.scanCount-len(vals)); err != nil {
 				return err
 			}
-			exp.calcWidth(vals)
-			if err := exp.encodeVals(vals); err != nil {
-				return err
+			if len(vals) == 0 {
+				break
 			}
 			continue
 		}
-		// write the header if the encoder did not write it yet
-		if !wroteHeader {
-			wroteHeader = true
+		// draw the header before the first row
+		if !table && !enc.skipHeader {
 			enc.header()
 		}
+		table = true
 		if err := enc.encodeVals(vals); err != nil {
 			return err
 		}
-		// draw the end border
-		if enc.border >= 2 {
-			enc.divider(enc.rowStyle(enc.lineStyle.End))
+		if len(vals) == 0 {
+			break
 		}
 	}
-	// psql draws the lines of a result set that has no columns and no rows.
-	//
-	// Note: psql also draws the header of a result set that has columns and
-	// no rows, and this encoder does not. See B1 in docs/BACKLOG.md.
-	if clen == 0 && enc.scanCount == 0 {
-		if !wroteHeader {
-			enc.header()
-		}
+	// draw the end border, and write the summary
+	switch {
+	case table:
 		if enc.border >= 2 {
-			enc.divider(enc.rowStyle(enc.lineStyle.End))
+			enc.hline(enc.lineStyle.End)
 		}
+		err = summarize(enc.w, enc.summary, enc.scanCount)
+	default:
+		exp.scanCount = enc.scanCount
+		err = exp.end(clen)
 	}
-	// write the summary
-	if err := summarize(enc.w, enc.summary, enc.scanCount); err != nil {
+	if err != nil {
 		return err
 	}
 	return enc.w.Flush()
 }
 
+// expanded returns an expanded encoder that writes to the same writer, for a
+// batch that is too wide for the table.
+func (enc *TableEncoder) expanded(cols []string) (*ExpandedEncoder, error) {
+	t := *enc
+	t.formatter = NewEscapeFormatter()
+	exp := &ExpandedEncoder{
+		TableEncoder: t,
+	}
+	exp.maxWidths = make([]int, 2)
+	var err error
+	exp.headers, err = exp.formatter.Header(cols)
+	return exp, err
+}
+
 func (enc *TableEncoder) encodeVals(vals [][]*Value) error {
-	rs := enc.rowStyle(enc.lineStyle.Row)
 	// write the rows of the batch
 	for i := range vals {
-		enc.row(vals[i], rs)
-		if i+1%1000 == 0 {
-			// check error every 1k rows
+		enc.row(vals[i])
+		// check for a write error every 1000 rows
+		if (i+1)%1000 == 0 {
 			if err := enc.w.Flush(); err != nil {
 				return err
 			}
@@ -218,18 +244,7 @@ func (enc *TableEncoder) encodeVals(vals [][]*Value) error {
 // EncodeAll encodes each result set to the writer with the options of the
 // encoder.
 func (enc *TableEncoder) EncodeAll(w io.Writer) error {
-	if err := enc.Encode(w); err != nil {
-		return err
-	}
-	for enc.resultSet.NextResultSet() {
-		if _, err := w.Write(enc.newline); err != nil {
-			return err
-		}
-		if err := enc.Encode(w); err != nil {
-			return err
-		}
-	}
-	return nil
+	return encodeAll(w, enc.resultSet, enc.Encode, enc.resultSetSep, enc.newline)
 }
 
 // nextResults reads the next batch of enc.count rows, or all the rows if
@@ -255,6 +270,7 @@ func (enc *TableEncoder) nextResults() ([][]*Value, error) {
 		if err != nil {
 			return vals, err
 		}
+		applyAligns(v, enc.fixed)
 		vals, i = append(vals, v), i+1
 		// read in batches of enc.count rows
 		if enc.count != 0 && i%enc.count == 0 {
@@ -265,25 +281,22 @@ func (enc *TableEncoder) nextResults() ([][]*Value, error) {
 }
 
 func (enc *TableEncoder) calcWidth(vals [][]*Value) {
-	// calculate the offsets and the widths for this batch
-	var offset int
-	rs := enc.rowStyle(enc.lineStyle.Row)
-	offset += runewidth.StringWidth(string(rs.left))
 	for i, h := range enc.headers {
-		if i != 0 {
-			offset += runewidth.StringWidth(string(rs.middle))
-		}
-		// store the offset
-		enc.offsets[i] = offset
 		// the width of the header is the minimum
-		enc.maxWidths[i] = max(enc.maxWidths[i], h.MaxWidth(offset, enc.tab))
+		enc.headerWidths[i] = h.MaxWidth()
+		enc.maxWidths[i] = max(enc.maxWidths[i], enc.headerWidths[i])
 		// find the maximum width of the column, from the first row to the last
 		for j := range vals {
 			cell := vals[j][i]
 			if cell == nil {
 				cell = enc.empty
 			}
-			enc.maxWidths[i] = max(enc.maxWidths[i], cell.MaxWidth(offset, enc.tab))
+			width := cell.MaxWidth()
+			enc.maxWidths[i] = max(enc.maxWidths[i], width)
+			enc.sums[i] += width
+			if enc.wrapWidth > 0 && !enc.wide[i] {
+				enc.wide[i] = hasWide(cell.Buf)
+			}
 		}
 		// a null value has no type of its own to align by, so it follows the
 		// column, the way psql aligns the null string by the column's type. A
@@ -292,222 +305,437 @@ func (enc *TableEncoder) calcWidth(vals [][]*Value) {
 		if align, ok := columnAlign(vals, i); ok {
 			enc.aligns[i] = align
 		}
-		// add the width of the column, and one space for the wrap indicator
-		offset += enc.maxWidths[i]
-		if rs.hasWrapping && enc.border != 0 {
-			offset++
+		if i < len(enc.fixed) && enc.fixed[i].ok {
+			enc.aligns[i] = enc.fixed[i].align
 		}
+	}
+	enc.wrap()
+}
+
+// wrap sets the widths that the encoder draws the columns with. With a wrap
+// width, it makes a column narrower until the table fits, as psql does. It
+// takes one column from the column with the highest ratio of its maximum
+// width to its average width, and so wraps the fewest values. A column is
+// never narrower than its name.
+//
+// Note: psql can make a column 1 wide when it holds a character 2 columns
+// wide, and the character then pushes the line out of line. tblfmt keeps
+// such a column 2 wide (D56).
+func (enc *TableEncoder) wrap() {
+	enc.colWidths = slices.Clone(enc.maxWidths)
+	if enc.wrapWidth <= 0 || enc.scanCount == 0 {
+		return
+	}
+	// psql does not wrap when the column names alone do not fit
+	headerWidth := enc.borderWidth()
+	for _, w := range enc.headerWidths {
+		headerWidth += w
+	}
+	if enc.wrapWidth < headerWidth {
+		return
+	}
+	for width := enc.tableWidth(); width > enc.wrapWidth; width-- {
+		worst, ratio := -1, 0.0
+		for i, w := range enc.colWidths {
+			average := enc.sums[i] / enc.scanCount
+			minWidth := enc.headerWidths[i]
+			if enc.wide[i] {
+				minWidth = max(minWidth, 2)
+			}
+			if average == 0 || w <= minWidth {
+				continue
+			}
+			// psql adds 1% of the maximum width, so that a wide column is
+			// made narrower first
+			if r := float64(w)/float64(average) + float64(enc.maxWidths[i])*0.01; r > ratio {
+				worst, ratio = i, r
+			}
+		}
+		if worst == -1 {
+			return
+		}
+		enc.colWidths[worst]--
 	}
 }
 
+// header draws the title, the top border, the column names and the line
+// under them.
 func (enc *TableEncoder) header() {
-	rs := enc.rowStyle(enc.lineStyle.Row)
+	ls := enc.lineStyle
+	// psql centers the title over the table, unless the title is wider
 	if enc.title != nil && enc.title.Width != 0 {
-		maxWidth := ((enc.tableWidth() - enc.title.Width) / 2) + enc.title.Width
-		enc.writeAligned(enc.title.Buf, rs.filler, AlignRight, maxWidth-enc.title.Width)
+		if width := enc.tableWidth() - enc.title.MaxWidth(); width > 0 {
+			enc.spaces(width / 2)
+		}
+		_, _ = enc.w.Write(enc.title.Buf)
 		_, _ = enc.w.Write(enc.newline)
 	}
-	// draw the top border
-	if enc.border >= 2 && !enc.inline {
-		enc.divider(enc.rowStyle(enc.lineStyle.Top))
+	if enc.border >= 2 {
+		enc.hline(ls.Top)
 	}
-	// draw the header with the style of the top line
-	if enc.inline {
-		rs = enc.rowStyle(enc.lineStyle.Top)
-	}
-	// write the header
-	enc.row(enc.headers, rs)
-	if !enc.inline {
-		// draw the middle divider
-		enc.divider(enc.rowStyle(enc.lineStyle.Mid))
-	}
-}
-
-// rowStyle returns the left, right, and middle borders. It also returns the
-// filler string, and tells if this style uses a wrap indicator.
-func (enc *TableEncoder) rowStyle(r [4]rune) rowStyle {
-	var left, right, middle, spacer, filler string
-	spacer = strings.Repeat(string(r[1]), runewidth.RuneWidth(enc.lineStyle.Row[1]))
-	filler = string(r[1])
-	// for compact output, r[1] is \0
-	if r[1] == 0 {
-		filler = " "
-	}
-	// outside borders
-	if enc.border > 1 {
-		left = string(r[0])
-		right = string(r[3])
-	}
-	// if the border is set, add a spacer at the start
-	if enc.border > 0 {
-		left += spacer
-	}
-	middle = " "
-	if enc.border >= 1 { // inside border
-		middle = string(r[2]) + spacer
-	}
-	return rowStyle{
-		left:        []byte(left),
-		wrapper:     []byte(string(enc.lineStyle.Wrap[1])),
-		middle:      []byte(middle),
-		right:       []byte(right + string(enc.newline)),
-		filler:      []byte(filler),
-		hasWrapping: runewidth.RuneWidth(enc.lineStyle.Row[1]) > 0,
-	}
-}
-
-// divider draws a divider.
-func (enc *TableEncoder) divider(rs rowStyle) {
-	// left
-	_, _ = enc.w.Write(rs.left)
-	for i, width := range enc.maxWidths {
-		// column
-		_, _ = enc.w.Write(bytes.Repeat(rs.filler, width))
-		// wrap indicator
-		if rs.hasWrapping && enc.border >= 1 {
-			_, _ = enc.w.Write(rs.filler)
+	// done is true for each column name that has no more lines
+	done := make([]bool, len(enc.headers))
+	more := len(enc.headers)
+	for l := 0; more > 0; l++ {
+		if enc.border >= 2 {
+			_, _ = enc.w.WriteString(ls.Row.Left)
 		}
-		// middle separator
-		if i != len(enc.maxWidths)-1 {
-			_, _ = enc.w.Write(rs.middle)
+		for i, h := range enc.headers {
+			if enc.border != 0 || (ls.LeftMarks && i > 0) {
+				if l != 0 {
+					_, _ = enc.w.WriteString(ls.HeaderNewlineLeft)
+				} else {
+					_, _ = enc.w.WriteString(" ")
+				}
+			}
+			if !done[i] {
+				padding := enc.colWidths[i] - h.LineWidth(l)
+				var left int
+				switch h.Align {
+				case AlignCenter:
+					left = padding / 2
+				case AlignRight:
+					left = padding
+				}
+				enc.spaces(left)
+				enc.writeLine(h, l)
+				enc.spaces(padding - left)
+				if l == len(h.Newlines) {
+					done[i] = true
+					more--
+				}
+			} else {
+				enc.spaces(enc.colWidths[i])
+			}
+			if enc.border != 0 || !ls.LeftMarks {
+				if !done[i] {
+					_, _ = enc.w.WriteString(ls.HeaderNewlineRight)
+				} else {
+					_, _ = enc.w.WriteString(" ")
+				}
+			}
+			if enc.border != 0 && i != len(enc.headers)-1 {
+				_, _ = enc.w.WriteString(ls.Row.Middle)
+			}
 		}
+		if enc.border >= 2 {
+			_, _ = enc.w.WriteString(ls.Row.Right)
+		}
+		_, _ = enc.w.Write(enc.newline)
 	}
-	// psql draws one more filler when there are no columns
-	if len(enc.maxWidths) == 0 && rs.hasWrapping && enc.border >= 1 {
-		_, _ = enc.w.Write(rs.filler)
-	}
-	// right
-	_, _ = enc.w.Write(rs.right)
+	enc.hline(ls.Mid)
 }
 
-// tableWidth calculates the total width of the table.
+// hline draws a horizontal line with the rule, as _print_horizontal_line in
+// psql does. A rule with no line draws nothing.
+func (enc *TableEncoder) hline(rule Rule) {
+	if rule.Line == "" {
+		return
+	}
+	switch enc.border {
+	case 0:
+	case 1:
+		_, _ = enc.w.WriteString(rule.Line)
+	default:
+		_, _ = enc.w.WriteString(rule.Left + rule.Line)
+	}
+	for i, width := range enc.colWidths {
+		_, _ = enc.w.WriteString(strings.Repeat(rule.Line, width))
+		if i != len(enc.colWidths)-1 {
+			if enc.border == 0 {
+				_, _ = enc.w.WriteString(" ")
+			} else {
+				_, _ = enc.w.WriteString(rule.Line + rule.Middle + rule.Line)
+			}
+		}
+	}
+	switch enc.border {
+	case 0:
+	case 1:
+		_, _ = enc.w.WriteString(rule.Line)
+	default:
+		_, _ = enc.w.WriteString(rule.Line + rule.Right)
+	}
+	_, _ = enc.w.Write(enc.newline)
+}
+
+// tableWidth returns the width of the table, as psql calculates it.
 func (enc *TableEncoder) tableWidth() int {
-	rs := enc.rowStyle(enc.lineStyle.Mid)
-	width := runewidth.StringWidth(string(rs.left)) + runewidth.StringWidth(string(rs.right))
-	for i, w := range enc.maxWidths {
+	width := enc.borderWidth()
+	for _, w := range enc.colWidths {
 		width += w
-		if rs.hasWrapping && enc.border >= 1 {
-			width++
-		}
-		if i != len(enc.maxWidths)-1 {
-			width += runewidth.StringWidth(string(rs.middle))
-		}
-	}
-	// the filler that divider draws when there are no columns
-	if len(enc.maxWidths) == 0 && rs.hasWrapping && enc.border >= 1 {
-		width++
 	}
 	return width
 }
 
-// row draws a table row.
+// borderWidth returns the width of the borders and the separators of the
+// columns, as psql calculates it.
+func (enc *TableEncoder) borderWidth() int {
+	n := len(enc.headers)
+	switch enc.border {
+	case 0:
+		return n
+	case 1:
+		return n*3 - min(n, 1)
+	}
+	return n*3 + 1
+}
+
+// row draws a table row. A value that holds newlines takes more than one
+// line, and so does a value that the encoder wraps.
 //
 // Note: a row that has no values draws no line, as in psql.
-func (enc *TableEncoder) row(vals []*Value, rs rowStyle) {
+func (enc *TableEncoder) row(vals []*Value) {
 	if len(vals) == 0 {
 		return
 	}
-	var l int
-	for {
-		// left
-		_, _ = enc.w.Write(rs.left)
-		var remaining bool
-		for i, v := range vals {
-			align := enc.aligns[i]
-			if v == nil {
-				v = enc.empty
-			} else {
-				align = v.Align
+	ls := enc.lineStyle
+	// lines holds the next line of each value, and marks tells whether that
+	// line follows a wrap or a newline. With wrapping, texts holds the line
+	// with its tabs written as spaces, and offsets holds the part of it that
+	// the encoder wrote.
+	lines := make([]int, len(vals))
+	marks := make([]mark, len(vals))
+	var texts [][]byte
+	var offsets []int
+	if enc.wrapWidth > 0 {
+		texts, offsets = make([][]byte, len(vals)), make([]int, len(vals))
+	}
+	value := func(i int) (*Value, Align) {
+		if vals[i] == nil {
+			return enc.empty, enc.aligns[i]
+		}
+		return vals[i], vals[i].Align
+	}
+	for more := true; more; {
+		more = false
+		if enc.border >= 2 {
+			_, _ = enc.w.WriteString(ls.Row.Left)
+		}
+		for i := range vals {
+			v, align := value(i)
+			// psql pads the last column only when a border or a mark follows
+			// it
+			last := enc.border < 2 && i == len(vals)-1
+			if enc.border != 0 {
+				_, _ = enc.w.WriteString(marks[i].left(ls))
 			}
-			// write value
-			if l <= len(v.Newlines) {
-				// find the start, the end, and the width
-				start, end, width := 0, len(v.Buf), 0
-				if l > 0 {
-					start = v.Newlines[l-1][0] + 1
+			padding := 0
+			switch l := lines[i]; {
+			case l > len(v.Newlines):
+				// the value has no more lines
+				if !last {
+					enc.spaces(enc.colWidths[i])
 				}
-				if l < len(v.Newlines) {
-					end = v.Newlines[l][0]
-					width += v.Newlines[l][1]
+			case texts == nil:
+				padding = enc.colWidths[i] - v.LineWidth(l)
+				padding = enc.alignLeft(align, padding)
+				enc.writeLine(v, l)
+				lines[i]++
+				more = more || lines[i] <= len(v.Newlines)
+			default:
+				if offsets[i] == 0 {
+					texts[i] = lineText(v, l)
 				}
-				if len(v.Tabs) != 0 && len(v.Tabs[l]) != 0 {
-					width += tabwidth(v.Tabs[l], enc.offsets[i], enc.tab)
-				}
-				if l == len(v.Newlines) {
-					width += v.Width
-				}
-				padding := enc.maxWidths[i] - width
-				// no padding for the last value if there is no outside border and
-				// the value is left aligned
-				if enc.border <= 1 && align == AlignLeft && i == len(vals)-1 && (!rs.hasWrapping || l >= len(v.Newlines)) {
-					padding = 0
-				}
-				enc.writeAligned(v.Buf[start:end], rs.filler, align, padding)
-			} else if enc.border > 1 || i != len(vals)-1 {
-				_, _ = enc.w.Write(bytes.Repeat(rs.filler, enc.maxWidths[i]))
-			}
-			// write the wrap indicator, or a filler
-			if rs.hasWrapping {
-				if l < len(v.Newlines) {
-					_, _ = enc.w.Write(rs.wrapper)
+				text, width := cut(texts[i][offsets[i]:], enc.colWidths[i])
+				padding = enc.alignLeft(align, enc.colWidths[i]-width)
+				_, _ = enc.w.Write(text)
+				offsets[i] += len(text)
+				if offsets[i] < len(texts[i]) {
+					more = true
 				} else {
-					_, _ = enc.w.Write(rs.filler)
+					lines[i]++
+					offsets[i] = 0
+					more = more || lines[i] <= len(v.Newlines)
 				}
 			}
-			remaining = remaining || l < len(v.Newlines)
-			// middle separator. If the border is 0, the wrap indicator is the
-			// middle separator
-			if i != len(enc.maxWidths)-1 && enc.border >= 1 {
-				_, _ = enc.w.Write(rs.middle)
+			marks[i] = markNone
+			if lines[i] <= len(v.Newlines) {
+				switch {
+				case offsets != nil && offsets[i] != 0:
+					marks[i] = markWrap
+				case lines[i] != 0:
+					marks[i] = markNewline
+				}
+			}
+			if !last || marks[i] != markNone {
+				enc.spaces(padding)
+			}
+			switch {
+			case marks[i] != markNone:
+				_, _ = enc.w.WriteString(marks[i].right(ls))
+			case !last:
+				_, _ = enc.w.WriteString(" ")
+			}
+			// the vertical line before the next value tells whether that
+			// value continues after a wrap or a newline, or has no more lines
+			if enc.border != 0 && i != len(vals)-1 {
+				next, _ := value(i + 1)
+				switch {
+				case marks[i+1] == markWrap:
+					_, _ = enc.w.WriteString(ls.MidWrap)
+				case marks[i+1] == markNewline:
+					_, _ = enc.w.WriteString(ls.MidNewline)
+				case lines[i+1] > len(next.Newlines):
+					_, _ = enc.w.WriteString(ls.MidBlank)
+				default:
+					_, _ = enc.w.WriteString(ls.Row.Middle)
+				}
 			}
 		}
-		// right
-		_, _ = enc.w.Write(rs.right)
-		if !remaining {
+		if enc.border >= 2 {
+			_, _ = enc.w.WriteString(ls.Row.Right)
+		}
+		_, _ = enc.w.Write(enc.newline)
+	}
+}
+
+// alignLeft writes the padding that goes before a value with the alignment,
+// and returns the padding that goes after it.
+func (enc *TableEncoder) alignLeft(align Align, padding int) int {
+	switch align {
+	case AlignRight:
+		enc.spaces(padding)
+		return 0
+	case AlignCenter:
+		enc.spaces(padding / 2)
+		return padding - padding/2
+	}
+	return padding
+}
+
+// mark is the state of the next line of a value, as psql tracks it.
+type mark int
+
+// The marks.
+const (
+	markNone mark = iota
+	markWrap
+	markNewline
+)
+
+// left returns the mark at the left of a line of a value.
+func (m mark) left(ls LineStyle) string {
+	switch m {
+	case markWrap:
+		return ls.WrapLeft
+	case markNewline:
+		return ls.NewlineLeft
+	}
+	return " "
+}
+
+// right returns the mark at the right of a line of a value.
+func (m mark) right(ls LineStyle) string {
+	switch m {
+	case markWrap:
+		return ls.WrapRight
+	case markNewline:
+		return ls.NewlineRight
+	}
+	return " "
+}
+
+// lineText returns line l of the value, with each tab written as spaces, as
+// writeLine writes it.
+func lineText(v *Value, l int) []byte {
+	start, end := v.line(l)
+	if l >= len(v.Tabs) || len(v.Tabs[l]) == 0 {
+		return v.Buf[start:end]
+	}
+	var buf []byte
+	var width int
+	for _, tab := range v.Tabs[l] {
+		buf = append(buf, v.Buf[start:tab[0]]...)
+		width += tab[1]
+		n := tabWidth - width%tabWidth
+		buf = append(buf, spaces[:n]...)
+		width += n
+		start = tab[0] + 1
+	}
+	return append(buf, v.Buf[start:end]...)
+}
+
+// cut returns the start of the text that is at most width columns wide, and
+// its width. It cuts between two grapheme clusters. As psql does, it takes the
+// first cluster even when that is wider, and then reports the width.
+func cut(text []byte, width int) ([]byte, int) {
+	if w := textWidth(text); w <= width {
+		return text, w
+	}
+	s := string(text)
+	var prefix string
+	// note: go-runewidth can count a cluster narrower than textWidth does,
+	// so the prefix is cut again until it fits. See B38.
+	for n := width; n >= 0; n-- {
+		prefix = runewidth.Truncate(s, n, "")
+		if textWidth([]byte(prefix)) <= width {
 			break
 		}
-		l++
+	}
+	for n := width + 1; prefix == ""; n++ {
+		prefix = runewidth.Truncate(s, n, "")
+	}
+	return text[:len(prefix)], min(textWidth([]byte(prefix)), width)
+}
+
+// hasWide reports whether the text holds a character 2 columns wide.
+func hasWide(text []byte) bool {
+	for _, r := range string(text) {
+		if runewidth.RuneWidth(r) == 2 {
+			return true
+		}
+	}
+	return emojiWidth(text) != 0
+}
+
+// textWidth returns the display width of the text, as FormatBytes measures it.
+func textWidth(text []byte) int {
+	return runewidth.StringWidth(string(text)) + emojiWidth(text)
+}
+
+// writeLine writes line l of the value. It writes each tab as the spaces up
+// to the next tab stop, as psql does. A tab stop is every 8 columns from the
+// start of the line.
+func (enc *TableEncoder) writeLine(v *Value, l int) {
+	start, end := v.line(l)
+	if l < len(v.Tabs) {
+		var width int
+		for _, tab := range v.Tabs[l] {
+			_, _ = enc.w.Write(v.Buf[start:tab[0]])
+			width += tab[1]
+			n := tabWidth - width%tabWidth
+			enc.spaces(n)
+			width += n
+			start = tab[0] + 1
+		}
+	}
+	_, _ = enc.w.Write(v.Buf[start:end])
+}
+
+// spaces writes n spaces.
+func (enc *TableEncoder) spaces(n int) {
+	for ; n > len(spaces); n -= len(spaces) {
+		_, _ = enc.w.WriteString(spaces)
+	}
+	if n > 0 {
+		_, _ = enc.w.WriteString(spaces[:n])
 	}
 }
 
-func (enc *TableEncoder) writeAligned(b, filler []byte, a Align, padding int) {
-	// calculate the padding
-	paddingLeft := 0
-	paddingRight := 0
-	switch a {
-	case AlignRight:
-		paddingLeft = padding
-		paddingRight = 0
-	case AlignCenter:
-		paddingLeft = padding / 2
-		paddingRight = padding/2 + padding%2
-	case AlignLeft:
-		paddingLeft = 0
-		paddingRight = padding
-	}
-	// add the left padding
-	if paddingLeft > 0 {
-		_, _ = enc.w.Write(bytes.Repeat(filler, paddingLeft))
-	}
-	// write
-	_, _ = enc.w.Write(b)
-	// add the right padding
-	if paddingRight > 0 {
-		_, _ = enc.w.Write(bytes.Repeat(filler, paddingRight))
-	}
-}
-
-// rowStyle is the style for a row, as the bytes to write.
-type rowStyle struct {
-	left, right, middle, filler, wrapper []byte
-	hasWrapping                          bool
-}
+// spaces is a run of spaces for padding.
+const spaces = "                                                                "
 
 // ExpandedEncoder is an encoder that writes a result set as an expanded
 // table. It writes each row as a record, with one line for each column. It
 // buffers a batch of rows ahead, as TableEncoder does.
 type ExpandedEncoder struct {
 	TableEncoder
+
+	// hmultiline is true when a column name holds a newline, and dmultiline
+	// is true when a value holds a newline.
+	hmultiline bool
+	dmultiline bool
 }
 
 // NewExpandedEncoder creates an expanded table encoder with the options.
@@ -518,9 +746,6 @@ func NewExpandedEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	}
 	t := tableEnc.(*TableEncoder)
 	t.formatter = NewEscapeFormatter()
-	if !t.isCustomSummary {
-		t.summary = nil
-	}
 	enc := &ExpandedEncoder{
 		TableEncoder: *t,
 	}
@@ -529,6 +754,9 @@ func NewExpandedEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 
 // Encode encodes one result set to the writer with the options of the
 // encoder.
+//
+// The encoder draws the records as psql does in print_aligned_vertical, in
+// src/fe_utils/print.c.
 func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 	// reset scan count
 	enc.scanCount = 0
@@ -541,15 +769,12 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	// set up the offsets and the widths
-	enc.offsets = make([]int, 2)
 	enc.maxWidths = make([]int, 2)
-	enc.aligns = make([]Align, 2)
+	enc.hmultiline, enc.dmultiline = false, false
 	enc.headers, err = enc.formatter.Header(cols)
 	if err != nil {
 		return err
 	}
-	wroteTitle := enc.skipHeader
 	for {
 		var vals [][]*Value
 		// read the next batch
@@ -566,126 +791,368 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 		if clen == 0 {
 			continue
 		}
-		enc.calcWidth(vals)
-		// write the title if the encoder did not write it yet
-		if !wroteTitle {
-			wroteTitle = true
-			if enc.title != nil && enc.title.Width != 0 {
-				_, _ = enc.w.Write(enc.title.Buf)
-				_, _ = enc.w.Write(enc.newline)
-			}
+		// write the title before the first record
+		if enc.scanCount == len(vals) {
+			enc.writeTitle()
 		}
-		if err := enc.encodeVals(vals); err != nil {
+		enc.calcWidth(vals, enc.scanCount)
+		if err := enc.encodeVals(vals, enc.scanCount-len(vals)); err != nil {
 			return err
 		}
 	}
-	// write the summary
-	if err := summarize(w, enc.summary, enc.scanCount); err != nil {
+	if err := enc.end(clen); err != nil {
 		return err
 	}
 	return enc.w.Flush()
 }
 
-func (enc *ExpandedEncoder) encodeVals(vals [][]*Value) error {
-	rs := enc.rowStyle(enc.lineStyle.Row)
-	// write the rows of the batch
+// title writes the title as it is, as psql does for expanded records.
+func (enc *ExpandedEncoder) writeTitle() {
+	if !enc.skipHeader && enc.title != nil && enc.title.Width != 0 {
+		_, _ = enc.w.Write(enc.title.Buf)
+		_, _ = enc.w.Write(enc.newline)
+	}
+}
+
+// encodeVals writes the records of the batch. The first record of the batch
+// is record n+1.
+func (enc *ExpandedEncoder) encodeVals(vals [][]*Value, n int) error {
 	for i := range vals {
-		enc.record(i, vals[i], rs)
-		if i+1%1000 == 0 {
-			// check error every 1k rows
+		enc.record(n+i+1, vals[i])
+		// check for a write error every 1000 rows
+		if (i+1)%1000 == 0 {
 			if err := enc.w.Flush(); err != nil {
 				return err
 			}
 		}
 	}
-	// draw the end border
-	if enc.border >= 2 && enc.scanCount != 0 {
-		enc.divider(enc.rowStyle(enc.lineStyle.End))
-	}
 	return nil
+}
+
+// end draws the end border, and writes the summary. psql writes the row count
+// only for a result set that has no rows or no columns. It writes a custom
+// summary after the records, with a blank line before it when the border is
+// less than 2.
+func (enc *ExpandedEncoder) end(clen int) error {
+	if enc.scanCount == 0 || clen == 0 {
+		return summarize(enc.w, enc.summary, enc.scanCount)
+	}
+	if enc.border >= 2 {
+		enc.recordLine(0, enc.maxWidths[0], enc.lineStyle.End)
+	}
+	if !enc.isCustomSummary || len(enc.summary) == 0 {
+		return nil
+	}
+	if enc.border < 2 {
+		if _, err := enc.w.Write(enc.newline); err != nil {
+			return err
+		}
+	}
+	return summarize(enc.w, enc.summary, enc.scanCount)
 }
 
 // EncodeAll encodes each result set to the writer with the options of the
 // encoder.
 func (enc *ExpandedEncoder) EncodeAll(w io.Writer) error {
-	if err := enc.Encode(w); err != nil {
-		return err
-	}
-	for enc.resultSet.NextResultSet() {
-		if _, err := w.Write(enc.newline); err != nil {
-			return err
-		}
-		if err := enc.Encode(w); err != nil {
-			return err
-		}
-	}
-	return nil
+	return encodeAll(w, enc.resultSet, enc.Encode, enc.resultSetSep, enc.newline)
 }
 
-func (enc *ExpandedEncoder) calcWidth(vals [][]*Value) {
-	rs := enc.rowStyle(enc.lineStyle.Row)
-	offset := runewidth.StringWidth(string(rs.left))
-	enc.offsets[0] = offset
-	// the first column is always the column name
+// calcWidth calculates the width of the column names and of the values. The
+// batch ends with record n. The values are at least as wide as the record
+// header line needs.
+func (enc *ExpandedEncoder) calcWidth(vals [][]*Value, n int) {
 	for _, h := range enc.headers {
-		enc.maxWidths[0] = max(enc.maxWidths[0], h.MaxWidth(offset, enc.tab))
+		enc.maxWidths[0] = max(enc.maxWidths[0], h.MaxWidth())
+		enc.hmultiline = enc.hmultiline || len(h.Newlines) != 0
 	}
-	offset += enc.maxWidths[0]
-	if rs.hasWrapping && enc.border != 0 {
-		offset++
-	}
-	mw := runewidth.StringWidth(string(rs.middle))
-	offset += mw
-	enc.offsets[1] = offset
-	// the second column is as wide as the widest value in any row, but not
-	// narrower than the record header
-	enc.maxWidths[1] = max(0, len(enc.recordHeader(len(vals)-1))-enc.maxWidths[0]-mw-1)
 	for _, row := range vals {
 		for _, cell := range row {
 			if cell == nil {
 				cell = enc.empty
 			}
-			enc.maxWidths[1] = max(enc.maxWidths[1], cell.MaxWidth(offset, enc.tab))
+			enc.maxWidths[1] = max(enc.maxWidths[1], cell.MaxWidth())
+			enc.dmultiline = enc.dmultiline || len(cell.Newlines) != 0
 		}
 	}
-}
-
-func (enc *ExpandedEncoder) record(i int, vals []*Value, rs rowStyle) {
+	// swidth is the width of the separator between the column names and the
+	// values, and of the marks around it
+	old := enc.lineStyle.LeftMarks
+	var swidth int
+	switch enc.border {
+	case 0:
+		swidth = 1
+		if enc.hmultiline {
+			swidth++
+		}
+	case 1:
+		swidth = 3
+		if enc.hmultiline && old {
+			swidth++
+		}
+	default:
+		swidth = 7
+	}
+	if enc.dmultiline && enc.border < 2 && !old {
+		swidth++
+	}
+	// rwidth is the width of the record header line
+	var rwidth int
 	if !enc.skipHeader {
-		// write the record header as one line
-		headerRS := rs
-		header := enc.recordHeader(i)
-		if enc.border != 0 {
-			headerRS = enc.rowStyle(enc.lineStyle.Top)
-			if i != 0 {
-				headerRS = enc.rowStyle(enc.lineStyle.Mid)
+		rwidth = len(strconv.Itoa(n))
+		switch enc.border {
+		case 0:
+			rwidth += len("* Record ")
+		case 1:
+			rwidth += len("-[ RECORD  ]")
+		default:
+			rwidth += len("+-[ RECORD  ]-+")
+		}
+	}
+	hwidth, dwidth := enc.maxWidths[0], enc.maxWidths[1]
+	for {
+		width := max(hwidth+swidth+dwidth, rwidth)
+		newWidth := width - hwidth - swidth
+		// with a wrap width, psql fits the records in it, but leaves at
+		// least 3 columns for a value
+		if enc.wrapWidth > 0 {
+			minWidth := max(hwidth+swidth+3, rwidth)
+			switch {
+			case enc.wrapWidth < minWidth:
+				newWidth = minWidth - hwidth - swidth
+			case enc.wrapWidth < width:
+				newWidth = enc.wrapWidth - hwidth - swidth
 			}
 		}
-		_, _ = enc.w.Write(headerRS.left)
-		_, _ = enc.w.WriteString(header)
-		padding := enc.maxWidths[0] + enc.maxWidths[1] + runewidth.StringWidth(string(headerRS.middle))*2 - len(header) - 1
-		if padding > 0 {
-			_, _ = enc.w.Write(bytes.Repeat(headerRS.filler, padding))
+		// a value that wraps needs a column for its mark
+		if newWidth < dwidth && !enc.dmultiline && enc.border < 2 && !old {
+			enc.dmultiline = true
+			swidth++
+			continue
 		}
-		// write a filler in place of the wrap indicator
-		_, _ = enc.w.Write(headerRS.filler)
-		_, _ = enc.w.Write(headerRS.right)
-	}
-	// write each value, with the column name in the first column
-	for j, v := range vals {
-		if v != nil {
-			v.Align = AlignLeft
-		}
-		enc.row([]*Value{enc.headers[j], v}, rs)
+		enc.maxWidths[1] = newWidth
+		return
 	}
 }
 
-func (enc *ExpandedEncoder) recordHeader(i int) string {
-	header := fmt.Sprintf("* Record %d", i+1)
-	if enc.border != 0 {
-		header = fmt.Sprintf("[ RECORD %d ]", i+1)
+// record writes record n: the record header line, and a line for each column.
+func (enc *ExpandedEncoder) record(n int, vals []*Value) {
+	ls := enc.lineStyle
+	rule := ls.Mid
+	if n == 1 {
+		rule = ls.Top
 	}
-	return header
+	hwidth := enc.maxWidths[0]
+	if enc.border < 2 && enc.hmultiline && ls.LeftMarks {
+		hwidth++
+	}
+	switch {
+	case !enc.skipHeader:
+		enc.recordLine(n, hwidth, rule)
+	case n != 1 || enc.border >= 2:
+		// psql separates records with a line that has no record number
+		enc.recordLine(0, hwidth, rule)
+	}
+	for i, v := range vals {
+		if v == nil {
+			v = enc.empty
+		}
+		enc.field(enc.headers[i], v)
+	}
+}
+
+// recordLine draws the line above record n, or a line with no record number
+// when n is 0, as print_aligned_vertical_line in psql does.
+func (enc *ExpandedEncoder) recordLine(n, hwidth int, rule Rule) {
+	fill := " "
+	if enc.border > 0 {
+		fill = rule.Line
+	}
+	switch enc.border {
+	case 0:
+	case 1:
+		_, _ = enc.w.WriteString(rule.Line)
+	default:
+		_, _ = enc.w.WriteString(rule.Left + rule.Line)
+	}
+	var reclen int
+	if n != 0 {
+		label := "[ RECORD " + strconv.Itoa(n) + " ]"
+		if enc.border == 0 {
+			label = "* Record " + strconv.Itoa(n)
+		}
+		_, _ = enc.w.WriteString(label)
+		reclen = len(label)
+	}
+	if enc.border != 2 {
+		reclen++
+	}
+	for i := reclen; i < hwidth; i++ {
+		_, _ = enc.w.WriteString(fill)
+	}
+	reclen -= hwidth
+	// each part of the separator is drawn only where the label does not
+	// cover it
+	parts := []string{" "}
+	if enc.border > 0 {
+		parts = []string{rule.Line, rule.Middle, rule.Line}
+	}
+	for _, s := range parts {
+		if reclen <= 0 {
+			_, _ = enc.w.WriteString(s)
+		}
+		reclen--
+	}
+	reclen = max(reclen, 0)
+	for i := reclen; i < max(enc.maxWidths[1], reclen); i++ {
+		_, _ = enc.w.WriteString(fill)
+	}
+	if enc.border >= 2 {
+		_, _ = enc.w.WriteString(rule.Line + rule.Right)
+	}
+	_, _ = enc.w.Write(enc.newline)
+}
+
+// field writes a column name and its value. Either one can take more than one
+// line.
+func (enc *ExpandedEncoder) field(h, v *Value) {
+	ls := enc.lineStyle
+	old := ls.LeftMarks
+	hwidth, dwidth := enc.maxWidths[0], enc.maxWidths[1]
+	hline, dline := 0, 0
+	hdone, ddone := false, false
+	// text is the line of the value with its tabs written as spaces, and
+	// offset is the part of it that the encoder wrote. psql keeps the offset
+	// after the value ends.
+	text := lineText(v, 0)
+	var offset int
+	for !hdone || !ddone {
+		if enc.border >= 2 {
+			_, _ = enc.w.WriteString(ls.Row.Left)
+		}
+		// the column name
+		if !hdone {
+			if enc.border >= 2 || (enc.hmultiline && old) {
+				if hline != 0 {
+					_, _ = enc.w.WriteString(ls.HeaderNewlineLeft)
+				} else {
+					_, _ = enc.w.WriteString(" ")
+				}
+			}
+			enc.writeLine(h, hline)
+			enc.spaces(hwidth - h.LineWidth(hline))
+			mark := enc.border > 0 || (enc.hmultiline && !old)
+			if hline < len(h.Newlines) {
+				if mark {
+					_, _ = enc.w.WriteString(ls.HeaderNewlineRight)
+				}
+				hline++
+			} else {
+				if mark {
+					_, _ = enc.w.WriteString(" ")
+				}
+				hdone = true
+			}
+		} else {
+			swidth := hwidth + enc.border
+			if enc.border < 2 && enc.hmultiline && old {
+				swidth++
+			}
+			if enc.border == 0 && !old && enc.hmultiline {
+				swidth++
+			}
+			// note: psql writes at least one space here
+			enc.spaces(max(swidth, 1))
+		}
+		// the separator
+		if enc.border > 0 {
+			switch {
+			case offset != 0:
+				_, _ = enc.w.WriteString(ls.MidWrap)
+			case dline == 0:
+				_, _ = enc.w.WriteString(ls.Row.Middle)
+			default:
+				_, _ = enc.w.WriteString(ls.MidNewline)
+			}
+		}
+		// the value
+		if ddone {
+			if enc.border >= 2 {
+				enc.spaces(dwidth + 2)
+				_, _ = enc.w.WriteString(ls.Row.Right)
+			}
+			_, _ = enc.w.Write(enc.newline)
+			continue
+		}
+		if offset == 0 {
+			_, _ = enc.w.WriteString(" ")
+		} else {
+			_, _ = enc.w.WriteString(ls.WrapLeft)
+		}
+		chunk, width := cut(text[offset:], dwidth)
+		_, _ = enc.w.Write(chunk)
+		offset += len(chunk)
+		padding := dwidth - width
+		marks := enc.border > 1 || (enc.dmultiline && !old)
+		switch {
+		case offset < len(text):
+			// the value wraps
+			if marks {
+				enc.spaces(padding)
+				_, _ = enc.w.WriteString(ls.WrapRight)
+			}
+		case dline < len(v.Newlines):
+			if marks {
+				enc.spaces(padding)
+				_, _ = enc.w.WriteString(ls.NewlineRight)
+			}
+			dline++
+			offset = 0
+			text = lineText(v, dline)
+		default:
+			if enc.border > 1 {
+				enc.spaces(padding)
+				_, _ = enc.w.WriteString(" ")
+			}
+			ddone = true
+		}
+		if enc.border >= 2 {
+			_, _ = enc.w.WriteString(ls.Row.Right)
+		}
+		_, _ = enc.w.Write(enc.newline)
+	}
+}
+
+// fixedAlign is the alignment that WithColumnAlign sets for a column. ok is
+// false for a column that is aligned by its values.
+type fixedAlign struct {
+	align Align
+	ok    bool
+}
+
+// columnAligns returns the alignment that f sets for each column. It returns
+// nil when f is nil, or when the result set has no column types.
+func columnAligns(resultSet ResultSet, n int, f func(*sql.ColumnType) (Align, bool)) []fixedAlign {
+	if f == nil {
+		return nil
+	}
+	cols, err := resultSetColumns(resultSet, n)
+	if err != nil {
+		return nil
+	}
+	aligns := make([]fixedAlign, n)
+	for i, col := range cols {
+		aligns[i].align, aligns[i].ok = f(col)
+	}
+	return aligns
+}
+
+// applyAligns sets the fixed alignment of each value of the row.
+func applyAligns(row []*Value, aligns []fixedAlign) {
+	for i, a := range aligns {
+		if a.ok && i < len(row) && row[i] != nil {
+			row[i].Align = a.align
+		}
+	}
 }
 
 // columnAlign returns the alignment shared by column i's non-null values, and
@@ -714,6 +1181,12 @@ type JSONEncoder struct {
 	resultSet ResultSet
 	// newline is the record separator.
 	newline []byte
+	// resultSetSep is written between two result sets. When it is nil, the
+	// encoder writes newline.
+	resultSetSep []byte
+	// indent is the indent of one level. When it is empty, the encoder writes
+	// compact JSON.
+	indent string
 	// formatter formats the values before the encoder writes them.
 	formatter Formatter
 	// empty is the empty value.
@@ -729,9 +1202,9 @@ func NewJSONEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	enc := &JSONEncoder{
 		resultSet: resultSet,
 		newline:   newline,
-		// note: the prefix is the indent of a value, so that the lines of a
-		// nested object or array line up under the value.
-		formatter: NewEscapeFormatter(WithIsJSON(true), WithJSONConfig(jsonValueIndent, jsonIndent, false)),
+		// note: WithIndent sets the prefix to the indent of a value, so that
+		// the lines of a nested object or array line up under the value.
+		formatter: NewEscapeFormatter(WithIsJSON(true), WithJSONConfig("", "", false)),
 		empty: &Value{
 			Buf:  []byte("null"),
 			Tabs: make([][][2]int, 1),
@@ -746,15 +1219,6 @@ func NewJSONEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	return enc, nil
 }
 
-// jsonIndent is the indent for one level of the output of the JSON encoder.
-// jsonRowIndent is the indent of a row, and jsonValueIndent is the indent of a
-// value.
-const (
-	jsonIndent      = "  "
-	jsonRowIndent   = jsonIndent
-	jsonValueIndent = jsonIndent + jsonIndent
-)
-
 // Encode encodes one result set to the writer with the options of the
 // encoder.
 func (enc *JSONEncoder) Encode(w io.Writer) error {
@@ -768,9 +1232,15 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		cls   = []byte{'}'}
 		q     = []byte{'"'}
 		cma   = []byte{','}
-		rowNL = append(append([]byte{}, enc.newline...), jsonRowIndent...)
-		valNL = append(append([]byte{}, enc.newline...), jsonValueIndent...)
+		colon = []byte{':'}
+		// rowNL and valNL start a row and a value. Compact JSON has neither.
+		rowNL, valNL []byte
 	)
+	if enc.indent != "" {
+		rowNL = append(append([]byte{}, enc.newline...), enc.indent...)
+		valNL = append(append([]byte{}, enc.newline...), enc.indent+enc.indent...)
+		colon = []byte{':', ' '}
+	}
 	// get the column names, and stop on an error
 	clen, cols, err := buildColNames(enc.resultSet, enc.headerTransformer)
 	if err != nil {
@@ -783,7 +1253,7 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		if cb[i], err = json.Marshal(cols[i], jsontext.AllowInvalidUTF8(true), jsontext.EscapeForHTML(true)); err != nil {
 			return err
 		}
-		cb[i] = append(cb[i], ':', ' ')
+		cb[i] = append(cb[i], colon...)
 	}
 	// set up the storage for the scanned values
 	r, err := buildColumnTypes(enc.resultSet, clen, enc.columnTypes)
@@ -863,7 +1333,7 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 		return err
 	}
 	// end. A result set that has no rows stays [], with no newline in it.
-	if count != 0 {
+	if count != 0 && enc.indent != "" {
 		if _, err = w.Write(enc.newline); err != nil {
 			return err
 		}
@@ -875,24 +1345,11 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 // EncodeAll encodes each result set to the writer with the options of the
 // encoder.
 func (enc *JSONEncoder) EncodeAll(w io.Writer) error {
-	if err := enc.Encode(w); err != nil {
+	if err := encodeAll(w, enc.resultSet, enc.Encode, enc.resultSetSep, enc.newline); err != nil {
 		return err
 	}
-	for enc.resultSet.NextResultSet() {
-		if _, err := w.Write([]byte{','}); err != nil {
-			return err
-		}
-		if _, err := w.Write(enc.newline); err != nil {
-			return err
-		}
-		if err := enc.Encode(w); err != nil {
-			return err
-		}
-	}
-	if _, err := w.Write(enc.newline); err != nil {
-		return err
-	}
-	return nil
+	_, err := w.Write(enc.newline)
+	return err
 }
 
 // UnalignedEncoder is an encoder that writes a result set with no alignment.
@@ -913,12 +1370,24 @@ type UnalignedEncoder struct {
 	quote rune
 	// newline is the record separator.
 	newline []byte
+	// resultSetSep is written between two result sets. When it is nil, the
+	// encoder writes newline.
+	resultSetSep []byte
 	// formatter formats the values before the encoder writes them.
 	formatter Formatter
 	// skipHeader turns off the header.
 	skipHeader bool
-	// summary is the summary map.
-	summary map[int]func(io.Writer, int) (int, error)
+	// title is the title value. psql writes it in the unaligned format, and
+	// not in csv.
+	title *Value
+	// csv is true for the csv format.
+	csv bool
+	// expanded is true when the encoder writes each row as a record.
+	expanded bool
+	// summary is the summary map, and isCustomSummary is true if an option
+	// set it.
+	summary         map[int]func(io.Writer, int) (int, error)
+	isCustomSummary bool
 	// empty is the empty value.
 	empty *Value
 	// headerTransformer is the transformer for the column names.
@@ -960,6 +1429,7 @@ func NewCSVEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 		sep:       sep,
 		quote:     quote,
 		newline:   newline,
+		csv:       true,
 		formatter: NewEscapeFormatter(WithIsRaw(true, sep, quote)),
 		summary:   Summary{},
 		empty: &Value{
@@ -976,6 +1446,10 @@ func NewCSVEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 
 // Encode encodes one result set to the writer with the options of the
 // encoder.
+//
+// The encoder writes the result set as psql does in print_unaligned_text,
+// print_unaligned_vertical, print_csv_text and print_csv_vertical, in
+// src/fe_utils/print.c.
 func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 	if enc.resultSet == nil {
 		return ErrResultSetIsNil
@@ -985,37 +1459,39 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	sep, quote := []byte(string(enc.sep)), []byte(string(enc.quote))
+	headers, err := enc.formatter.Header(cols)
+	if err != nil {
+		return err
+	}
+	ew := &errWriter{w: w}
+	// psql writes the title of the unaligned format, and not of csv
+	title := !enc.csv && !enc.skipHeader && enc.title != nil && enc.title.Width != 0
+	if title {
+		ew.write(enc.title.Buf)
+	}
 	// write the header
-	if !enc.skipHeader {
-		headers, err := enc.formatter.Header(cols)
-		if err != nil {
-			return err
+	if !enc.expanded && !enc.skipHeader {
+		if title {
+			ew.write(enc.newline)
 		}
 		for i := range clen {
 			if i != 0 {
-				if _, err := w.Write(sep); err != nil {
-					return err
-				}
+				ew.writeRune(enc.sep)
 			}
-			buf := headers[i].Buf
-			if enc.quote != 0 && headers[i].Quoted {
-				buf = append(quote, append(buf, quote...)...)
-			}
-			if _, err := w.Write(buf); err != nil {
-				return err
-			}
+			enc.write(ew, headers[i])
 		}
-		if _, err := w.Write(enc.newline); err != nil {
-			return err
-		}
+		ew.write(enc.newline)
+	} else if title && !enc.expanded {
+		ew.write(enc.newline)
 	}
 	// set up the storage for the scanned values
 	r, err := buildColumnTypes(enc.resultSet, clen, enc.columnTypes)
 	if err != nil {
 		return err
 	}
-	// write the rows
+	// write the rows. In expanded mode, each row is a record with a line for
+	// each column. The unaligned format puts a blank line between two
+	// records, and after the title.
 	var count int
 	for enc.resultSet.Next() {
 		vals, err := scanAndFormat(enc.resultSet, r, enc.formatter, &count)
@@ -1026,49 +1502,82 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 			// psql writes no line for a row that has no columns
 			continue
 		}
+		if enc.expanded && !enc.csv && (count > 1 || title) && clen != 0 {
+			ew.write(enc.newline)
+			ew.write(enc.newline)
+		}
 		for i := range clen {
-			if i != 0 {
-				if _, err := w.Write(sep); err != nil {
-					return err
-				}
-			}
 			v := vals[i]
 			if v == nil {
 				v = enc.empty
 			}
-			buf := v.Buf
-			if enc.quote != 0 && v.Quoted {
-				buf = append(quote, append(buf, quote...)...)
-			}
-			if _, err := w.Write(buf); err != nil {
-				return err
+			switch {
+			case enc.expanded:
+				enc.write(ew, headers[i])
+				ew.writeRune(enc.sep)
+				enc.write(ew, v)
+				if enc.csv || i != clen-1 {
+					ew.write(enc.newline)
+				}
+			default:
+				if i != 0 {
+					ew.writeRune(enc.sep)
+				}
+				enc.write(ew, v)
 			}
 		}
-		if _, err := w.Write(enc.newline); err != nil {
-			return err
+		if !enc.expanded {
+			ew.write(enc.newline)
+		}
+		if ew.err != nil {
+			return ew.err
 		}
 	}
-	if err := summarize(w, enc.summary, count); err != nil {
+	if err := enc.resultSet.Err(); err != nil {
 		return err
 	}
-	return enc.resultSet.Err()
+	switch {
+	case !enc.expanded:
+		if err := summarize(ew, enc.summary, count); err != nil {
+			return err
+		}
+	case enc.csv:
+	default:
+		// psql writes only a custom summary after the records, after a blank
+		// line, and ends the last line
+		// a row that has no columns writes no record
+		records := count != 0 && clen != 0
+		if enc.isCustomSummary && len(enc.summary) != 0 && records {
+			ew.write(enc.newline)
+			ew.write(enc.newline)
+			var buf bytes.Buffer
+			if err := summarize(&buf, enc.summary, count); err != nil {
+				return err
+			}
+			ew.write(bytes.TrimSuffix(buf.Bytes(), newline))
+		}
+		if records || title {
+			ew.write(enc.newline)
+		}
+	}
+	return ew.err
+}
+
+// write writes the value, in quotes when the csv format needs them.
+func (enc *UnalignedEncoder) write(ew *errWriter, v *Value) {
+	if enc.quote != 0 && v.Quoted {
+		ew.writeRune(enc.quote)
+		ew.write(v.Buf)
+		ew.writeRune(enc.quote)
+		return
+	}
+	ew.write(v.Buf)
 }
 
 // EncodeAll encodes each result set to the writer with the options of the
 // encoder.
 func (enc *UnalignedEncoder) EncodeAll(w io.Writer) error {
-	if err := enc.Encode(w); err != nil {
-		return err
-	}
-	for enc.resultSet.NextResultSet() {
-		if _, err := w.Write(enc.newline); err != nil {
-			return err
-		}
-		if err := enc.Encode(w); err != nil {
-			return err
-		}
-	}
-	return nil
+	return encodeAll(w, enc.resultSet, enc.Encode, enc.resultSetSep, enc.newline)
 }
 
 // TemplateEncoder is a template encoder for result sets.
@@ -1082,6 +1591,9 @@ type TemplateEncoder struct {
 	executor func(io.Writer, *Template) error
 	// newline is the record separator.
 	newline []byte
+	// resultSetSep is written between two result sets. When it is nil, the
+	// encoder writes newline.
+	resultSetSep []byte
 	// formatter formats the values before the encoder writes them.
 	formatter Formatter
 	// title is the title value.
@@ -1092,6 +1604,16 @@ type TemplateEncoder struct {
 	skipHeader bool
 	// attributes are extra table attributes.
 	attributes string
+	// border is the border, as the psql variable border sets it.
+	border int
+	// expanded is true when the template writes each row as a record.
+	expanded bool
+	// summary is the summary map, and isCustomSummary is true if an option
+	// set it.
+	summary         Summary
+	isCustomSummary bool
+	// columnAlign sets the alignment of a column from its type.
+	columnAlign func(*sql.ColumnType) (Align, bool)
 	// headerTransformer is the transformer for the column names.
 	headerTransformer Transformer
 	// columnTypes builds the column types for a result set.
@@ -1104,6 +1626,8 @@ func NewTemplateEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 		resultSet: resultSet,
 		executor:  func(io.Writer, *Template) error { return ErrInvalidTemplate },
 		newline:   newline,
+		border:    1,
+		summary:   DefaultTableSummary(),
 		formatter: NewEscapeFormatter(),
 		empty: &Value{
 			Buf: []byte(""),
@@ -1133,6 +1657,23 @@ func NewVerticalEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	return NewTemplateEncoder(resultSet, append([]Option{WithTemplate("vertical")}, opts...)...)
 }
 
+// NewLaTeXEncoder creates a template encoder for LaTeX with the options.
+func NewLaTeXEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
+	return NewTemplateEncoder(resultSet, append([]Option{WithTemplate("latex")}, opts...)...)
+}
+
+// NewLaTeXLongtableEncoder creates a template encoder for the LaTeX longtable
+// package with the options.
+func NewLaTeXLongtableEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
+	return NewTemplateEncoder(resultSet, append([]Option{WithTemplate("latex-longtable")}, opts...)...)
+}
+
+// NewTroffMSEncoder creates a template encoder for troff with the ms macros,
+// with the options.
+func NewTroffMSEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
+	return NewTemplateEncoder(resultSet, append([]Option{WithTemplate("troff-ms")}, opts...)...)
+}
+
 // Encode encodes one result set to the writer with the options of the
 // encoder.
 func (enc *TemplateEncoder) Encode(w io.Writer) error {
@@ -1153,6 +1694,8 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 			headers[i] = enc.empty
 		}
 	}
+	// the column types are read before the rows, which closes them
+	fixed := columnAligns(enc.resultSet, clen, enc.columnAlign)
 	// set up the storage for the scanned values
 	r, err := buildColumnTypes(enc.resultSet, clen, enc.columnTypes)
 	if err != nil {
@@ -1171,11 +1714,18 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 	if err := enc.resultSet.Err(); err != nil {
 		return err
 	}
+	for _, vals := range rows {
+		applyAligns(vals, fixed)
+	}
 	// a null value has no type of its own to align by, so it follows the
 	// column, the way psql aligns the null string by the column's type
 	for i := range clen {
 		empty := enc.empty
-		if align, ok := columnAlign(rows, i); ok && align != empty.Align {
+		align, ok := columnAlign(rows, i)
+		if i < len(fixed) && fixed[i].ok {
+			align, ok = fixed[i].align, true
+		}
+		if ok && align != empty.Align {
 			v := *empty
 			v.Align = align
 			empty = &v
@@ -1190,30 +1740,81 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 	if title == nil {
 		title = enc.empty
 	}
-	return enc.executor(w, &Template{
+	aligns := make([]Align, clen)
+	for i := range clen {
+		aligns[i], _ = columnAlign(rows, i)
+		if i < len(fixed) && fixed[i].ok {
+			aligns[i] = fixed[i].align
+		}
+	}
+	// psql writes the row count or the custom summary after a table, and only
+	// a custom summary after expanded records
+	var footer bytes.Buffer
+	if !enc.expanded || enc.isCustomSummary {
+		if err := summarize(&footer, enc.summary, len(rows)); err != nil {
+			return err
+		}
+	}
+	// a template writer does not check each write, so ew keeps the first
+	// write error
+	ew := &errWriter{w: w}
+	if err := enc.executor(ew, &Template{
 		Attributes: enc.attributes,
 		Headers:    headers,
-		Rows:       rows,
+		Rows:       templateRows(rows, clen),
 		SkipHeader: enc.skipHeader,
 		Title:      title,
-	})
+		Aligns:     aligns,
+		Border:     enc.border,
+		Expanded:   enc.expanded,
+		Footer:     strings.TrimSuffix(footer.String(), string(newline)),
+	}); err != nil {
+		return err
+	}
+	return ew.err
+}
+
+// templateRows returns the rows for a template. psql writes no line for a row
+// that has no columns, and still counts it in the summary.
+func templateRows(rows [][]*Value, clen int) [][]*Value {
+	if clen == 0 {
+		return nil
+	}
+	return rows
+}
+
+// errWriter is a writer that keeps the first error of its writes. After an
+// error, it writes nothing.
+type errWriter struct {
+	w   io.Writer
+	err error
+}
+
+// write writes p, and keeps the error.
+func (ew *errWriter) write(p []byte) {
+	_, _ = ew.Write(p)
+}
+
+// writeRune writes r as UTF-8, and keeps the error. A zero rune is a zero
+// byte, as psql writes fieldsep_zero.
+func (ew *errWriter) writeRune(r rune) {
+	ew.write(utf8.AppendRune(nil, r))
+}
+
+// Write satisfies the io.Writer interface.
+func (ew *errWriter) Write(p []byte) (int, error) {
+	if ew.err != nil {
+		return 0, ew.err
+	}
+	n, err := ew.w.Write(p)
+	ew.err = err
+	return n, err
 }
 
 // EncodeAll encodes each result set to the writer with the options of the
 // encoder.
 func (enc *TemplateEncoder) EncodeAll(w io.Writer) error {
-	if err := enc.Encode(w); err != nil {
-		return err
-	}
-	for enc.resultSet.NextResultSet() {
-		if _, err := w.Write(enc.newline); err != nil {
-			return err
-		}
-		if err := enc.Encode(w); err != nil {
-			return err
-		}
-	}
-	return nil
+	return encodeAll(w, enc.resultSet, enc.Encode, enc.resultSetSep, enc.newline)
 }
 
 // errEncoder is an encoder that does nothing and always returns the wrapped

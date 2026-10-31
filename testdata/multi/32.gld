@@ -1,44 +1,44 @@
-AUTHOR_ID NAME                    Z 
-14        a	b	c	d x 
-15        aoeu                     
-          test                     
-                                   
-(2 rows)
-
-AUTHOR_ID NAME                     Z 
-16        foo\bbar                  
-17        袈	袈		袈  
-18        a	b	\r         a                      
-          	a                   
-19        袈	袈		袈  
-                                    
-20        javascript               {                      
-                                     "test21": "a value", 
-                                     "test22": "foo\bbar" 
-                                   } 
-23        slice                    [                      
-                                     "a",                 
-                                     "b"                  
-                                   ] 
-(6 rows)
-
-AUTHOR_ID NAME                     Z 
-38        a	b	c	d  x 
-39        aoeu                      
+AUTHOR_ID NAME                      Z 
+14        a       b       c       d x
+15        aoeu                      
           test                      
                                     
-40        foo\bbar                  
-41        袈	袈		袈  
-42        a	b	\r         a                      
-          	a                   
-43        袈	袈		袈  
-                                    
-44        javascript               {                      
-                                     "test45": "a value", 
-                                     "test46": "foo\bbar" 
-                                   } 
-47        slice                    [                      
-                                     "a",                 
-                                     "b"                  
-                                   ] 
+(2 rows)
+
+AUTHOR_ID NAME                       Z                      
+16        foo\x08bar                 
+17        袈      袈              袈 
+18        a       b       \r         a                      
+                  a                  
+19        袈      袈              袈 
+                                     
+20        javascript                 {                      
+                                       "test21": "a value", 
+                                       "test22": "foo\bbar" 
+                                     }
+23        slice                      [                      
+                                       "a",                 
+                                       "b"                  
+                                     ]
+(6 rows)
+
+AUTHOR_ID NAME                       Z                      
+38        a       b       c       d  x
+39        aoeu                       
+          test                       
+                                     
+40        foo\x08bar                 
+41        袈      袈              袈 
+42        a       b       \r         a                      
+                  a                  
+43        袈      袈              袈 
+                                     
+44        javascript                 {                      
+                                       "test45": "a value", 
+                                       "test46": "foo\bbar" 
+                                     }
+47        slice                      [                      
+                                       "a",                 
+                                       "b"                  
+                                     ]
 (8 rows)

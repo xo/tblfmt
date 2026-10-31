@@ -225,6 +225,26 @@ func EncodeVerticalAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.EncodeAll(w)
 }
 
+// encodeAll encodes each result set with encode. It writes sep between two
+// result sets, or newline when sep is nil.
+func encodeAll(w io.Writer, resultSet ResultSet, encode func(io.Writer) error, sep, newline []byte) error {
+	if err := encode(w); err != nil {
+		return err
+	}
+	if sep == nil {
+		sep = newline
+	}
+	for resultSet.NextResultSet() {
+		if _, err := w.Write(sep); err != nil {
+			return err
+		}
+		if err := encode(w); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Error is an error.
 type Error string
 
@@ -245,6 +265,11 @@ const (
 	ErrInvalidFormat Error = "invalid format"
 	// ErrInvalidLineStyle is the invalid line style error.
 	ErrInvalidLineStyle Error = "invalid line style"
+	// ErrFormatterIsNotEscapeFormatter is the formatter is not an escape
+	// formatter error.
+	ErrFormatterIsNotEscapeFormatter Error = "formatter options need an escape formatter"
+	// ErrInvalidIndent is the invalid indent error.
+	ErrInvalidIndent Error = "invalid indent"
 	// ErrInvalidTemplate is the invalid template error.
 	ErrInvalidTemplate Error = "invalid template"
 	// ErrInvalidFieldSeparator is the invalid field separator error.

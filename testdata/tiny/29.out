@@ -1,13 +1,10 @@
-<table>
-  <caption></caption>
-  <thead>
-    <tr>
-      <th align="left">z</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td align="left">x</td>
-    </tr>
-  </tbody>
+<table border="1">
+  <tr>
+    <th align="center">z</th>
+  </tr>
+  <tr valign="top">
+    <td align="left">x</td>
+  </tr>
 </table>
+<p>(1 row)<br />
+</p>

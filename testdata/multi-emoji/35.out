@@ -1,0 +1,68 @@
+.LP
+.TS
+center;
+r | l | l.
+\fIauthor_id\fP	\fIname 👍🏽\fP	\fIz\fP
+_
+14	👍🏽	👍	🇯🇵	❤️	😀
+15	family
+👨‍👩‍👧
+	
+.TE
+.DS L
+(2 rows)
+.DE
+
+.LP
+.TS
+center;
+r | l | l.
+\fIauthor_id\fP	\fIname 👍🏽\fP	\fIz\fP
+_
+16	é ä 🧑‍💻	
+17	日本語	👍🏿		1️⃣	
+18	©️ ✔️ ☺️ ⌚\(rsx08🎉	🎉
+
+19	🏳️‍🌈	🇺🇸🇯🇵
+	👍🏽	
+20	emoji map	{
+  "key": "🇯🇵\(rst日本",
+  "👍🏽": "❤️"
+}
+21	slice	[
+  "😀",
+  "👍🏽"
+]
+.TE
+.DS L
+(6 rows)
+.DE
+
+.LP
+.TS
+center;
+r | l | l.
+\fIauthor_id\fP	\fIname 👍🏽\fP	\fIz\fP
+_
+38	👍🏽	👍	🇯🇵	❤️	😀
+39	family
+👨‍👩‍👧
+	
+40	é ä 🧑‍💻	
+41	日本語	👍🏿		1️⃣	
+42	©️ ✔️ ☺️ ⌚\(rsx08🎉	🎉
+
+43	🏳️‍🌈	🇺🇸🇯🇵
+	👍🏽	
+44	emoji map	{
+  "key": "🇯🇵\(rst日本",
+  "👍🏽": "❤️"
+}
+45	slice	[
+  "😀",
+  "👍🏽"
+]
+.TE
+.DS L
+(8 rows)
+.DE

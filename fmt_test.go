@@ -18,51 +18,37 @@ import (
 	"time"
 
 	runewidth "github.com/mattn/go-runewidth"
+
 	"github.com/xo/tblfmt/internal"
 )
 
+// TestTabwidthCalc makes sure that a tab moves to the next multiple of 8
+// columns from the start of the line, as psql writes it.
 func TestTabwidthCalc(t *testing.T) {
 	tests := []struct {
-		s      string
-		offset int
-		tab    int
-		exp    int
+		s   string
+		exp int
 	}{
-		{"", 0, 8, 0},
-		{" ", 0, 8, 1},
-		{"    ", 0, 8, 4},
-		{"\u8888", 0, 8, 2},
-		{"\t", 0, 8, 8},
-		{"\t\t", 0, 8, 16}, // 5
-		{"\t\t ", 0, 8, 17},
-		{" \t\t ", 0, 8, 17},
-		{" \t\t\t ", 0, 8, 25},
-		{"foo\tbar\t", 0, 8, 16},
-		{"\t\t\u8888", 0, 8, 18}, // 10
-		{"\u8888\t\u8888", 0, 8, 10},
-		{"\u8888\t\u8888\t", 0, 8, 16},
-		{"", 1, 8, 0}, // 13
-		{"\t", 1, 4, 3},
-		{" \t", 1, 4, 3},
-		{" \t ", 1, 4, 4},
-		{"\u8888\t\u8888\t", 1, 4, 7},
-		/*
-		   ---xxxxxxxxx (width == 9)
-		  |   袈   袈  |
-		*/
-		{"\u8888\t\t\u8888\t", 3, 2, 9}, // 18
-		/*
-		   --------------xxxxxxxxxxxxxxxxxxxxxxxxxxxx (width == 28)
-		  |              袈        袈              袈|
-		*/
-		{"\u8888\t\u8888\t\t\u8888", 14, 8, 28}, // 19
-		{"袈	袈		袈", 14, 8, 28},
+		{"", 0},
+		{" ", 1},
+		{"    ", 4},
+		{"\u8888", 2},
+		{"\t", 8},
+		{"\t\t", 16}, // 5
+		{"\t\t ", 17},
+		{" \t\t ", 17},
+		{" \t\t\t ", 25},
+		{"foo\tbar\t", 16},
+		{"\t\t\u8888", 18}, // 10
+		{"\u8888\t\u8888", 10},
+		{"\u8888\t\u8888\t", 16},
+		{"\u8888\t\u8888\t\t\u8888", 26},
 	}
 	for i, test := range tests {
 		tabs, w := tabpositions(test.s)
-		w += tabwidth(tabs, test.offset, test.tab)
+		w += tabwidth(tabs)
 		if test.exp != w {
-			t.Errorf("test %d %q expected tabwidth(%v, %d, %d) = %d, got: %d", i, test.s, tabs, test.offset, test.tab, test.exp, w)
+			t.Errorf("test %d %q expected tabwidth(%v) = %d, got: %d", i, test.s, tabs, test.exp, w)
 		}
 	}
 }
@@ -109,7 +95,7 @@ func TestFormatBytesComplex(t *testing.T) {
   "2015": "Boels-Dolmans"
 }`
 	v := FormatBytes([]byte(s), nil, 0, false, false, 0, 0)
-	if w := v.MaxWidth(0, 8); w != 39 {
+	if w := v.MaxWidth(); w != 39 {
 		t.Errorf("expected width of 39, got: %d", w)
 	}
 }
@@ -543,8 +529,9 @@ func TestFormatBytesClusters(t *testing.T) {
 		{"joined emoji", "\U0001f468\u200d\U0001f469\u200d\U0001f467", false, 2, nil, nil},
 		{"joined emoji form", "\U0001f3f3\ufe0f\u200d\U0001f308", false, 2, nil, nil},
 		{"flag with tags", "\U0001f3f4\U000e0067\U000e0062\U000e0065\U000e006e\U000e0067\U000e007f", false, 2, nil, nil},
-		// \a is escaped, and ends the text on each side of it
-		{"escape between clusters", "👍🏽\a👍🏽", false, 2 + 2 + 2, nil, nil},
+		// \a is escaped as \x07, as psql writes it, and ends the text on each
+		// side of it
+		{"escape between clusters", "👍🏽\a👍🏽", false, 2 + 4 + 2, nil, nil},
 		{"tab after a cluster", "👍🏽\t👍🏽", false, 2, nil, [][][2]int{{{8, 2}}}},
 		{"newline after a cluster", "👍🏽\n👍🏽👍🏽", false, 4, []int{2}, [][][2]int{nil, nil}},
 		{"raw", "👍🏽,👍🏽", true, 5, nil, nil},

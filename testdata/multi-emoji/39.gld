@@ -1,0 +1,194 @@
+.LP
+.TS
+center box;
+c s.
+\fIRecord 1\fP
+_
+.T&
+c l.
+author_id	14
+name 👍🏽	👍🏽	👍	🇯🇵	❤️
+z	😀
+_
+.T&
+c s.
+\fIRecord 2\fP
+_
+.T&
+c l.
+author_id	15
+name 👍🏽	family
+👨‍👩‍👧
+
+z	
+.TE
+.DS L
+.DE
+
+.LP
+.TS
+center box;
+c s.
+\fIRecord 1\fP
+_
+.T&
+c l.
+author_id	16
+name 👍🏽	é ä 🧑‍💻
+z	
+_
+.T&
+c s.
+\fIRecord 2\fP
+_
+.T&
+c l.
+author_id	17
+name 👍🏽	日本語	👍🏿		1️⃣
+z	
+_
+.T&
+c s.
+\fIRecord 3\fP
+_
+.T&
+c l.
+author_id	18
+name 👍🏽	©️ ✔️ ☺️ ⌚\(rsx08🎉
+z	🎉
+
+_
+.T&
+c s.
+\fIRecord 4\fP
+_
+.T&
+c l.
+author_id	19
+name 👍🏽	🏳️‍🌈	🇺🇸🇯🇵
+	👍🏽
+z	
+_
+.T&
+c s.
+\fIRecord 5\fP
+_
+.T&
+c l.
+author_id	20
+name 👍🏽	emoji map
+z	{
+  "key": "🇯🇵\(rst日本",
+  "👍🏽": "❤️"
+}
+_
+.T&
+c s.
+\fIRecord 6\fP
+_
+.T&
+c l.
+author_id	21
+name 👍🏽	slice
+z	[
+  "😀",
+  "👍🏽"
+]
+.TE
+.DS L
+.DE
+
+.LP
+.TS
+center box;
+c s.
+\fIRecord 1\fP
+_
+.T&
+c l.
+author_id	38
+name 👍🏽	👍🏽	👍	🇯🇵	❤️
+z	😀
+_
+.T&
+c s.
+\fIRecord 2\fP
+_
+.T&
+c l.
+author_id	39
+name 👍🏽	family
+👨‍👩‍👧
+
+z	
+_
+.T&
+c s.
+\fIRecord 3\fP
+_
+.T&
+c l.
+author_id	40
+name 👍🏽	é ä 🧑‍💻
+z	
+_
+.T&
+c s.
+\fIRecord 4\fP
+_
+.T&
+c l.
+author_id	41
+name 👍🏽	日本語	👍🏿		1️⃣
+z	
+_
+.T&
+c s.
+\fIRecord 5\fP
+_
+.T&
+c l.
+author_id	42
+name 👍🏽	©️ ✔️ ☺️ ⌚\(rsx08🎉
+z	🎉
+
+_
+.T&
+c s.
+\fIRecord 6\fP
+_
+.T&
+c l.
+author_id	43
+name 👍🏽	🏳️‍🌈	🇺🇸🇯🇵
+	👍🏽
+z	
+_
+.T&
+c s.
+\fIRecord 7\fP
+_
+.T&
+c l.
+author_id	44
+name 👍🏽	emoji map
+z	{
+  "key": "🇯🇵\(rst日本",
+  "👍🏽": "❤️"
+}
+_
+.T&
+c s.
+\fIRecord 8\fP
+_
+.T&
+c l.
+author_id	45
+name 👍🏽	slice
+z	[
+  "😀",
+  "👍🏽"
+]
+.TE
+.DS L
+.DE

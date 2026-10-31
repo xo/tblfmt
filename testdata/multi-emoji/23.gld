@@ -1,86 +1,86 @@
 * Record 1                         
-author_id 14 
-name 👍🏽   👍🏽	👍	🇯🇵	❤️ 
-z         😀 
+author_id 14
+name 👍🏽   👍🏽      👍      🇯🇵      ❤️
+z         😀
 * Record 2                         
-author_id 15 
-name 👍🏽   family                  ↵
-          👨‍👩‍👧                      ↵
-           
-z          
+author_id 15
+name 👍🏽   family                    ↵
+          👨‍👩‍👧                        ↵
+          
+z         
 
-* Record 1                                 
-author_id 16 
-name 👍🏽   é ä 🧑‍💻 
-z          
-* Record 2                                 
-author_id 17 
-name 👍🏽   日本語	👍🏿		1️⃣ 
-z          
-* Record 3                                 
-author_id 18 
-name 👍🏽   ©️ ✔️ ☺️ ⌚\b🎉 
-z         🎉                              ↵
-           
-* Record 4                                 
-author_id 19 
-name 👍🏽   🏳️‍🌈	🇺🇸🇯🇵                      ↵
-          	👍🏽 
-z          
-* Record 5                                 
-author_id 20 
-name 👍🏽   emoji map 
-z         {                               ↵
-            "key": "🇯🇵\t日本",            ↵
-            "👍🏽": "❤️"                    ↵
-          } 
-* Record 6                                 
-author_id 21 
-name 👍🏽   slice 
-z         [                               ↵
-            "😀",                         ↵
-            "👍🏽"                          ↵
-          ] 
+* Record 1                         
+author_id 16
+name 👍🏽   é ä 🧑‍💻
+z         
+* Record 2                         
+author_id 17
+name 👍🏽   日本語  👍🏿              1️⃣
+z         
+* Record 3                         
+author_id 18
+name 👍🏽   ©️ ✔️ ☺️ ⌚\x08🎉
+z         🎉                        ↵
+          
+* Record 4                         
+author_id 19
+name 👍🏽   🏳️‍🌈      🇺🇸🇯🇵              ↵
+                  👍🏽
+z         
+* Record 5                         
+author_id 20
+name 👍🏽   emoji map
+z         {                         ↵
+            "key": "🇯🇵\t日本",      ↵
+            "👍🏽": "❤️"              ↵
+          }
+* Record 6                         
+author_id 21
+name 👍🏽   slice
+z         [                         ↵
+            "😀",                   ↵
+            "👍🏽"                    ↵
+          ]
 
-* Record 1                                 
-author_id 38 
-name 👍🏽   👍🏽	👍	🇯🇵	❤️ 
-z         😀 
-* Record 2                                 
-author_id 39 
-name 👍🏽   family                          ↵
-          👨‍👩‍👧                              ↵
-           
-z          
-* Record 3                                 
-author_id 40 
-name 👍🏽   é ä 🧑‍💻 
-z          
-* Record 4                                 
-author_id 41 
-name 👍🏽   日本語	👍🏿		1️⃣ 
-z          
-* Record 5                                 
-author_id 42 
-name 👍🏽   ©️ ✔️ ☺️ ⌚\b🎉 
-z         🎉                              ↵
-           
-* Record 6                                 
-author_id 43 
-name 👍🏽   🏳️‍🌈	🇺🇸🇯🇵                      ↵
-          	👍🏽 
-z          
-* Record 7                                 
-author_id 44 
-name 👍🏽   emoji map 
-z         {                               ↵
-            "key": "🇯🇵\t日本",            ↵
-            "👍🏽": "❤️"                    ↵
-          } 
-* Record 8                                 
-author_id 45 
-name 👍🏽   slice 
-z         [                               ↵
-            "😀",                         ↵
-            "👍🏽"                          ↵
-          ] 
+* Record 1                         
+author_id 38
+name 👍🏽   👍🏽      👍      🇯🇵      ❤️
+z         😀
+* Record 2                         
+author_id 39
+name 👍🏽   family                    ↵
+          👨‍👩‍👧                        ↵
+          
+z         
+* Record 3                         
+author_id 40
+name 👍🏽   é ä 🧑‍💻
+z         
+* Record 4                         
+author_id 41
+name 👍🏽   日本語  👍🏿              1️⃣
+z         
+* Record 5                         
+author_id 42
+name 👍🏽   ©️ ✔️ ☺️ ⌚\x08🎉
+z         🎉                        ↵
+          
+* Record 6                         
+author_id 43
+name 👍🏽   🏳️‍🌈      🇺🇸🇯🇵              ↵
+                  👍🏽
+z         
+* Record 7                         
+author_id 44
+name 👍🏽   emoji map
+z         {                         ↵
+            "key": "🇯🇵\t日本",      ↵
+            "👍🏽": "❤️"              ↵
+          }
+* Record 8                         
+author_id 45
+name 👍🏽   slice
+z         [                         ↵
+            "😀",                   ↵
+            "👍🏽"                    ↵
+          ]

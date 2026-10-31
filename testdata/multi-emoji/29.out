@@ -1,138 +1,129 @@
-<table>
-  <caption></caption>
-  <thead>
-    <tr>
-      <th align="left">author_id</th>
-      <th align="left">name 👍🏽</th>
-      <th align="left">z</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td align="right">14</td>
-      <td align="left">👍🏽	👍	🇯🇵	❤️</td>
-      <td align="left">😀</td>
-    </tr>
-    <tr>
-      <td align="right">15</td>
-      <td align="left">family
-👨‍👩‍👧
+<table border="1">
+  <tr>
+    <th align="center">author_id</th>
+    <th align="center">name 👍🏽</th>
+    <th align="center">z</th>
+  </tr>
+  <tr valign="top">
+    <td align="right">14</td>
+    <td align="left">👍🏽	👍	🇯🇵	❤️</td>
+    <td align="left">😀</td>
+  </tr>
+  <tr valign="top">
+    <td align="right">15</td>
+    <td align="left">family<br />
+👨‍👩‍👧<br />
 </td>
-      <td align="left"></td>
-    </tr>
-  </tbody>
+    <td align="left">&nbsp; </td>
+  </tr>
 </table>
+<p>(2 rows)<br />
+</p>
 
-<table>
-  <caption></caption>
-  <thead>
-    <tr>
-      <th align="left">author_id</th>
-      <th align="left">name 👍🏽</th>
-      <th align="left">z</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td align="right">16</td>
-      <td align="left">é ä 🧑‍💻</td>
-      <td align="left"></td>
-    </tr>
-    <tr>
-      <td align="right">17</td>
-      <td align="left">日本語	👍🏿		1️⃣</td>
-      <td align="left"></td>
-    </tr>
-    <tr>
-      <td align="right">18</td>
-      <td align="left">©️ ✔️ ☺️ ⌚\b🎉</td>
-      <td align="left">🎉
+<table border="1">
+  <tr>
+    <th align="center">author_id</th>
+    <th align="center">name 👍🏽</th>
+    <th align="center">z</th>
+  </tr>
+  <tr valign="top">
+    <td align="right">16</td>
+    <td align="left">é ä 🧑‍💻</td>
+    <td align="left">&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td align="right">17</td>
+    <td align="left">日本語	👍🏿		1️⃣</td>
+    <td align="left">&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td align="right">18</td>
+    <td align="left">©️ ✔️ ☺️ ⌚\x08🎉</td>
+    <td align="left">🎉<br />
 </td>
-    </tr>
-    <tr>
-      <td align="right">19</td>
-      <td align="left">🏳️‍🌈	🇺🇸🇯🇵
+  </tr>
+  <tr valign="top">
+    <td align="right">19</td>
+    <td align="left">🏳️‍🌈	🇺🇸🇯🇵<br />
 	👍🏽</td>
-      <td align="left"></td>
-    </tr>
-    <tr>
-      <td align="right">20</td>
-      <td align="left">emoji map</td>
-      <td align="left">{
-  &#34;key&#34;: &#34;🇯🇵\t日本&#34;,
-  &#34;👍🏽&#34;: &#34;❤️&#34;
+    <td align="left">&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td align="right">20</td>
+    <td align="left">emoji map</td>
+    <td align="left">{<br />
+  &quot;key&quot;: &quot;🇯🇵\t日本&quot;,<br />
+  &quot;👍🏽&quot;: &quot;❤️&quot;<br />
 }</td>
-    </tr>
-    <tr>
-      <td align="right">21</td>
-      <td align="left">slice</td>
-      <td align="left">[
-  &#34;😀&#34;,
-  &#34;👍🏽&#34;
+  </tr>
+  <tr valign="top">
+    <td align="right">21</td>
+    <td align="left">slice</td>
+    <td align="left">[<br />
+  &quot;😀&quot;,<br />
+  &quot;👍🏽&quot;<br />
 ]</td>
-    </tr>
-  </tbody>
+  </tr>
 </table>
+<p>(6 rows)<br />
+</p>
 
-<table>
-  <caption></caption>
-  <thead>
-    <tr>
-      <th align="left">author_id</th>
-      <th align="left">name 👍🏽</th>
-      <th align="left">z</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td align="right">38</td>
-      <td align="left">👍🏽	👍	🇯🇵	❤️</td>
-      <td align="left">😀</td>
-    </tr>
-    <tr>
-      <td align="right">39</td>
-      <td align="left">family
-👨‍👩‍👧
+<table border="1">
+  <tr>
+    <th align="center">author_id</th>
+    <th align="center">name 👍🏽</th>
+    <th align="center">z</th>
+  </tr>
+  <tr valign="top">
+    <td align="right">38</td>
+    <td align="left">👍🏽	👍	🇯🇵	❤️</td>
+    <td align="left">😀</td>
+  </tr>
+  <tr valign="top">
+    <td align="right">39</td>
+    <td align="left">family<br />
+👨‍👩‍👧<br />
 </td>
-      <td align="left"></td>
-    </tr>
-    <tr>
-      <td align="right">40</td>
-      <td align="left">é ä 🧑‍💻</td>
-      <td align="left"></td>
-    </tr>
-    <tr>
-      <td align="right">41</td>
-      <td align="left">日本語	👍🏿		1️⃣</td>
-      <td align="left"></td>
-    </tr>
-    <tr>
-      <td align="right">42</td>
-      <td align="left">©️ ✔️ ☺️ ⌚\b🎉</td>
-      <td align="left">🎉
+    <td align="left">&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td align="right">40</td>
+    <td align="left">é ä 🧑‍💻</td>
+    <td align="left">&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td align="right">41</td>
+    <td align="left">日本語	👍🏿		1️⃣</td>
+    <td align="left">&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td align="right">42</td>
+    <td align="left">©️ ✔️ ☺️ ⌚\x08🎉</td>
+    <td align="left">🎉<br />
 </td>
-    </tr>
-    <tr>
-      <td align="right">43</td>
-      <td align="left">🏳️‍🌈	🇺🇸🇯🇵
+  </tr>
+  <tr valign="top">
+    <td align="right">43</td>
+    <td align="left">🏳️‍🌈	🇺🇸🇯🇵<br />
 	👍🏽</td>
-      <td align="left"></td>
-    </tr>
-    <tr>
-      <td align="right">44</td>
-      <td align="left">emoji map</td>
-      <td align="left">{
-  &#34;key&#34;: &#34;🇯🇵\t日本&#34;,
-  &#34;👍🏽&#34;: &#34;❤️&#34;
+    <td align="left">&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td align="right">44</td>
+    <td align="left">emoji map</td>
+    <td align="left">{<br />
+  &quot;key&quot;: &quot;🇯🇵\t日本&quot;,<br />
+  &quot;👍🏽&quot;: &quot;❤️&quot;<br />
 }</td>
-    </tr>
-    <tr>
-      <td align="right">45</td>
-      <td align="left">slice</td>
-      <td align="left">[
-  &#34;😀&#34;,
-  &#34;👍🏽&#34;
+  </tr>
+  <tr valign="top">
+    <td align="right">45</td>
+    <td align="left">slice</td>
+    <td align="left">[<br />
+  &quot;😀&quot;,<br />
+  &quot;👍🏽&quot;<br />
 ]</td>
-    </tr>
-  </tbody>
+  </tr>
 </table>
+<p>(8 rows)<br />
+</p>

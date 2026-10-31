@@ -1,0 +1,106 @@
+\begin{longtable}{r | l | l}
+\small\textbf{\textit{author\_id}} & \small\textbf{\textit{name}} & \small\textbf{\textit{z}} \\
+\midrule
+\endfirsthead
+\small\textbf{\textit{author\_id}} & \small\textbf{\textit{name}} & \small\textbf{\textit{z}} \\
+\midrule
+\endhead
+\raggedright{14}
+&
+\raggedright{a	b	c	d}
+&
+\raggedright{x} \tabularnewline
+\raggedright{15}
+&
+\raggedright{aoeu\\test\\}
+&
+\raggedright{} \tabularnewline
+\end{longtable}
+
+\begin{longtable}{r | l | l}
+\small\textbf{\textit{author\_id}} & \small\textbf{\textit{name}} & \small\textbf{\textit{z}} \\
+\midrule
+\endfirsthead
+\small\textbf{\textit{author\_id}} & \small\textbf{\textit{name}} & \small\textbf{\textit{z}} \\
+\midrule
+\endhead
+\raggedright{16}
+&
+\raggedright{foo\textbackslash{}x08bar}
+&
+\raggedright{} \tabularnewline
+\raggedright{17}
+&
+\raggedright{袈	袈		袈}
+&
+\raggedright{} \tabularnewline
+\raggedright{18}
+&
+\raggedright{a	b	\textbackslash{}r\\	a}
+&
+\raggedright{a\\} \tabularnewline
+\raggedright{19}
+&
+\raggedright{袈	袈		袈\\}
+&
+\raggedright{} \tabularnewline
+\raggedright{20}
+&
+\raggedright{javascript}
+&
+\raggedright{\{\\  "test21": "a value",\\  "test22": "foo\textbackslash{}bbar"\\\}} \tabularnewline
+\raggedright{23}
+&
+\raggedright{slice}
+&
+\raggedright{[\\  "a",\\  "b"\\]} \tabularnewline
+\end{longtable}
+
+\begin{longtable}{r | l | l}
+\small\textbf{\textit{author\_id}} & \small\textbf{\textit{name}} & \small\textbf{\textit{z}} \\
+\midrule
+\endfirsthead
+\small\textbf{\textit{author\_id}} & \small\textbf{\textit{name}} & \small\textbf{\textit{z}} \\
+\midrule
+\endhead
+\raggedright{38}
+&
+\raggedright{a	b	c	d}
+&
+\raggedright{x} \tabularnewline
+\raggedright{39}
+&
+\raggedright{aoeu\\test\\}
+&
+\raggedright{} \tabularnewline
+\raggedright{40}
+&
+\raggedright{foo\textbackslash{}x08bar}
+&
+\raggedright{} \tabularnewline
+\raggedright{41}
+&
+\raggedright{袈	袈		袈}
+&
+\raggedright{} \tabularnewline
+\raggedright{42}
+&
+\raggedright{a	b	\textbackslash{}r\\	a}
+&
+\raggedright{a\\} \tabularnewline
+\raggedright{43}
+&
+\raggedright{袈	袈		袈\\}
+&
+\raggedright{} \tabularnewline
+\raggedright{44}
+&
+\raggedright{javascript}
+&
+\raggedright{\{\\  "test45": "a value",\\  "test46": "foo\textbackslash{}bbar"\\\}} \tabularnewline
+\raggedright{47}
+&
+\raggedright{slice}
+&
+\raggedright{[\\  "a",\\  "b"\\]} \tabularnewline
+\end{longtable}

@@ -1,0 +1,11 @@
+.LP
+.TS
+center;
+l | l | l | l | l | l | l | l | l | l.
+\fIaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\fP	\fIbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\fP	\fIcccccccccccccccccccccccccccccc\fP	\fIdddddddddddddddddddddddddddddd\fP	\fIeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\fP	\fIffffffffffffffffffffffffffffff\fP	\fIgggggggggggggggggggggggggggggg\fP	\fIhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh\fP	\fIiiiiiiiiiiiiiiiiiiiiiiiiiiiiii\fP	\fIjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj\fP
+_
+1	2	3	4	5	6	7	8	9	10
+.TE
+.DS L
+(1 row)
+.DE
