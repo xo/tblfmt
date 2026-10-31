@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 package main
@@ -10,8 +11,9 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	"github.com/xo/dburl"
-	"github.com/xo/tblfmt"
 	_ "github.com/ziutek/mymysql/godrv"
+
+	"github.com/xo/tblfmt"
 )
 
 func main() {

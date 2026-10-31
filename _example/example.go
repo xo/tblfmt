@@ -7,6 +7,7 @@ import (
 
 	_ "github.com/lib/pq"
 	"github.com/xo/dburl"
+
 	"github.com/xo/tblfmt"
 )
 
