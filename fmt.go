@@ -591,8 +591,10 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isRaw boo
 			}
 			continue
 		}
-		// printable character
-		if strconv.IsGraphic(r) {
+		// psql escapes only a control character, and writes each other rune
+		// as it is. A joiner, a tag or a private use rune is part of what a
+		// terminal draws, such as a joined emoji or a flag.
+		if !unicode.IsControl(r) {
 			if run < 0 {
 				run = len(res.Buf)
 			}
@@ -637,23 +639,14 @@ func FormatBytes(src []byte, invalid []byte, invalidWidth int, isJSON, isRaw boo
 			case r < ' ' && !isJSON:
 				res.Buf = append(res.Buf, '\\', 'x', lowerhex[byte(r)>>4], lowerhex[byte(r)&0xf])
 				res.Width += 4
-			// escape as \u0000
-			case r > utf8.MaxRune:
-				r = 0xfffd
-				fallthrough
-			case r < 0x10000:
+			// escape as \u0000. A control character is below U+00A0, so it
+			// never needs the \U00000000 form.
+			default:
 				res.Buf = append(res.Buf, '\\', 'u')
 				for s := 12; s >= 0; s -= 4 {
 					res.Buf = append(res.Buf, lowerhex[r>>uint(s)&0xf])
 				}
 				res.Width += 6
-			// escape as \U00000000
-			default:
-				res.Buf = append(res.Buf, '\\', 'U')
-				for s := 28; s >= 0; s -= 4 {
-					res.Buf = append(res.Buf, lowerhex[r>>uint(s)&0xf])
-				}
-				res.Width += 10
 			}
 		}
 	}

@@ -540,8 +540,9 @@ func TestFormatBytesClusters(t *testing.T) {
 		{"selector with no emoji form", "a\ufe0f", false, 1, nil, nil},
 		{"selector alone", "\ufe0f", false, 0, nil, nil},
 		{"joined in raw mode", "\U0001f3f3\ufe0f\u200d\U0001f308", true, 2, nil, nil},
-		// U+200D is escaped as ‍, so the three emoji are measured apart
-		{"joined emoji", "👨‍👩‍👧", false, 2 + 6 + 2 + 6 + 2, nil, nil},
+		{"joined emoji", "\U0001f468\u200d\U0001f469\u200d\U0001f467", false, 2, nil, nil},
+		{"joined emoji form", "\U0001f3f3\ufe0f\u200d\U0001f308", false, 2, nil, nil},
+		{"flag with tags", "\U0001f3f4\U000e0067\U000e0062\U000e0065\U000e006e\U000e0067\U000e007f", false, 2, nil, nil},
 		// \a is escaped, and ends the text on each side of it
 		{"escape between clusters", "👍🏽\a👍🏽", false, 2 + 2 + 2, nil, nil},
 		{"tab after a cluster", "👍🏽\t👍🏽", false, 2, nil, [][][2]int{{{8, 2}}}},
@@ -574,6 +575,68 @@ func TestFormatBytesClusters(t *testing.T) {
 
 // TestEncodeClusters makes sure that an aligned table pads a column of
 // grapheme clusters to the same width on each line.
+// TestEncodeFormatChars makes sure that a table escapes only a control
+// character, as psql does. A joiner, a tag, a private use rune, a soft hyphen,
+// a zero width space and a direction control are written as they are.
+//
+// Measured against psql 18.6. In the output, <U+200C> and the like stand for
+// the character itself, which psql writes as it is:
+//
+//	$ psql -X -q -P border=2 -c "select v from (values
+//	    (1, U&'\+01F3F4\+0E0067\+0E0062\+0E0065\+0E006E\+0E0067\+0E007F'),
+//	    (2, U&'\0645\06CC\200C\062E\0648\0627\0647\0645'),
+//	    (3, U&'\E0A0 main'),
+//	    (4, U&'co\00ADop'),
+//	    (5, U&'a\200Bb'),
+//	    (6, U&'a\202Eb'),
+//	    (7, U&'a\0085b')
+//	  ) as t(n, v) order by n;"
+//	+----------+
+//	|    v     |
+//	+----------+
+//	| 🏴<U+E0067><U+E0062><U+E0065><U+E006E><U+E0067><U+E007F>       |
+//	| می<U+200C>خواهم  |
+//	| <U+E0A0> main   |
+//	| co<U+00AD>op     |
+//	| a<U+200B>b       |
+//	| a<U+202E>b       |
+//	| a\u0085b |
+//	+----------+
+//	(7 rows)
+//
+// Note: psql writes the row of U+0085 as the text \u0085.
+func TestEncodeFormatChars(t *testing.T) {
+	t.Parallel()
+	buf := new(bytes.Buffer)
+	rs := internal.New([]string{"v"}, [][]any{
+		{"\U0001f3f4\U000e0067\U000e0062\U000e0065\U000e006e\U000e0067\U000e007f"},
+		{"\u0645\u06cc\u200c\u062e\u0648\u0627\u0647\u0645"},
+		{"\ue0a0 main"},
+		{"co\u00adop"},
+		{"a\u200bb"},
+		{"a\u202eb"},
+		{"a\u0085b"},
+	})
+	if err := EncodeAll(buf, rs, map[string]string{"format": "aligned", "border": "2"}); err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	exp := "+----------+\n" +
+		"|    v     |\n" +
+		"+----------+\n" +
+		"| \U0001f3f4\U000e0067\U000e0062\U000e0065\U000e006e\U000e0067\U000e007f       |\n" +
+		"| \u0645\u06cc\u200c\u062e\u0648\u0627\u0647\u0645  |\n" +
+		"| \ue0a0 main   |\n" +
+		"| co\u00adop     |\n" +
+		"| a\u200bb       |\n" +
+		"| a\u202eb       |\n" +
+		"| a\\u0085b |\n" +
+		"+----------+\n" +
+		"(7 rows)\n"
+	if s := buf.String(); s != exp {
+		t.Errorf("expected:\n%q\ngot:\n%q", exp, s)
+	}
+}
+
 func TestEncodeClusters(t *testing.T) {
 	t.Parallel()
 	buf := new(bytes.Buffer)
