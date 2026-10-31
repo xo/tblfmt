@@ -10,16 +10,21 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    # the checkout comes before setup-go, so that setup-go finds the go.sum
+    # files to cache the modules by
     steps:
-    - name: Install Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: stable
     - name: Configure Git
       run: |
         git config --global core.autocrlf input
     - name: Checkout code
       uses: actions/checkout@v4
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: stable
+        cache-dependency-path: |
+          go.sum
+          test/go.sum
     - name: Test
       run: |
         go test -v ./...
@@ -32,12 +37,15 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
     - name: Install Go
       uses: actions/setup-go@v5
       with:
         go-version: stable
-    - name: Checkout code
-      uses: actions/checkout@v4
+        cache-dependency-path: |
+          go.sum
+          test/go.sum
     # pinned, because .golangci.yml sets `default: all` and a newer release
     # can enable a linter nobody chose. see D49 in docs/PLAN.md
     - name: Install golangci-lint
@@ -62,10 +70,6 @@ jobs:
       # the dbmeta commit whose dbrun starts the server, as in dbimp
       DBMETA_COMMIT: a58e5c09440898065ff4d2d099378cc85cf93ec1
     steps:
-    - name: Install Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: stable
     - name: Checkout code
       uses: actions/checkout@v4
     - name: Checkout dbmeta
@@ -74,6 +78,13 @@ jobs:
         repository: xo/dbmeta
         ref: ${{ env.DBMETA_COMMIT }}
         path: dbmeta
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: stable
+        cache-dependency-path: |
+          test/go.sum
+          dbmeta/test/go.sum
     # TestPsql compares with psql 18, which the runner does not have
     - name: Install psql 18
       run: |
