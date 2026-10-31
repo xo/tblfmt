@@ -1,0 +1,151 @@
+# Lint configuration for the test module. It is the configuration of the root
+# module, with two changes. depguard also allows the packages that the
+# benchmark compares tblfmt with, and the driver of TestPsql, and
+# gomoddirectives is off. See D59 and D65 in docs/PLAN.md.
+version: "2"
+
+run:
+  modules-download-mode: readonly
+
+linters:
+  default: all
+  disable:
+    # Layout and naming rules that fight idiomatic Go. Short names such as
+    # enc, v and w are the convention for a receiver or a local with a small
+    # scope.
+    - lll
+    - nlreturn
+    - varnamelen
+    - wsl
+    - wsl_v5
+    # A struct literal names the fields it sets, and no more.
+    - exhaustruct
+    - exhaustruct_v5
+    # Complexity metrics. The table and expanded encoders follow the print
+    # code of psql one branch at a time, and splitting a branch hides the
+    # match with psql. FromMap is one switch over the formats of psql.
+    - cyclop
+    - funlen
+    - gocognit
+    - gocyclo
+    - maintidx
+    - nestif
+    # A switch names the cases it handles and answers the rest after the
+    # switch. The remedy this linter wants is an empty case, which says less.
+    - exhaustive
+    # The methods of an encoder are grouped by what they draw, in the order
+    # that psql draws it, and not exported first.
+    - funcorder
+    # The line styles, the emoji table and the newline of the platform are
+    # package level values, set once.
+    - gochecknoglobals
+    - gochecknoinits
+    # A sentinel error is a constant of type Error (D3), which err113 cannot
+    # test. The fake result sets of the tests make their own errors.
+    - err113
+    # An encoder returns the error of the result set or the writer as it is,
+    # so that a caller can test it with errors.Is.
+    - wrapcheck
+    # A null value is nil and needs no error.
+    - nilnil
+    # A builder returns the Encoder interface by design. See Builder.
+    - ireturn
+    # NewExpandedEncoder asserts the type that NewTableEncoder returns.
+    # CrosstabView.Scan asserts that each destination is a *any, as the
+    # encoders pass it.
+    - forcetypeassert
+    # A width, a batch size or a tab stop is named at the one place that sets
+    # it, and the tests repeat their inputs on purpose.
+    - mnd
+    - goconst
+    # The test data repeats CJK glyphs, such as `袈 袈`, on purpose.
+    - dupword
+    - gosmopolitan
+    # Each TODO comment is an item in docs/BACKLOG.md.
+    - godox
+    # The methods of Formatter and the funcs in Summary are short, and their
+    # types name their parameters well enough.
+    - inamedparam
+    # `if err := f(); err != nil` is idiomatic Go.
+    - noinlineerr
+    # prealloc rewrites readable loops for a gain that nothing has measured.
+    - prealloc
+    # A test reads the unexported funcs and fields of the package, so it is
+    # in package tblfmt. A test that is quick does not call t.Parallel.
+    - testpackage
+    - paralleltest
+    # depguard holds the dependency rule, and holding it twice means two
+    # places to change it. gomodguard is also deprecated.
+    - gomodguard
+    - gomodguard_v2
+    # go.mod replaces tblfmt with the code in the parent directory, so that
+    # the benchmark measures the code of this checkout.
+    - gomoddirectives
+
+  settings:
+    # The packages of hard rule 6, the packages that the benchmark compares
+    # tblfmt with, and the driver that TestPsql connects with.
+    depguard:
+      rules:
+        main:
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/xo/tblfmt
+            - github.com/mattn/go-runewidth
+            - golang.org/x/text
+            - github.com/nathan-fiscaletti/consolesize-go
+            - github.com/alexeyco/simpletable
+            - github.com/aquasecurity/table
+            - github.com/charmbracelet/lipgloss
+            - github.com/jedib0t/go-pretty/v6
+            - github.com/olekukonko/tablewriter
+            - github.com/rodaine/table
+            - github.com/jackc/pgx/v5
+    errcheck:
+      # The template writers write through an errWriter, which keeps the first
+      # error for TemplateEncoder.Encode to return.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+    errorlint:
+      errorf: true
+      asserts: true
+      comparison: true
+    gosec:
+      excludes:
+        # G115 fires on byte(r) after a test that r is below U+0080, which it
+        # cannot follow.
+        - G115
+    revive:
+      rules:
+        # AsciiDoc is the name of a product, and not the initialism ASCII.
+        - name: var-naming
+          disabled: true
+
+  exclusions:
+    rules:
+      # A test reads and writes its golden files, and builds its own data. It
+      # is not the attack surface that gosec looks for.
+      - path: _test\.go
+        linters:
+          - gosec
+      # The test data takes an md5 sum and a seeded math/rand source, so that
+      # each run makes the same rows (D9).
+      - path: internal/
+        linters:
+          - gosec
+      # The crosstab tests copy their queries from the psql manual.
+      - path: view_test\.go
+        linters:
+          - unqueryvet
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/xo/tblfmt
