@@ -23,11 +23,16 @@ Run these in the repository root. Each must pass:
 
 ```sh
 gofmt -l . && go vet ./... && go test -race -count=1 ./...
-golangci-lint run --new-from-rev=HEAD ./...
+golangci-lint run ./...
+cd test && go vet ./... && go test -count=1 ./... && golangci-lint run ./...
 ```
 
 If a golden file test fails, compare `testdata/<set>/NN.gld` with the
 `NN.out` file that the test wrote.
+
+If you change what an encoder writes, run `TestPsql` in the `test` module. It
+compares tblfmt with `psql` 18 on a PostgreSQL server. "Tests" in `AGENTS.md`
+says how to start the server with `dbrun` from dbmeta.
 
 ## Writing
 

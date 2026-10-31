@@ -31,16 +31,16 @@ A line number in D1 to D30 is at `04af38a`.
 | [D5](#d5-one-option-type-serves-every-encoder-decided) | One Option type serves every encoder | Decided |
 | [D6](#d6-the-module-keeps-a-recent-minimum-go-version-decided) | The module keeps a recent minimum Go version | Decided |
 | [D7](#d7-the-output-is-checked-against-golden-files-decided) | The output is checked against golden files | Decided |
-| [D8](#d8-output-that-is-too-wide-switches-to-expanded-mode-as-with-psql-expanded-auto-decided) | Output that is too wide switches to expanded mode, as with psql `expanded auto` | Decided |
+| [D8](#d8-output-that-is-too-wide-switches-to-expanded-mode-as-with-psql-expanded-auto-decided-amended-by-d45) | Output that is too wide switches to expanded mode, as with psql `expanded auto` | Decided. Amended by D45 |
 | [D9](#d9-the-random-test-data-uses-a-fixed-seed-decided) | The random test data uses a fixed seed | Decided |
 | [D10](#d10-a-pager-that-quits-early-is-not-an-error-superseded-by-d42) | A pager that quits early is not an error | Superseded by D42 |
 | [D11](#d11-tests-run-in-github-actions-on-linux-and-lint-has-a-config-but-no-ci-job-decided) | Tests run in GitHub Actions on Linux, and lint has a config but no CI job | Decided |
 | [D12](#d12-the-crosstab-view-follows-psql-crosstabview-decided) | The crosstab view follows psql `\crosstabview` | Decided |
 | [D13](#d13-a-crosstab-view-covers-one-result-set-decided) | A crosstab view covers one result set | Decided |
-| [D14](#d14-the-last-column-is-not-padded-when-it-is-left-aligned-decided-conflicts-with-d28) | The last column is not padded when it is left aligned | Decided. Conflicts with D28 |
+| [D14](#d14-the-last-column-is-not-padded-when-it-is-left-aligned-superseded-by-d44) | The last column is not padded when it is left aligned | Superseded by D44 |
 | [D15](#d15-a-caller-can-choose-the-scan-type-of-each-column-decided) | A caller can choose the scan type of each column | Decided |
 | [D16](#d16-a-header-can-be-recased-decided) | A header can be recased | Decided |
-| [D17](#d17-an-encoder-writes-no-blank-line-after-the-last-result-set-decided) | An encoder writes no blank line after the last result set | Decided |
+| [D17](#d17-an-encoder-writes-no-blank-line-after-the-last-result-set-decided-amended-by-d48) | An encoder writes no blank line after the last result set | Decided. Amended by D48 |
 | [D18](#d18-the-unaligned-encoder-writes-a-footer-and-the-csv-encoder-does-not-decided) | The unaligned encoder writes a footer, and the csv encoder does not | Decided |
 | [D19](#d19-tuples_only-turns-off-the-footer-in-every-format-decided) | `tuples_only` turns off the footer in every format | Decided |
 | [D20](#d20-the-template-encoders-are-go-funcs-not-texttemplate-decided) | The template encoders are Go funcs, not text/template | Decided |
@@ -51,11 +51,11 @@ A line number in D1 to D30 is at `04af38a`.
 | [D25](#d25-nan-and-the-infinities-use-the-postgresql-spellings-and-are-strings-in-json-decided) | NaN and the infinities use the PostgreSQL spellings, and are strings in JSON | Decided |
 | [D26](#d26-a-uint64-above-the-int64-range-is-a-json-string-amended-by-d29) | A uint64 above the int64 range is a JSON string | Amended by D29 |
 | [D27](#d27-a-null-value-is-aligned-by-its-column-decided) | A null value is aligned by its column | Decided |
-| [D28](#d28-tblfmt-pads-the-last-column-where-psql-trims-it-decided-conflicts-with-d14) | tblfmt pads the last column where psql trims it | Decided. Conflicts with D14 |
+| [D28](#d28-tblfmt-pads-the-last-column-where-psql-trims-it-superseded-by-d44) | tblfmt pads the last column where psql trims it | Superseded by D44 |
 | [D29](#d29-every-uint64-is-a-json-string-decided-amends-d26) | Every uint64 is a JSON string | Decided. Amends D26 |
-| [D30](#d30-the-json-encoder-indents-its-output-decided) | The JSON encoder indents its output | Decided |
+| [D30](#d30-the-json-encoder-indents-its-output-superseded-by-d47) | The JSON encoder indents its output | Superseded by D47 |
 | [D31](#d31-a-result-set-that-has-no-columns-is-valid-and-each-encoder-writes-it-as-psql-does-decided) | A result set that has no columns is valid, and each encoder writes it as psql does | Decided |
-| [D32](#d32-a-dependency-is-kept-at-the-version-that-usql-requires-or-higher-decided) | A dependency is kept at the version that usql requires, or higher | Decided |
+| [D32](#d32-a-dependency-is-kept-at-the-version-that-usql-requires-or-higher-decided-amended-by-d50) | A dependency is kept at the version that usql requires, or higher | Decided. Amended by D50 |
 | [D33](#d33-pr-18-is-closed-and-its-ideas-that-keep-the-api-wait-for-a-benchmark-decided) | PR 18 is closed, and its ideas that keep the API wait for a benchmark | Decided |
 | [D34](#d34-the-repository-carries-its-agent-files-and-the-skills-are-copies-decided-amended-by-d38) | The repository carries its agent files, and the skills are copies | Decided. Amended by D38 |
 | [D35](#d35-every-text-that-a-person-reads-is-written-in-plain-english-decided) | Every text that a person reads is written in plain English | Decided |
@@ -66,6 +66,30 @@ A line number in D1 to D30 is at `04af38a`.
 | [D40](#d40-each-golden-set-has-an-emoji-version-and-the-test-writes-the-golden-files-amends-d7) | Each golden set has an emoji version, and the test writes the golden files | Amends D7 |
 | [D41](#d41-tblfmt-counts-an-emoji-variation-sequence-as-2-columns-until-go-runewidth-does-amends-d39) | tblfmt counts an emoji variation sequence as 2 columns until go-runewidth does | Amends D39 |
 | [D42](#d42-tblfmt-does-not-run-a-pager-and-usql-does-supersedes-d10) | tblfmt does not run a pager, and usql does | Supersedes D10 |
+| [D43](#d43-a-table-escapes-only-a-control-character-as-psql-does-decided-amended-by-d46) | A table escapes only a control character, as psql does | Decided. Amended by D46 |
+| [D44](#d44-the-table-encoder-draws-a-table-as-psql-does-supersedes-d14-and-d28) | The table encoder draws a table as psql does | Supersedes D14 and D28 |
+| [D45](#d45-the-expanded-encoder-draws-records-as-psql-does-amends-d8) | The expanded encoder draws records as psql does | Amends D8 |
+| [D46](#d46-escapes-follow-psql-and-unicode-text-is-drawn-as-a-terminal-draws-it-amends-d43) | Escapes follow psql, and Unicode text is drawn as a terminal draws it | Amends D43 |
+| [D47](#d47-the-caller-sets-the-separator-between-result-sets-and-json-is-compact-supersedes-d30) | The caller sets the separator between result sets, and JSON is compact | Supersedes D30 |
+| [D48](#d48-usql-writes-the-blank-line-after-a-table-amends-d17) | usql writes the blank line after a table | Amends D17 |
+| [D49](#d49-the-lint-configuration-follows-the-other-xo-repositories-decided) | The lint configuration follows the other xo repositories | Decided |
+| [D50](#d50-dependabot-stays-off-decided) | Dependabot stays off | Decided |
+| [D51](#d51-tblfmt-has-no-numeric-type-decided-amended-by-d63) | tblfmt has no Numeric type | Decided. Amended by D63 |
+| [D52](#d52-the-csv-encoder-quotes-a-field-that-holds-a-space-or-a-tab-decided) | The csv encoder quotes a field that holds a space or a tab | Decided |
+| [D53](#d53-the-caller-chooses-the-separator-between-unaligned-result-sets-decided) | The caller chooses the separator between unaligned result sets | Decided |
+| [D54](#d54-the-template-formats-escape-a-control-character-decided) | The template formats escape a control character | Decided |
+| [D55](#d55-withformatteroptions-returns-an-error-for-a-formatter-it-cannot-change-decided) | WithFormatterOptions returns an error for a formatter it cannot change | Decided |
+| [D56](#d56-the-wrapped-format-is-an-option-of-the-table-encoder-decided) | The wrapped format is an option of the table encoder | Decided |
+| [D57](#d57-tblfmt-writes-each-psql-format-decided) | tblfmt writes each psql format | Decided |
+| [D58](#d58-the-json-encoder-ignores-withsummary-and-withwidths-decided) | The JSON encoder ignores WithSummary and WithWidths | Decided |
+| [D59](#d59-tblfmt-has-benchmarks-and-a-module-that-compares-it-with-other-packages-decided) | tblfmt has benchmarks, and a module that compares it with other packages | Decided |
+| [D60](#d60-the-vertical-format-is-the-g-layout-of-the-mysql-client-with-the-rules-of-psql-decided) | The vertical format is the `\G` layout of the mysql client, with the rules of psql | Decided |
+| [D61](#d61-the-options-stay-small-and-a-caller-changes-the-escapes-with-a-formatter-decided) | The options stay small, and a caller changes the escapes with a formatter | Decided |
+| [D62](#d62-the-tests-run-on-linux-windows-and-macos-decided) | The tests run on Linux, Windows and macOS | Decided |
+| [D63](#d63-a-caller-sets-the-alignment-of-a-column-by-its-type-decided-amends-d51) | A caller sets the alignment of a column by its type | Decided. Amends D51 |
+| [D64](#d64-the-html-and-asciidoc-formats-follow-psql-and-each-format-has-its-expanded-form-decided) | The html and asciidoc formats follow psql, and each format has its expanded form | Decided |
+| [D65](#d65-testpsql-compares-tblfmt-with-psql-on-a-server-that-dbrun-starts-decided) | TestPsql compares tblfmt with psql, on a server that dbrun starts | Decided |
+| [D66](#d66-a-later-batch-can-be-wider-than-the-header-decided) | A later batch can be wider than the header | Decided |
 
 ### D1. psql is the reference for the output. Decided.
 
@@ -202,7 +226,7 @@ the exception. `testdata/gencrosstab.go` makes it by running psql.
 Reason not recorded in a commit. The `.gitattributes` comment from D34 says that the golden files hold the exact bytes an encoder writes, and that
 some hold a carriage return on purpose.
 
-### D8. Output that is too wide switches to expanded mode, as with psql `expanded auto`. Decided.
+### D8. Output that is too wide switches to expanded mode, as with psql `expanded auto`. Decided. Amended by D45.
 
 Certainty: Medium.
 
@@ -289,7 +313,7 @@ set.
 Reason: the comment states the decision and its effect. It gives no reason
 beyond that.
 
-### D14. The last column is not padded when it is left aligned. Decided. Conflicts with D28.
+### D14. The last column is not padded when it is left aligned. Superseded by D44.
 
 Certainty: Medium.
 
@@ -334,7 +358,7 @@ the `Transformer` interface and the `TransformStyle` values, and added
 
 Reason not recorded.
 
-### D17. An encoder writes no blank line after the last result set. Decided.
+### D17. An encoder writes no blank line after the last result set. Decided. Amended by D48.
 
 Certainty: Low.
 
@@ -393,6 +417,13 @@ escapes each header and cell with `html.EscapeString`. `a4a1779` removed the
 Reason not recorded. The title of `c8da282` says only "Initial work on
 removing {text,html}/template".
 
+Reason, from Ken on 2026-10-31: speed, and the escapes, which were hard to get
+right in a template. A Go func with `fmt.Fprint` was as easy to write as a
+template, and Ken does not like to write Go templates. The templates were
+simple enough that the change made little difference. The comments kept the
+text of the templates that the funcs replaced. D64 replaced the html and
+asciidoc funcs with ports of psql, and their comments went.
+
 ### D21. A `table` format writes an upper case table with no borders. Decided.
 
 Certainty: Medium.
@@ -442,6 +473,9 @@ Reason: the message says that the output of every format is unchanged, and
 why each setting is pinned. It does not say why the package moved to v2. It
 changes the two things together, and it does not say whether one needs the
 other.
+
+Reason, from Ken on 2026-10-31: `encoding/json/v2` is in the standard library
+from Go 1.27, so tblfmt uses it. The minimum Go version follows from that.
 
 ### D24. csv applies `numericlocale` with quotes, and JSON ignores it. Decided.
 
@@ -511,7 +545,7 @@ does a column that holds only nulls.
 Reason, from the message: psql aligns the null string by the type of the
 column. The message quotes the psql output.
 
-### D28. tblfmt pads the last column where psql trims it. Decided. Conflicts with D14.
+### D28. tblfmt pads the last column where psql trims it. Superseded by D44.
 
 Certainty: High that the README states a decision. The code does not do what
 the README says.
@@ -551,7 +585,7 @@ cannot give the column a type without reading every value. MySQL's `BIGINT
 UNSIGNED` crosses the limit with ordinary data. `uint` is included so that
 the output is the same on every platform.
 
-### D30. The JSON encoder indents its output. Decided.
+### D30. The JSON encoder indents its output. Superseded by D47.
 
 Certainty: High.
 
@@ -607,7 +641,7 @@ This decision does not cover a result set that has columns and no rows. psql
 writes its header, and tblfmt does not. That is B1 in
 [BACKLOG.md](BACKLOG.md).
 
-### D32. A dependency is kept at the version that usql requires, or higher. Decided.
+### D32. A dependency is kept at the version that usql requires, or higher. Decided. Amended by D50.
 
 Certainty: High.
 
@@ -855,36 +889,474 @@ the terminal. tblfmt has no compatibility promise (D37). usql does not call
 the removed options, and it does not set the pager keys. `consolesize-go`
 stays, because `expanded: auto` uses it.
 
+### D43. A table escapes only a control character, as psql does. Decided. Amended by D46.
+
+Certainty: High.
+
+Date: 2026-10-30.
+
+`FormatBytes` escaped each rune that `strconv.IsGraphic` rejects. Go counts
+a format character, a private use character and an unassigned code point as
+not graphic. So tblfmt escaped text that a terminal draws:
+
+1. U+200D in each joined emoji, such as U+1F468 U+200D U+1F469 U+200D
+   U+1F467, and in Indic text.
+2. U+200C in Persian and Indic text.
+3. The tag characters in the flags of England, Scotland and Wales.
+4. The signs that span the digits after them, such as U+0600.
+5. The private use characters, such as the Nerd Font and Powerline icons.
+6. A character that Unicode 18 added. Go 1.27 knows Unicode 17.
+
+psql 18.6 escapes only a control character, U+0000 to U+001F, U+007F and
+U+0080 to U+009F, and writes each other rune as it is. The fault came up on
+2026-10-30, when the rline session asked about the width of a flag. Ken
+decided that tblfmt follows psql. `FormatBytes` now
+escapes a rune only when `unicode.IsControl` is true. A control character is
+below U+00A0, so the `\U00000000` form went.
+
+tblfmt now also writes the invisible characters as psql does. These are the
+soft hyphen, the zero width space, the word joiner, U+FEFF, U+2028, U+2029
+and the direction controls, such as U+202E. A direction control can reverse
+part of a line in a terminal that supports text from right to left. psql has
+the same risk.
+
+tblfmt measures the text by grapheme cluster with go-runewidth (D39). For two
+of these characters, go-runewidth and psql disagree by 1 column. go-runewidth
+counts U+0600 as 1 column, and psql counts it as 0. go-runewidth counts U+2028
+as 0 columns, and psql counts it as 1. Terminals do not agree either.
+
+`TestEncodeFormatChars` holds the psql command and its output. The golden
+files of the emoji sets changed only where they hold U+200D.
+
+### D44. The table encoder draws a table as psql does. Supersedes D14 and D28.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+Ken answered open questions 1 and 2 on 2026-10-31: tblfmt follows psql. The
+table encoder now follows `print_aligned_text` in `src/fe_utils/print.c` of
+PostgreSQL 18, one branch at a time:
+
+1. psql pads a left aligned value only when a border, a newline mark or
+   another column follows it. So the last column of a table with a border of
+   0 or 1 has no trailing space. This replaces D14 and D28, and the README
+   section about the trailing space.
+2. For a result set that has columns and no rows, tblfmt writes the header
+   and the line under it, as psql does. B1 is fixed.
+3. A tab moves to the next multiple of 8 columns from the start of the value,
+   and tblfmt writes it as spaces. The `tab` field, the column offsets and the
+   `offset` and `tab` arguments of `Value.LineWidth` and `Value.MaxWidth` went.
+4. A `LineStyle` holds the parts of a psql line style: a `Rule` for each
+   horizontal line, the vertical line before a value that continues, is blank
+   or wraps, and the newline marks. The old-ascii style marks a continued value
+   with a colon on its left, as psql does.
+5. `UnicodeLineStyle` takes the psql variables `unicode_border_linestyle`,
+   `unicode_header_linestyle` and `unicode_column_linestyle`, and `FromMap`
+   reads all three. `UnicodeDoubleLineStyle` went. psql draws the lines between
+   the columns single when only the border is double.
+6. The title is centered over the width that psql calculates. The end border
+   is drawn once, after the last batch. B4 is fixed.
+7. `WithInline` went. A rule with no line draws nothing, so the `table` format
+   of D21 needs no option.
+
+The rows, the column names and the border lines of every aligned and expanded
+golden case are the same as psql 18.6 output, apart from the blank line of
+D48. A temporary program checked this on 2026-10-31. It also compared 243
+cases of real queries, such as empty results, titles, `tuples_only`,
+column names with newlines and control characters, with each line style. The
+emoji cases differ only in the padding of D39.
+
+### D45. The expanded encoder draws records as psql does. Amends D8.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+Ken answered open question 3 on 2026-10-31: tblfmt follows psql. The
+expanded encoder now follows `print_aligned_vertical` in
+`src/fe_utils/print.c`:
+
+1. psql writes the row count only for a result set that has no rows or no
+   columns. It writes `(0 rows)` for no rows, and `(1 row)` for one row with
+   no columns. A summary that the caller sets follows the records, with a
+   blank line before it when the border is less than 2. The automatic switch
+   of D8 follows the same rule. B7 is fixed.
+2. The record header line has no extra dash at the end, and a line has no
+   space at the start when the border is 1.
+3. The values are at least as wide as the record header line needs. psql
+   counts the digits of the last record number for this.
+4. The records are numbered across batches. Before, each batch started again
+   at record 1.
+5. The custom summary goes to the buffered writer, after the records. B2 is
+   fixed.
+
+### D46. Escapes follow psql, and Unicode text is drawn as a terminal draws it. Amends D43.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+Ken decided on 2026-10-31 that tblfmt follows psql in escaping. In a table, a
+control character below U+0080 is `\x` and two upper case hex digits, such
+as `\x07`, and one from U+0080 is `\u` and four upper case hex digits.
+U+000D stays `\r`. Before, tblfmt wrote `\a`, `\b`, `\v` and `\f`, and lower
+case hex digits. B39 is fixed. JSON keeps its own escapes.
+
+Ken also decided that tblfmt differs from psql where that draws Unicode text
+correctly and lines it up in a terminal, such as emoji and flags. D39 and D41
+are cases of this rule. A new case follows the same rule, and needs a
+decision of its own only where it changes what tblfmt escapes.
+
+### D47. The caller sets the separator between result sets, and JSON is compact. Supersedes D30.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+Ken answered open question 4 on 2026-10-31. Each encoder has the option
+`WithResultSetSeparator`, so that the caller decides what `EncodeAll` writes
+between two result sets. The default of each encoder is the newline, as
+before.
+
+The JSON encoder writes compact JSON by default, with each result set as one
+array on its own line, as JSON Lines does. The option `WithIndent` indents
+the output as D30 did. No comma joins two arrays now. B18 is fixed.
+
+### D48. usql writes the blank line after a table. Amends D17.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+Ken answered open question 5 on 2026-10-31. psql writes one blank line after
+an aligned table, and tblfmt does not. This is a deliberate difference.
+tblfmt makes the table formats of psql, but usql is the client that matches
+psql, so usql writes the line. "Differences from `psql`" in `README.md` lists
+it.
+
+### D49. The lint configuration follows the other xo repositories. Decided.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+Ken answered open question 8 on 2026-10-31. `.golangci.yml` follows dburl,
+dbmeta and dbimp: `default: all`, with each disabled linter and its reason
+beside it. depguard allows only the standard library and the three modules
+of hard rule 6. The formatters are gofmt and goimports. A lint job in CI
+installs golangci-lint v2.14.0, which is pinned so that a new release cannot
+turn on a linter that nobody chose. The job also runs `gofmt -l .`.
+
+The findings that were real defects got a code change. A template writer did
+not check its writes, so `TemplateEncoder.Encode` now returns the first write
+error. The csv encoder built a quoted field with `append`, which could write
+into the buffer of a value, and now uses `slices.Concat`. B31, B35 and B37 are
+fixed.
+
+### D50. Dependabot stays off. Decided.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+Ken answered open question 6 on 2026-10-31. `62d9721` removed
+`.github/dependabot.yml`, and it stays off. D32 ties each dependency to the
+version that usql requires, and Dependabot would move a dependency past it.
+
+### D51. tblfmt has no Numeric type. Decided. Amended by D63.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+On 2026-09-27, usql asked for an exported `type Numeric string`, so that a
+numeric or money column is right aligned as in psql. Ken decided on
+2026-10-31 that `Numeric` is not the right design, and that tblfmt does not
+add it. He has not chosen another design yet.
+
+### D52. The csv encoder quotes a field that holds a space or a tab. Decided.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+psql 18.6 quotes a csv field only when it holds the separator, a carriage
+return, a line feed or a double quote, when it is exactly `\.`, or when the
+separator is `\` or `.`. The source is `csv_print_field` in
+`src/fe_utils/print.c`. tblfmt also quotes a field that holds a space or a
+tab. For the golden case `multi/28`, psql writes `14,a<TAB>b<TAB>c<TAB>d,x`,
+and tblfmt writes `14,"a<TAB>b<TAB>c<TAB>d",x`.
+
+Ken decided on 2026-10-31 that psql is wrong here, and that tblfmt keeps
+quoting such a field. "Differences from `psql`" in `README.md` lists it.
+
+### D53. The caller chooses the separator between unaligned result sets. Decided.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+psql 18.6 writes no line between two result sets in the unaligned and csv
+formats. tblfmt writes the newline by default. Ken decided on 2026-10-31 that
+the client chooses this with `WithResultSetSeparator` (D47), so `FromMap` does
+not set it. "Differences from `psql`" in `README.md` lists it.
+
+### D54. The template formats escape a control character. Decided.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+psql 18.6 escapes only its own markup in the html and asciidoc formats, and
+writes a control character as it is. The source is `html_escaped_print` and
+`asciidoc_escaped_print` in `src/fe_utils/print.c`. tblfmt escapes a control
+character in these formats as it does in a table, so U+0008 is `\x08`.
+
+Ken decided on 2026-10-31 that the escapes are correct and psql is wrong
+here. "Differences from `psql`" in `README.md` lists it.
+
+### D55. WithFormatterOptions returns an error for a formatter it cannot change. Decided.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+`WithFormatterOptions` asserted that the formatter of the encoder is an
+`EscapeFormatter`, and did not check the assertion. After `WithFormatter` set
+a formatter of another type, the encoder panicked. Ken decided on 2026-10-31
+to fix this without a change to the API. The option now returns
+`ErrFormatterIsNotEscapeFormatter`, and the constructor of the encoder returns
+that error. `TestWithFormatterOptionsError` holds the cases.
+
+### D56. The wrapped format is an option of the table encoder. Decided.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+Ken decided on 2026-10-31 that the psql format `wrapped` is an option of the
+table encoder, and not an encoder of its own. `WithWrapWidth` sets the width
+for the table and the expanded encoders. `FromMap` reads `format: wrapped`,
+and takes the width from `columns` or from the terminal, as psql does.
+
+The encoders follow psql in `src/fe_utils/print.c`. The table encoder makes
+the column with the highest ratio of its maximum width to its average width
+narrower, one column at a time, until the table fits. A column is never
+narrower than its name. The expanded encoder fits the values in the width,
+and keeps at least 3 columns for a value. A wrapped line ends with the wrap
+mark of the line style, such as `.` in ascii and `…` in unicode. `LineStyle`
+has `WrapLeft` and `WrapRight` for these marks. The cut falls between two
+grapheme clusters, and go-runewidth finds the clusters (D39).
+
+One difference from psql follows D46. psql can make a column 1 wide when it
+holds a character 2 columns wide, and the line with that character is then 1
+column too wide. tblfmt keeps such a column at least 2 wide.
+
+The same work found a fault in the switch of D8: psql does not switch a table
+of one column to expanded records, because the records are wider than the
+table. tblfmt now does the same.
+
+A temporary program compared 559 cases with psql 18.6 on 2026-10-31, and each
+one matched. `TestEncodePsqlFormats` holds a case with the psql output.
+
+### D57. tblfmt writes each psql format. Decided.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+Ken decided on 2026-10-31 that tblfmt supports each format that psql 18
+names: aligned, asciidoc, csv, html, latex, latex-longtable, troff-ms,
+unaligned and wrapped. `FromMap` takes each of them. The formats json,
+vertical and table are tblfmt formats.
+
+`WriteLaTeXTo`, `WriteLaTeXLongtableTo` and `WriteTroffMSTo` in `template.go`
+follow `print_latex_text`, `print_latex_longtable_text`,
+`print_latex_vertical`, `print_troff_ms_text` and `print_troff_ms_vertical`.
+They read the new `Template` fields `Aligns`, `Border`, `Expanded` and
+`Footer`. `WithBorder`, `WithSummary` and the new `WithExpanded` work for the
+template encoder, and `FromMap` passes `border`, `tuples_only`, `footer` and
+`expanded` to it. A control character in a value is escaped first, as D54
+says, and then the writer adds the escapes of LaTeX or troff. B15 and B16 are
+fixed.
+
+A temporary program compared 216 cases of the three formats with psql 18.6
+on 2026-10-31. Each case matched, apart from the 33 cases of a result set
+that has no rows. B44 records those.
+
+### D58. The JSON encoder ignores WithSummary and WithWidths. Decided.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+Ken decided on 2026-10-31 that the JSON encoder does nothing for the options
+`WithSummary` and `WithWidths`. The FIXME in `WithSummary` asked for a summary
+in each encoder. The template encoder takes a summary since D57, so B26 is
+fixed.
+
+### D59. tblfmt has benchmarks, and a module that compares it with other packages. Decided.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+Ken asked on 2026-10-31 for benchmarks, and for a `test` module with its own
+`go.mod` that compares tblfmt with other packages that write tables.
+
+`BenchmarkEncode` in `bench_test.go` measures each format at 10,000 and
+1,000,000 rows, and the table formats with a batch of 0 and of 1000 rows. Its
+result set makes each row when the encoder scans it, so the allocations are
+the encoder's. This is the first step of B34.
+
+`BenchmarkWrite` in `test/compare_test.go` writes the same table with tblfmt,
+`text/tabwriter`, `tablewriter`, `go-pretty`, `lipgloss`, `simpletable`,
+`rodaine/table` and `aquasecurity/table`. `TestWrite` runs in CI, so that a
+change to the API of one of them is found. The module replaces tblfmt with
+the code of the checkout. Hard rule 6 is about the root module, and Ken's
+request covers the packages of the `test` module. `test/.golangci.yml` allows
+them in depguard. "Comparison with other packages" in `README.md` holds the
+features and the results.
+
+A comparison of the staged code with v0.20.0 on 2026-10-31 found the aligned,
+expanded, JSON and html formats 6% to 18% faster, and the expanded format
+with 43% fewer allocations. The test of D43 for a character that prints,
+`unicode.IsControl` and not `strconv.IsGraphic`, gave most of the gain.
+
+### D60. The vertical format is the `\G` layout of the mysql client, with the rules of psql. Decided.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+Ken stated on 2026-10-31 that the `vertical` format is the layout that the
+`mysql` command line client writes for a query that ends with `\G`. tblfmt
+has it so that a usql user has each feature of the other clients, or more.
+The mysql client is not a reference for the bytes, as psql is (hard rule 1).
+tblfmt keeps the rules of psql in this format too, such as the null text of
+the `null` variable, and the escapes of D54. A caller can change them with
+the options.
+
+The client writes `print_table_data_vertically` in `client/mysql.cc`, and
+MySQL and MariaDB have the same code. Before each row it writes
+`*************************** N. row ***************************`. It writes
+each column as `%*s: `, with the name right aligned to the longest name, and
+then the value, or `NULL` for a null value.
+
+Ken decided on 2026-10-31 that tblfmt right aligns the names too. It aligns
+them by display width and not by bytes, as D46 asks. With `tuples_only`, it
+writes no names, as mysql does with `--skip-column-names`.
+`TestEncodeVertical` holds the output of the MariaDB 13.0.2 client.
+
+### D61. The options stay small, and a caller changes the escapes with a formatter. Decided.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+Ken decided on 2026-10-31 that `WithWidths` sets the width of a column only in
+the table encoders, because only they pad a column. The unaligned and
+template encoders ignore it, as the JSON encoder does (D58). The FIXME
+comments that asked for widths there went. B27 and B28 are closed.
+
+A caller that wants other escapes passes a formatter of its own with
+`WithFormatter`. tblfmt adds no option to choose the escaped characters. B24
+is closed.
+
+### D62. The tests run on Linux, Windows and macOS. Decided.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+Ken asked on 2026-10-31 for CI on Windows and macOS. The test job runs on
+`ubuntu-latest`, `windows-latest` and `macos-latest`.
+
+An encoder writes the newline of the platform by default, which is `\r\n` on
+Windows (`tblfmt.go`). `TestMain` in `main_test.go` sets the newline to `\n`,
+so that the golden files and each expected string hold on every platform, and
+`TestPlatformNewline` tests the default. `loadTests` takes the number of a
+golden case from the base name of its file, because `filepath.Walk` returns
+the separator of the platform. `.gitattributes` keeps every text file LF on
+every checkout, and keeps the golden files and `testdata/crosstab.txt` as
+they are. B32 is closed.
+
+### D63. A caller sets the alignment of a column by its type. Decided. Amends D51.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+Ken decided on 2026-10-31 that a caller needs a general way to set the
+alignment of a column by its type, before the encoder reads a row, and not a
+`Numeric` type (D51). `WithColumnAlign` takes a func that gets the
+`*sql.ColumnType` of each column, and returns the alignment and true, or false
+to align the column by its values. The table and template encoders read it.
+The alignment holds for each value of the column, a null value too, and for a
+result set that has no rows. B44 is fixed.
+
+A driver can return a number as a string, such as a PostgreSQL `numeric`. With
+`WithColumnAlign`, usql can right align such a column, as psql does in
+`column_type_alignment` of `src/bin/psql/common.c`. `psqlAlign` in
+`test/psql_test.go` is an example. `TestWithColumnAlign` tests it with a
+driver of its own.
+
+### D64. The html and asciidoc formats follow psql, and each format has its expanded form. Decided.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+Ken decided on 2026-10-31 that tblfmt compares the html and asciidoc formats
+with psql and follows it, and that each format has the expanded form that
+psql has. `WriteHTMLTo` and `WriteAsciidocTo` are now ports of
+`print_html_text`, `print_html_vertical`, `print_asciidoc_text` and
+`print_asciidoc_vertical`. They read the border, the title, the footer, the
+alignments and `tuples_only`. B11, B12, B13 and B14 are fixed. The escapes of
+D54 stay.
+
+The unaligned and csv encoders have the expanded forms of
+`print_unaligned_vertical` and `print_csv_vertical`. `WithExpanded` sets it,
+and `FromMap` passes `expanded: on` to them. The unaligned format writes the
+title, as psql does, and csv does not. B45 is fixed.
+
+### D65. TestPsql compares tblfmt with psql, on a server that dbrun starts. Decided.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+Ken asked on 2026-10-31 for a permanent comparison with psql. A test of that
+kind was removed in 2021 (D1). `internal.PsqlEncode`, which it called, was
+removed on 2026-10-31, because nothing called it.
+`TestPsql` in `test/psql_test.go` runs each query with psql 18 and with tblfmt,
+on the same server, and compares the bytes. It reads the URL of the server
+from `DBMETA_POSTGRES`, and skips when that is not set. The queries are plain
+SELECT statements that make no table. Each case leaves out what a decision
+makes different from psql: D39, D48, D52 and D54.
+
+The server comes from `dbrun` in dbmeta, as dbmeta D68 says each database
+must. The job `psql` in CI checks out dbmeta at the commit that dbimp pins,
+installs psql 18, starts `postgres-18`, runs `TestPsql` and removes the
+server. On 2026-10-31, each of 1911 cases matched psql 18.6.
+
+### D66. A later batch can be wider than the header. Decided.
+
+Certainty: High.
+
+Date: 2026-10-31.
+
+D2 reads the rows in batches, and draws the header with the widths of the
+first batch. A later batch that holds a wider value is wider than the header
+above it. Ken decided this when he wrote the package, and confirmed it on
+2026-10-31: it is the cost of streaming. A usql user seldom streams a large
+query to the terminal, and usually stops it before the table changes width.
+B19 is closed.
+
 ## Open questions for Ken
 
 An open question is not a decision. When Ken answers one, it becomes a
 decision above, and the question goes.
 
-1. D14 and D28 disagree. The README says that tblfmt pads the last column of
-   a bordered table. The code pads a right aligned last column and does not
-   pad a left aligned one at border 0 or border 1. For the README example,
-   the row ` 42 | a` is 8 wide and the header is 9. Which one changes, the
-   code or the README? See B10.
-2. For a result set that has columns and no rows, psql writes the header and
-   the divider, and tblfmt writes only `(0 rows)`. usql users see this. Must
-   tblfmt write the header, as psql does? See B1.
-3. psql writes `(0 rows)` for an expanded result set that has no rows, and
-   `(1 row)` for an expanded result set that has no columns. `FromMap` gives
-   the expanded encoder no summary, so tblfmt writes nothing. The automatic
-   switch to expanded output keeps the summary. Which is right? See B7.
-4. `EncodeAll` on the JSON encoder writes two result sets as two arrays that
-   a comma joins. This is not one JSON document. Is that deliberate? See B18.
-5. psql writes one blank line after an aligned table. tblfmt writes none, and
-   usql writes the line itself. Is this a deliberate difference from psql
-   that the README must list? See D17.
-6. The removal of `.github/dependabot.yml` is staged in the index, and this
-   session did not make it. Did Ken make it, and does Dependabot stay off?
-7. D20 and D23 have no recorded reason. Why did the templates become Go
-   funcs, and why did the JSON code move to `encoding/json/v2`?
-8. `.golangci.yml` disables `exhaustruct`, and the current linter reports it
-   as `exhaustruct_v5`, so 50 findings return. `gomodguard` is deprecated.
-   No CI job runs the linter. Must CI run it, and must the configuration
-   follow the new names? See B31 and B35.
-9. `internal.PsqlEncode` and `internal.PsqlEncodeAll` have had no caller
-   since 2021. Does a psql comparison test come back, or do the helpers go?
-   See B30.
+There is no open question.
