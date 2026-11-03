@@ -850,6 +850,47 @@ func WithColumnAlign(f func(*sql.ColumnType) (Align, bool)) Option {
 	}
 }
 
+// WithBytesFormat is an encoder option that writes the binary values of a
+// result set as text. For each value that is not null and holds bytes, f gets
+// the *sql.ColumnType of its column and the bytes. It returns the text and
+// true, or false to write the value as before. The encoder then writes the
+// text as it writes any string: it measures, aligns, quotes and escapes it by
+// the rules of the format, and JSON holds it as a string.
+//
+// The result set must have a ColumnTypes method, as *sql.Rows has. Each
+// encoder reads it. For example, psql writes a bytea value in hex:
+//
+//	tblfmt.WithBytesFormat(func(col *sql.ColumnType, b []byte) (string, bool) {
+//		if col.DatabaseTypeName() != "BYTEA" {
+//			return "", false
+//		}
+//		return `\x` + hex.EncodeToString(b), true
+//	})
+func WithBytesFormat(f func(*sql.ColumnType, []byte) (string, bool)) Option {
+	return option{
+		table: func(enc *TableEncoder) error {
+			enc.bytesFormat = f
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
+			enc.bytesFormat = f
+			return nil
+		},
+		json: func(enc *JSONEncoder) error {
+			enc.bytesFormat = f
+			return nil
+		},
+		unaligned: func(enc *UnalignedEncoder) error {
+			enc.bytesFormat = f
+			return nil
+		},
+		template: func(enc *TemplateEncoder) error {
+			enc.bytesFormat = f
+			return nil
+		},
+	}
+}
+
 // WithParams is a view option that sets the column parameters.
 func WithParams(params ...string) Option {
 	return option{

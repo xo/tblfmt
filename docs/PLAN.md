@@ -90,6 +90,7 @@ A line number in D1 to D30 is at `04af38a`.
 | [D64](#d64-the-html-and-asciidoc-formats-follow-psql-and-each-format-has-its-expanded-form-decided) | The html and asciidoc formats follow psql, and each format has its expanded form | Decided |
 | [D65](#d65-testpsql-compares-tblfmt-with-psql-on-a-server-that-dbrun-starts-decided) | TestPsql compares tblfmt with psql, on a server that dbrun starts | Decided |
 | [D66](#d66-a-later-batch-can-be-wider-than-the-header-decided) | A later batch can be wider than the header | Decided |
+| [D67](#d67-a-caller-writes-a-binary-value-as-text-with-withbytesformat-decided) | A caller writes a binary value as text, with WithBytesFormat | Decided |
 
 ### D1. psql is the reference for the output. Decided.
 
@@ -1353,6 +1354,40 @@ above it. Ken decided this when he wrote the package, and confirmed it on
 2026-10-31: it is the cost of streaming. A usql user seldom streams a large
 query to the terminal, and usually stops it before the table changes width.
 B19 is closed.
+
+### D67. A caller writes a binary value as text, with WithBytesFormat. Decided.
+
+Certainty: High.
+
+Date: 2026-11-04.
+
+Ken decided on 2026-11-04 that tblfmt has a hook to write a binary column as
+text, because usql needs it. tblfmt wrote a `[]byte` value as text, the same as
+a string, and escaped each byte that is not valid UTF-8. So a bytea value of
+PostgreSQL came out as escapes, where psql writes `\x0102ff`. Nothing tells
+binary data from text, because some drivers, such as the MySQL one, return
+text as `[]byte` too.
+
+`WithBytesFormat` takes a func that gets the `*sql.ColumnType` and the bytes of
+each value that is not null and holds bytes, and returns the text and true, or
+false to write the value as before. Each encoder reads the column types before
+the rows, and replaces the value with the text before the formatter sees it.
+So each format writes the text as it writes any string: it measures, aligns,
+quotes and escapes it, and JSON holds it as a string, such as `"\\x0102ff"`.
+
+tblfmt chooses no form, and knows no database. usql passes a func over
+`Dialect.FormatBinary` of dbmeta, which writes what the client of each product
+shows: `\x0102ff` for PostgreSQL, `0x0102FF` for SQL Server and MySQL, and
+`0102FF` for Oracle. The usql session reported this on 2026-11-04.
+
+usql could instead scan a binary column into a type whose String method writes
+the text, because tblfmt writes a fmt.Stringer. That needs a column type func
+for every driver, where many scan into `*any` today. The hook keeps the work
+where the rest of the formatting is.
+
+`TestWithBytesFormat` tests each format with a driver of its own, and
+`TestPsql` has a bytea case. On 2026-11-04, each of 2056 cases matched psql
+18.6.
 
 ## Open questions for Ken
 

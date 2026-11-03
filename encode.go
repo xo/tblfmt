@@ -73,6 +73,10 @@ type TableEncoder struct {
 	// holds what it set for the columns of the result set.
 	columnAlign func(*sql.ColumnType) (Align, bool)
 	fixed       []fixedAlign
+	// bytesFormat writes a binary value as text, and binary holds it with
+	// the column types of the result set.
+	bytesFormat func(*sql.ColumnType, []byte) (string, bool)
+	binary      *bytesFormat
 	// aligns are the calculated column alignments, followed by a column's null
 	// values, which have no type of their own to align by.
 	aligns []Align
@@ -146,6 +150,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		return err
 	}
 	enc.fixed = columnAligns(enc.resultSet, clen, enc.columnAlign)
+	enc.binary = newBytesFormat(enc.resultSet, clen, enc.bytesFormat)
 	// table is true after the encoder draws the header or a row as a table.
 	// exp is set after the encoder switches a batch to expanded records.
 	var table bool
@@ -266,7 +271,7 @@ func (enc *TableEncoder) nextResults() ([][]*Value, error) {
 				return nil, err
 			}
 		}
-		v, err := scanAndFormat(enc.resultSet, r, enc.formatter, &enc.scanCount)
+		v, err := scanAndFormat(enc.resultSet, r, enc.formatter, &enc.scanCount, enc.binary)
 		if err != nil {
 			return vals, err
 		}
@@ -775,6 +780,7 @@ func (enc *ExpandedEncoder) Encode(w io.Writer) error {
 	if err != nil {
 		return err
 	}
+	enc.binary = newBytesFormat(enc.resultSet, clen, enc.bytesFormat)
 	for {
 		var vals [][]*Value
 		// read the next batch
@@ -1195,6 +1201,8 @@ type JSONEncoder struct {
 	headerTransformer Transformer
 	// columnTypes builds the column types for a result set.
 	columnTypes func(ResultSet, []any, int) error
+	// bytesFormat writes a binary value as text.
+	bytesFormat func(*sql.ColumnType, []byte) (string, bool)
 }
 
 // NewJSONEncoder creates a JSON encoder with the options.
@@ -1246,6 +1254,8 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 	if err != nil {
 		return err
 	}
+	// the column types are read before the rows
+	bf := newBytesFormat(enc.resultSet, clen, enc.bytesFormat)
 	cb := make([][]byte, clen)
 	for i := range clen {
 		// note: matches the v1 encoding/json defaults, which escaped HTML and
@@ -1274,7 +1284,7 @@ func (enc *JSONEncoder) Encode(w io.Writer) error {
 				return err
 			}
 		}
-		vals, err = scanAndFormat(enc.resultSet, r, enc.formatter, &count)
+		vals, err = scanAndFormat(enc.resultSet, r, enc.formatter, &count, bf)
 		if err != nil {
 			return err
 		}
@@ -1394,6 +1404,8 @@ type UnalignedEncoder struct {
 	headerTransformer Transformer
 	// columnTypes builds the column types for a result set.
 	columnTypes func(ResultSet, []any, int) error
+	// bytesFormat writes a binary value as text.
+	bytesFormat func(*sql.ColumnType, []byte) (string, bool)
 }
 
 // NewUnalignedEncoder creates an unaligned encoder with the options.
@@ -1459,6 +1471,8 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 	if err != nil {
 		return err
 	}
+	// the column types are read before the rows
+	bf := newBytesFormat(enc.resultSet, clen, enc.bytesFormat)
 	headers, err := enc.formatter.Header(cols)
 	if err != nil {
 		return err
@@ -1494,7 +1508,7 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 	// records, and after the title.
 	var count int
 	for enc.resultSet.Next() {
-		vals, err := scanAndFormat(enc.resultSet, r, enc.formatter, &count)
+		vals, err := scanAndFormat(enc.resultSet, r, enc.formatter, &count, bf)
 		switch {
 		case err != nil:
 			return err
@@ -1614,6 +1628,8 @@ type TemplateEncoder struct {
 	isCustomSummary bool
 	// columnAlign sets the alignment of a column from its type.
 	columnAlign func(*sql.ColumnType) (Align, bool)
+	// bytesFormat writes a binary value as text.
+	bytesFormat func(*sql.ColumnType, []byte) (string, bool)
 	// headerTransformer is the transformer for the column names.
 	headerTransformer Transformer
 	// columnTypes builds the column types for a result set.
@@ -1696,6 +1712,7 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 	}
 	// the column types are read before the rows, which closes them
 	fixed := columnAligns(enc.resultSet, clen, enc.columnAlign)
+	bf := newBytesFormat(enc.resultSet, clen, enc.bytesFormat)
 	// set up the storage for the scanned values
 	r, err := buildColumnTypes(enc.resultSet, clen, enc.columnTypes)
 	if err != nil {
@@ -1705,7 +1722,7 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 	var rows [][]*Value
 	var count int
 	for enc.resultSet.Next() {
-		vals, err := scanAndFormat(enc.resultSet, r, enc.formatter, &count)
+		vals, err := scanAndFormat(enc.resultSet, r, enc.formatter, &count, bf)
 		if err != nil {
 			return err
 		}
@@ -1846,7 +1863,7 @@ func newErrEncoder(_ ResultSet, opts ...Option) (Encoder, error) {
 
 // scanAndFormat scans the values of one row from the result set, and formats
 // them.
-func scanAndFormat(resultSet ResultSet, vals []any, formatter Formatter, count *int) ([]*Value, error) {
+func scanAndFormat(resultSet ResultSet, vals []any, formatter Formatter, count *int, bf *bytesFormat) ([]*Value, error) {
 	if err := resultSet.Err(); err != nil {
 		return nil, err
 	}
@@ -1854,7 +1871,68 @@ func scanAndFormat(resultSet ResultSet, vals []any, formatter Formatter, count *
 		return nil, err
 	}
 	*count++
-	return formatter.Format(vals)
+	return formatter.Format(bf.apply(vals))
+}
+
+// bytesFormat holds the func of WithBytesFormat, and the column types of the
+// result set that it reads.
+type bytesFormat struct {
+	f    func(*sql.ColumnType, []byte) (string, bool)
+	cols []*sql.ColumnType
+}
+
+// newBytesFormat returns the bytes format for the result set. It returns nil
+// when f is nil, or when the result set has no column types.
+func newBytesFormat(resultSet ResultSet, n int, f func(*sql.ColumnType, []byte) (string, bool)) *bytesFormat {
+	if f == nil {
+		return nil
+	}
+	cols, err := resultSetColumns(resultSet, n)
+	if err != nil {
+		return nil
+	}
+	return &bytesFormat{f: f, cols: cols}
+}
+
+// apply returns the scanned values, with each binary value replaced by the
+// text that the func returns for it. The formatter then writes the text as it
+// writes any string. A null value never reaches the func.
+func (bf *bytesFormat) apply(vals []any) []any {
+	if bf == nil {
+		return vals
+	}
+	// note: the scanned values are the destinations of the next scan, so a
+	// row that changes is a copy
+	row, copied := vals, false
+	for i, v := range vals {
+		b, ok := binaryValue(v)
+		if !ok || i >= len(bf.cols) {
+			continue
+		}
+		s, ok := bf.f(bf.cols[i], b)
+		if !ok {
+			continue
+		}
+		if !copied {
+			row, copied = slices.Clone(vals), true
+		}
+		row[i] = s
+	}
+	return row
+}
+
+// binaryValue returns the bytes of a scanned value that is not null, and
+// whether it holds bytes.
+func binaryValue(v any) ([]byte, bool) {
+	switch x := deref(v).(type) {
+	case []byte:
+		return x, x != nil
+	case sql.RawBytes:
+		return x, x != nil
+	case sql.Null[[]byte]:
+		return x.V, x.Valid
+	}
+	return nil, false
 }
 
 // buildColNames builds the column names for the result set.

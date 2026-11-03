@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"maps"
 	"os"
 	"os/exec"
@@ -82,6 +83,7 @@ func psqlGroups() []psqlGroup {
 		`select from generate_series(1, 2)`,
 		`select g as n, md5(g::text) as h, (g * 1.5)::float8 as f, (g * 2.5)::numeric as d from generate_series(1, 3) g`,
 		`select 42 as n, E'bb\ncc\nd' as t, null::text as z union all select 7, 'x', 'q'`,
+		`select '\x0102ff'::bytea as b, null::bytea as n, ''::bytea as e, 'text'::text as t`,
 	}
 	// text queries hold spaces, tabs, newlines and the characters that the
 	// template formats escape, and no control character (D54)
@@ -212,7 +214,7 @@ func runTblfmt(t *testing.T, db *sql.DB, params map[string]string, q string) str
 	}
 	defer func() { _ = rows.Close() }()
 	var buf bytes.Buffer
-	if err := tblfmt.EncodeAll(&buf, rows, maps.Clone(params), tblfmt.WithColumnAlign(psqlAlign)); err != nil {
+	if err := tblfmt.EncodeAll(&buf, rows, maps.Clone(params), tblfmt.WithColumnAlign(psqlAlign), tblfmt.WithBytesFormat(psqlBytes)); err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 	if err := rows.Err(); err != nil {
@@ -229,4 +231,13 @@ func psqlAlign(col *sql.ColumnType) (tblfmt.Align, bool) {
 		return tblfmt.AlignRight, true
 	}
 	return tblfmt.AlignLeft, true
+}
+
+// psqlBytes writes a bytea value as psql does with bytea_output hex, the
+// default of PostgreSQL. usql passes the FormatBinary func of dbmeta instead.
+func psqlBytes(col *sql.ColumnType, b []byte) (string, bool) {
+	if col.DatabaseTypeName() != "BYTEA" {
+		return "", false
+	}
+	return `\x` + hex.EncodeToString(b), true
 }

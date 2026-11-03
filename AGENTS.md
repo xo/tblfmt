@@ -123,7 +123,7 @@ comment. `TestEncodeNullAlign` and `TestEncodeNoColumns` are examples.
 `TestSkillsAreCopies` makes sure that each agent skill is an ordinary folder in
 `.agents/skills` and in `.claude/skills`, and that the two copies agree.
 
-`TestPsql` in `test/psql_test.go` runs each of about 1900 cases with `psql` 18
+`TestPsql` in `test/psql_test.go` runs each of about 2000 cases with `psql` 18
 and with tblfmt, and compares the bytes. Run it before you stage a change to
 what an encoder writes. It needs a PostgreSQL server from `dbrun` in a dbmeta
 checkout. Read the rules in `docs/DBRUN.md` of dbmeta first: run `dbrun
