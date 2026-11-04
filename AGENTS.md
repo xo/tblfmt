@@ -3,8 +3,8 @@
 `tblfmt` writes database result sets as text. It writes each format of `psql`:
 aligned, wrapped, unaligned, csv, html, asciidoc, latex, latex-longtable and
 troff-ms, and expanded records. It also writes JSON, the vertical output that
-the `mysql` client writes for `\G`, and a plain table. It also has a crosstab
-view. [usql][usql] is its main consumer, and `usql` pins a tagged release.
+the `mysql` client writes for `\G`, a plain table and a markdown table. It also
+has a crosstab view. [usql][usql] is its main consumer, and `usql` pins a tagged release.
 
 `tblfmt` does not connect to a database and does not import a driver. The
 caller gives it a `ResultSet`, which `*sql.Rows` satisfies.
@@ -80,8 +80,9 @@ are at the end of `docs/PLAN.md`.
 
 - `tblfmt.go` holds the `Encoder` and `ResultSet` interfaces, the `Encode*`
   funcs, and the error constants.
-- `encode.go` holds every encoder: `TableEncoder`, `ExpandedEncoder`,
-  `JSONEncoder`, `UnalignedEncoder` (and CSV) and `TemplateEncoder`.
+- `encode.go` holds every encoder: `TableEncoder` (and markdown),
+  `ExpandedEncoder`, `JSONEncoder`, `UnalignedEncoder` (and CSV) and
+  `TemplateEncoder`.
 - `fmt.go` holds the `Formatter` interface, `EscapeFormatter` and `Value`.
 - `emoji.go` holds a temporary workaround for a width that go-runewidth
   counts wrong. See D41 in `docs/PLAN.md`.

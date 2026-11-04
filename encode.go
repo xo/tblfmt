@@ -69,6 +69,11 @@ type TableEncoder struct {
 	// wrapWidth is the width that the encoder wraps the table to, as the
 	// psql format wrapped does. Zero turns off wrapping.
 	wrapWidth int
+	// markdown is true for a markdown table (D69).
+	markdown bool
+	// headerAlignColumn aligns each column name like the values of its
+	// column, instead of with the alignment of the formatter (D70).
+	headerAlignColumn bool
 	// columnAlign sets the alignment of a column from its type, and fixed
 	// holds what it set for the columns of the result set.
 	columnAlign func(*sql.ColumnType) (Align, bool)
@@ -121,6 +126,42 @@ func NewTableEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 	return enc, nil
 }
 
+// NewMarkdownEncoder creates a table encoder that writes a result set as a
+// markdown table, with the options (D69).
+//
+// The line under the column names marks the alignment of each column with
+// colons. A value is one line in its cell. The encoder writes each newline in
+// a value as <br>, and each pipe as \|. A markdown table has no title, no
+// summary and no expanded form, and it always has a header. So the encoder
+// ignores the options for them, and the options for the border, the line
+// style and wrapping.
+//
+// A markdown table looks like this:
+//
+//	| author_id |           name            | z |
+//	|----------:|:--------------------------|:--|
+//	|        14 | a       b       c       d | x |
+//	|        15 | aoeu<br>test<br>          |   |
+//
+// A result set that has no columns writes nothing.
+func NewMarkdownEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
+	e, err := NewTableEncoder(resultSet, opts...)
+	if err != nil {
+		return nil, err
+	}
+	enc := e.(*TableEncoder)
+	enc.markdown = true
+	enc.border = 2
+	enc.lineStyle = markdownLineStyle()
+	enc.summary = Summary{}
+	enc.skipHeader = false
+	enc.title = nil
+	enc.wrapWidth = 0
+	enc.minExpandWidth = 0
+	enc.empty = markdownValue(enc.empty)
+	return enc, nil
+}
+
 // Encode encodes one result set to the writer with the options of the
 // encoder.
 //
@@ -148,6 +189,14 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 	enc.headers, err = enc.formatter.Header(cols)
 	if err != nil {
 		return err
+	}
+	if enc.markdown {
+		for i, h := range enc.headers {
+			enc.headers[i] = markdownValue(h)
+			// note: a column of the delimiter row needs a dash, besides the
+			// colons of a centered column
+			enc.maxWidths[i] = max(enc.maxWidths[i], 1)
+		}
 	}
 	enc.fixed = columnAligns(enc.resultSet, clen, enc.columnAlign)
 	enc.binary = newBytesFormat(enc.resultSet, clen, enc.bytesFormat)
@@ -276,6 +325,11 @@ func (enc *TableEncoder) nextResults() ([][]*Value, error) {
 			return vals, err
 		}
 		applyAligns(v, enc.fixed)
+		if enc.markdown {
+			for j := range v {
+				v[j] = markdownValue(v[j])
+			}
+		}
 		vals, i = append(vals, v), i+1
 		// read in batches of enc.count rows
 		if enc.count != 0 && i%enc.count == 0 {
@@ -367,6 +421,10 @@ func (enc *TableEncoder) wrap() {
 // under them.
 func (enc *TableEncoder) header() {
 	ls := enc.lineStyle
+	// a markdown table needs a column
+	if enc.markdown && len(enc.headers) == 0 {
+		return
+	}
 	// psql centers the title over the table, unless the title is wider
 	if enc.title != nil && enc.title.Width != 0 {
 		if width := enc.tableWidth() - enc.title.MaxWidth(); width > 0 {
@@ -395,8 +453,12 @@ func (enc *TableEncoder) header() {
 			}
 			if !done[i] {
 				padding := enc.colWidths[i] - h.LineWidth(l)
+				align := h.Align
+				if enc.headerAlignColumn {
+					align = enc.aligns[i]
+				}
 				var left int
-				switch h.Align {
+				switch align {
 				case AlignCenter:
 					left = padding / 2
 				case AlignRight:
@@ -428,7 +490,48 @@ func (enc *TableEncoder) header() {
 		}
 		_, _ = enc.w.Write(enc.newline)
 	}
+	if enc.markdown {
+		enc.delimiter()
+		return
+	}
 	enc.hline(ls.Mid)
+}
+
+// delimiter draws the delimiter row of a markdown table, under the column
+// names. A colon at the left or the right of a column, or at both, marks the
+// alignment of the column.
+func (enc *TableEncoder) delimiter() {
+	ls := enc.lineStyle
+	_, _ = enc.w.WriteString(ls.Row.Left)
+	for i, width := range enc.colWidths {
+		switch enc.aligns[i] {
+		case AlignRight:
+			_, _ = enc.w.WriteString(strings.Repeat("-", width+1) + ":")
+		case AlignCenter:
+			_, _ = enc.w.WriteString(":" + strings.Repeat("-", width) + ":")
+		default:
+			_, _ = enc.w.WriteString(":" + strings.Repeat("-", width+1))
+		}
+		if i != len(enc.colWidths)-1 {
+			_, _ = enc.w.WriteString(ls.Row.Middle)
+		}
+	}
+	_, _ = enc.w.WriteString(ls.Row.Right)
+	_, _ = enc.w.Write(enc.newline)
+}
+
+// markdownValue returns the value as one line, for a cell of a markdown
+// table. It writes each newline as <br>, and each pipe as \|, because a pipe
+// ends the cell.
+func markdownValue(v *Value) *Value {
+	if v == nil || len(v.Newlines) == 0 && !bytes.Contains(v.Buf, []byte("|")) {
+		return v
+	}
+	buf := bytes.ReplaceAll(v.Buf, []byte("|"), []byte(`\|`))
+	buf = bytes.ReplaceAll(buf, []byte("\n"), []byte("<br>"))
+	res := FormatBytes(buf, nil, 0, false, false, 0, 0)
+	res.Align, res.Raw, res.Quoted = v.Align, v.Raw, v.Quoted
+	return res
 }
 
 // hline draws a horizontal line with the rule, as _print_horizontal_line in

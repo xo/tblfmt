@@ -1,0 +1,4 @@
+format: wrapped
+columns: 40
+border: 2
+header_align: column

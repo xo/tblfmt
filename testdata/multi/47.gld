@@ -1,0 +1,24 @@
+| author_id |                      name |      z |
+|----------:|:--------------------------|:-------|
+|        14 | a       b       c       d | x      |
+|        15 | aoeu<br>test<br>          | (null) |
+
+| author_id |                           name |                                                          z |
+|----------:|:-------------------------------|:-----------------------------------------------------------|
+|        16 | foo\x08bar                     | (null)                                                     |
+|        17 | 袈      袈              袈     | (null)                                                     |
+|        18 | a       b       \r<br>  a      | a<br>                                                      |
+|        19 | 袈      袈              袈<br> | (null)                                                     |
+|        20 | javascript                     | {<br>  "test21": "a value",<br>  "test22": "foo\bbar"<br>} |
+|        23 | slice                          | [<br>  "a",<br>  "b"<br>]                                  |
+
+| author_id |                           name |                                                          z |
+|----------:|:-------------------------------|:-----------------------------------------------------------|
+|        38 | a       b       c       d      | x                                                          |
+|        39 | aoeu<br>test<br>               | (null)                                                     |
+|        40 | foo\x08bar                     | (null)                                                     |
+|        41 | 袈      袈              袈     | (null)                                                     |
+|        42 | a       b       \r<br>  a      | a<br>                                                      |
+|        43 | 袈      袈              袈<br> | (null)                                                     |
+|        44 | javascript                     | {<br>  "test45": "a value",<br>  "test46": "foo\bbar"<br>} |
+|        47 | slice                          | [<br>  "a",<br>  "b"<br>]                                  |

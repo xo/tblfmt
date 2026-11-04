@@ -1,0 +1,4 @@
+format: aligned
+linestyle: unicode
+border: 2
+header_align: column

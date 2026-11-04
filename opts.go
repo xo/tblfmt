@@ -82,7 +82,8 @@ func (opt option) apply(o any) error {
 // Note: this func is mainly a helper for parameter names that are like the
 // format option names of psql.
 func FromMap(opts map[string]string) (Builder, []Option) {
-	// unaligned, aligned, wrapped, html, asciidoc, latex, latex-longtable, troff-ms, json, csv
+	// unaligned, aligned, wrapped, html, asciidoc, latex, latex-longtable, troff-ms, json, csv,
+	// markdown
 	switch format := opts["format"]; format {
 	case "json":
 		return NewJSONEncoder, []Option{
@@ -184,7 +185,17 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			// an empty summary map turns off the summary
 			tableOpts = append(tableOpts, WithSummary(Summary{}))
 		}
-		return NewTableEncoder, tableOpts
+		return NewTableEncoder, append(tableOpts, headerAlign(opts)...)
+	case "markdown":
+		tableOpts := []Option{
+			WithLowerColumnNames(opts["lower_column_names"] == "true"),
+			WithUseColumnTypes(opts["use_column_types"] == "true"),
+			FormatterOptionFromMap(opts),
+		}
+		if s, ok := opts["null"]; ok {
+			tableOpts = append(tableOpts, WithEmpty(s))
+		}
+		return NewMarkdownEncoder, append(tableOpts, headerAlign(opts)...)
 	case "aligned", "wrapped":
 		tableOpts := []Option{
 			WithLowerColumnNames(opts["lower_column_names"] == "true"),
@@ -223,6 +234,7 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 				)))
 			}
 		}
+		tableOpts = append(tableOpts, headerAlign(opts)...)
 		builder := NewTableEncoder
 		if format == "wrapped" {
 			tableOpts = append(tableOpts, WithWrapWidth(columns(opts)))
@@ -238,6 +250,24 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 		return builder, tableOpts
 	}
 	return newErrEncoder, []Option{withError(ErrInvalidFormat)}
+}
+
+// headerAlign returns the option for the alignment of the column names in a
+// table, from header_align. psql has no such variable. center is the default
+// of psql, and column aligns each name like the values of its column, as the
+// client of ClickHouse does (D70). Any other value sets nothing.
+func headerAlign(opts map[string]string) []Option {
+	switch opts["header_align"] {
+	case "left":
+		return []Option{WithFormatterOptions(WithHeaderAlign(AlignLeft))}
+	case "right":
+		return []Option{WithFormatterOptions(WithHeaderAlign(AlignRight))}
+	case "center":
+		return []Option{WithFormatterOptions(WithHeaderAlign(AlignCenter))}
+	case "column":
+		return []Option{WithHeaderAlignColumn(true)}
+	}
+	return nil
 }
 
 // columns returns the width that psql wraps and expands to: the columns
@@ -566,6 +596,19 @@ func WithExpanded(expanded bool) Option {
 		},
 		unaligned: func(enc *UnalignedEncoder) error {
 			enc.expanded = expanded
+			return nil
+		},
+	}
+}
+
+// WithHeaderAlignColumn is an encoder option that aligns each column name in
+// the header of a table like the values of its column. A column of numbers
+// then has its name at the right, as the client of ClickHouse writes it. It
+// applies to the table and markdown encoders (D70).
+func WithHeaderAlignColumn(enable bool) Option {
+	return option{
+		table: func(enc *TableEncoder) error {
+			enc.headerAlignColumn = enable
 			return nil
 		},
 	}

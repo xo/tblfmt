@@ -23,9 +23,9 @@ like this one:
 
 `tblfmt` writes each format that `psql` has: aligned, wrapped, unaligned, csv,
 html, asciidoc, latex, latex-longtable and troff-ms. It also writes JSON, the
-vertical format that the `mysql` client writes for `\G`, and a plain table
-with no lines. [`usql`][usql] uses
-all of them.
+vertical format that the `mysql` client writes for `\G`, a plain table with no
+lines, and a markdown table. [`usql`][usql] uses each of them except the
+markdown table.
 
 [![Unit Tests][tblfmt-ci-status]][tblfmt-ci]
 [![Go Reference][goref-tblfmt-status]][goref-tblfmt]
@@ -187,7 +187,7 @@ feature only in a mode or an option.
 | Writes a table as `psql` does | yes | no | no | no | no | no | no | no |
 | Writes each row as a record (expanded) | yes | no | no | no | no | no | no | no |
 | Wraps a table to a width | yes | no | yes | yes | yes | no | no | yes |
-| Formats other than a text table | csv, json, html, asciidoc, latex, troff | no | markdown, html, svg | csv, tsv, html, markdown | no | no | no | no |
+| Formats other than a text table | csv, json, markdown, html, asciidoc, latex, troff | no | markdown, html, svg | csv, tsv, html, markdown | no | no | no | no |
 | Colors and text styles | no | no | yes | yes | yes | no | yes | yes |
 
 `tblfmt` writes each row of the unaligned, csv and json formats when it reads

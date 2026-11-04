@@ -145,6 +145,26 @@ func EncodeCSVAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
 	return enc.EncodeAll(w)
 }
 
+// EncodeMarkdown encodes the result set to the writer as a markdown table,
+// with the options that you supply.
+func EncodeMarkdown(w io.Writer, resultSet ResultSet, opts ...Option) error {
+	enc, err := NewMarkdownEncoder(resultSet, opts...)
+	if err != nil {
+		return err
+	}
+	return enc.Encode(w)
+}
+
+// EncodeMarkdownAll encodes all result sets to the writer as markdown tables,
+// with the options that you supply.
+func EncodeMarkdownAll(w io.Writer, resultSet ResultSet, opts ...Option) error {
+	enc, err := NewMarkdownEncoder(resultSet, opts...)
+	if err != nil {
+		return err
+	}
+	return enc.EncodeAll(w)
+}
+
 // EncodeTemplate encodes the result set to the writer with a template. The
 // options that you supply set the template.
 func EncodeTemplate(w io.Writer, resultSet ResultSet, opts ...Option) error {

@@ -146,6 +146,15 @@ func TableLineStyle() LineStyle {
 	}
 }
 
+// markdownLineStyle is the line style of a markdown table. It draws the
+// vertical lines of the ASCII style, and no horizontal line. The markdown
+// encoder draws the delimiter row under the column names itself.
+func markdownLineStyle() LineStyle {
+	ls := ASCIILineStyle()
+	ls.Top, ls.Mid, ls.End = Rule{}, Rule{}, Rule{}
+	return ls
+}
+
 // ASCIILineStyle is the ASCII line style for tables, as psql draws it.
 //
 // A table with this line style looks like this:

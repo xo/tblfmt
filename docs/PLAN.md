@@ -92,6 +92,8 @@ A line number in D1 to D30 is at `04af38a`.
 | [D66](#d66-a-later-batch-can-be-wider-than-the-header-decided) | A later batch can be wider than the header | Decided |
 | [D67](#d67-a-caller-writes-a-binary-value-as-text-with-withbytesformat-decided) | A caller writes a binary value as text, with WithBytesFormat | Decided |
 | [D68](#d68-a-decimal-value-is-written-as-psql-writes-a-numeric-decided) | A decimal value is written as psql writes a numeric | Decided |
+| [D69](#d69-the-markdown-format-is-a-variant-of-the-table-encoder-decided) | The markdown format is a variant of the table encoder | Decided |
+| [D70](#d70-header_align-aligns-the-column-names-of-a-table-decided) | header_align aligns the column names of a table | Decided |
 
 ### D1. psql is the reference for the output. Decided.
 
@@ -1433,6 +1435,69 @@ in that graph has the method, so no other value changes.
 `TestEncodeDecimal` compares each format with psql 18.6, and
 `TestFormatDecimal` tests the edge cases. TestPsql cannot test it, because
 pgx returns a numeric as a string.
+
+### D69. The markdown format is a variant of the table encoder. Decided.
+
+Certainty: High.
+
+Date: 2026-11-04.
+
+Ken decided on 2026-11-04 that tblfmt writes a markdown table, for usql. psql
+has no markdown format, so hard rule 1 has no reference here. The table is a
+GitHub markdown pipe table, and `NewMarkdownEncoder` makes it with the table
+encoder. `FromMap` reads `format=markdown`.
+
+- The delimiter row under the column names marks the alignment of each
+  column. A left column is `:--`, a right column is `--:`, and a centered
+  column is `:-:`. The alignment is the one that the table encoder finds for
+  the column, from its values or from `WithColumnAlign`.
+- The encoder pads each column to its width, as the aligned format does. So
+  the table reads well as text, and each row has the same width.
+- A cell of a markdown table cannot hold a line break. The encoder writes each
+  newline in a value or a column name as `<br>`. GitHub shows it as a line
+  break in the cell. Ken chose this on 2026-11-04.
+- A pipe ends a cell, so the encoder writes each pipe as `\|`. It escapes no
+  other character. So a value such as `a_b*c` can show emphasis. Ken chose
+  this on 2026-11-04, because the text stays easy to read.
+- The encoder writes only the table, with no title and no row count. A line
+  that follows a markdown table becomes a row of the table. Ken chose this on
+  2026-11-04, so that the output can be pasted as it is. The encoder ignores
+  `title`, `footer`, `tuples_only`, `border`, `linestyle`, `expanded` and
+  the wrap width. A markdown table always has a header.
+- A result set that has no columns writes nothing, because a markdown table
+  needs a column. A result set that has no rows writes the header and the
+  delimiter row. A blank line separates two result sets, and it ends a table.
+- `null` sets the text of a null value, as in the aligned format.
+- A column is at least 1 wide, so that its delimiter holds a dash when it is
+  centered.
+
+`TestEncodeMarkdown` tests the edge cases. Each golden set has the cases 40,
+41 and 47.
+
+### D70. header_align aligns the column names of a table. Decided.
+
+Certainty: High.
+
+Date: 2026-11-04.
+
+psql centers each column name over its column. Ken decided on 2026-11-04 that
+a caller can align the names like the values of their columns instead. The
+client of ClickHouse writes a table this way, with the name of a number
+column at the right.
+
+`WithHeaderAlignColumn` makes the table and markdown encoders align each
+column name like its column. A column with only null values aligns to the
+left. `FromMap` reads `header_align` for the aligned, wrapped, table and
+markdown formats. psql has no such variable. Its values are these:
+
+- `center` centers each name. It is the default of the aligned, wrapped and
+  markdown formats, as in psql.
+- `left` and `right` align each name with `WithHeaderAlign` of the
+  formatter. The table format writes each name at the left by default.
+- `column` aligns each name like its column, with `WithHeaderAlignColumn`.
+
+Any other value sets nothing. The default does not change, so the output of
+psql does not change. Each golden set has the cases 41 to 47.
 
 ## Open questions for Ken
 
