@@ -91,6 +91,7 @@ A line number in D1 to D30 is at `04af38a`.
 | [D65](#d65-testpsql-compares-tblfmt-with-psql-on-a-server-that-dbrun-starts-decided) | TestPsql compares tblfmt with psql, on a server that dbrun starts | Decided |
 | [D66](#d66-a-later-batch-can-be-wider-than-the-header-decided) | A later batch can be wider than the header | Decided |
 | [D67](#d67-a-caller-writes-a-binary-value-as-text-with-withbytesformat-decided) | A caller writes a binary value as text, with WithBytesFormat | Decided |
+| [D68](#d68-a-decimal-value-is-written-as-psql-writes-a-numeric-decided) | A decimal value is written as psql writes a numeric | Decided |
 
 ### D1. psql is the reference for the output. Decided.
 
@@ -1388,6 +1389,50 @@ where the rest of the formatting is.
 `TestWithBytesFormat` tests each format with a driver of its own, and
 `TestPsql` has a bytea case. On 2026-11-04, each of 2056 cases matched psql
 18.6.
+
+### D68. A decimal value is written as psql writes a numeric. Decided.
+
+Certainty: High.
+
+Date: 2026-11-04.
+
+On 2026-11-04, usql reported that it wrote no SAP HANA DECIMAL column. go-hdb
+v1.20.2 returns a DECIMAL as `encoding.Decimal`, a struct with no exported
+field and no String or Value method. The formatter encoded it as JSON, and the
+encode failed with "Go struct has no exported fields".
+
+`database/sql` documents a Decompose method for a decimal type. It gives the
+form, the sign, a coefficient and an exponent. The formatter writes a value
+with that method as psql writes a numeric:
+
+- A finite value has each digit of its coefficient, so 1.5 with a scale of 2
+  is `1.50`. It has no exponent, and a zero has no sign.
+- The other forms are `Infinity`, `-Infinity` and `NaN`.
+- The value is right aligned, and the numeric locale groups its integer part.
+- JSON writes a finite value as a number, and the others as strings, as
+  `to_jsonb` of PostgreSQL does.
+
+The formatter tests for Decompose before `fmt.Stringer` and
+`driver.Valuer`. So a decimal type that also has a String method is a number,
+and not a string that is left aligned. If the exponent puts more than 131072
+digits before or after the decimal point, the value is written with an
+exponent, such as `15e131073`. 131072 is the number of digits before the
+decimal point of the largest PostgreSQL numeric.
+
+Two types in the module graph of usql have the method. They are the
+`encoding.Decimal` of go-hdb, and the `*apd.Decimal` of
+`github.com/cockroachdb/apd/v3`. Many dbimp drivers return an
+`*apd.Decimal` for a decimal column. Some of them are Athena, BigQuery,
+ClickHouse, Snowflake, Spanner and Trino. Before D68, tblfmt wrote it with
+its String method, as left aligned text that can have an exponent, such as
+`1.5E+10`. Now it is a right aligned number, such as `15000000000`, as psql
+writes a numeric. An `apd.Decimal` that is not a pointer, such as one in an
+`sql.Null`, has no Decompose method, and it is written as before. No other type
+in that graph has the method, so no other value changes.
+
+`TestEncodeDecimal` compares each format with psql 18.6, and
+`TestFormatDecimal` tests the edge cases. TestPsql cannot test it, because
+pgx returns a numeric as a string.
 
 ## Open questions for Ken
 

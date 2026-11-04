@@ -8,6 +8,7 @@ import (
 	json "encoding/json/v2"
 	"fmt"
 	"math"
+	"math/big"
 	"reflect"
 	"strconv"
 	"strings"
@@ -272,6 +273,21 @@ func (f *EscapeFormatter) format(val any, left, right Align, depth int) (*Value,
 		return nil, nil
 	case sql.RawBytes:
 		return FormatBytes(v, f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote), nil
+	case decimalDecomposer:
+		// note: before fmt.Stringer and driver.Valuer, so that a decimal type
+		// that has them is written as a number too (D68)
+		form, negative, coefficient, exponent := v.Decompose(nil)
+		switch form {
+		case 0:
+			return f.number(f.decimal(negative, coefficient, exponent), right, false), nil
+		case 1:
+			if negative {
+				return f.number("-Infinity", right, true), nil
+			}
+			return f.number("Infinity", right, true), nil
+		case 2:
+			return f.number("NaN", right, true), nil
+		}
 	case fmt.Stringer:
 		return FormatBytes([]byte(v.String()), f.invalid, f.invalidWidth, f.isJSON, f.isRaw, f.sep, f.quote), nil
 	case driver.Valuer:
@@ -449,6 +465,72 @@ func floatString(f float64) (string, bool) {
 		return "-Infinity", true
 	}
 	return "", false
+}
+
+// decimalDecomposer is the interface that [database/sql] documents for a
+// decimal type. go-hdb returns a SAP HANA DECIMAL as such a type, and it has
+// no String or Value method.
+//
+// Decompose returns the form of the value: 0 is finite, 1 is infinite and 2
+// is NaN. A finite value is coefficient * 10^exponent, and coefficient is a
+// big-endian unsigned integer.
+type decimalDecomposer interface {
+	Decompose(buf []byte) (form byte, negative bool, coefficient []byte, exponent int32)
+}
+
+// maxDecimalDigits is the number of digits before the decimal point of the
+// largest PostgreSQL numeric. A decimal with a larger exponent is written with
+// an exponent, so that a value of a few bytes does not become a string of
+// billions of zeros.
+const maxDecimalDigits = 1 << 17
+
+// decimal returns the text of a finite decimal, as psql writes a numeric. It
+// keeps each digit of the coefficient, so that 1.5 with a scale of 2 is 1.50.
+//
+// Note: PostgreSQL has no negative zero, so a zero has no sign. For the
+// numeric locale, the integer part is grouped by the locale printer if it fits
+// a uint64, and the decimal point is the one of the locale. psql groups the
+// digits of a numeric in the same way.
+func (f *EscapeFormatter) decimal(negative bool, coefficient []byte, exponent int32) string {
+	digits := new(big.Int).SetBytes(coefficient).String()
+	sign := ""
+	if negative && digits != "0" {
+		sign = "-"
+	}
+	var integer, fraction string
+	switch n := int(exponent); {
+	case n > maxDecimalDigits || n < -maxDecimalDigits:
+		return sign + digits + "e" + strconv.Itoa(n)
+	case n >= 0:
+		integer = digits
+		if digits != "0" {
+			integer += strings.Repeat("0", n)
+		}
+	default:
+		n = -n
+		if len(digits) <= n {
+			digits = strings.Repeat("0", n-len(digits)+1) + digits
+		}
+		integer, fraction = digits[:len(digits)-n], digits[len(digits)-n:]
+	}
+	point := "."
+	if f.useNumericLocale() {
+		if u, err := strconv.ParseUint(integer, 10, 64); err == nil {
+			integer = f.numericLocalePrinter.Sprintf("%v", number.Decimal(u))
+		}
+		// note: the locale writes one half as a zero, the decimal point and a
+		// five, and its digits need not be ASCII
+		s := f.numericLocalePrinter.Sprintf("%v", number.Decimal(0.5))
+		_, i := utf8.DecodeRuneInString(s)
+		_, j := utf8.DecodeLastRuneInString(s)
+		if i < len(s)-j {
+			point = s[i : len(s)-j]
+		}
+	}
+	if fraction == "" {
+		return sign + integer
+	}
+	return sign + integer + point + fraction
 }
 
 // unsignedInt64 reports whether v is an unsigned 64 bit integer, such as a
