@@ -271,7 +271,6 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 // batch that is too wide for the table.
 func (enc *TableEncoder) expanded(cols []string) (*ExpandedEncoder, error) {
 	t := *enc
-	t.formatter = NewEscapeFormatter()
 	exp := &ExpandedEncoder{
 		TableEncoder: t,
 	}
@@ -853,7 +852,6 @@ func NewExpandedEncoder(resultSet ResultSet, opts ...Option) (Encoder, error) {
 		return nil, err
 	}
 	t := tableEnc.(*TableEncoder)
-	t.formatter = NewEscapeFormatter()
 	enc := &ExpandedEncoder{
 		TableEncoder: *t,
 	}

@@ -11,17 +11,6 @@ no program ran it.
 
 ## Faults in the encoders
 
-### B6. The expanded encoder ignores the formatter options.
-
-- Where: `encode.go:568`, in `NewExpandedEncoder`.
-- Text: `t.formatter = NewEscapeFormatter()`.
-- Plain description: the constructor applies the options and then replaces
-  the formatter. So `numericlocale`, `time` and `timezone` have no effect in
-  expanded mode.
-- Probe: with `expanded: on`, `numericlocale: on` gives `1234567` and not
-  `1,234,567`, and `time: 2006` still gives an RFC 3339 time.
-- Origin: `076ccde` (2021-02-04).
-
 ### B9. The summary line ends with the platform newline and not the encoder's newline.
 
 - Where: `encode.go:1390`, in `summarize`.

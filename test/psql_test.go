@@ -76,6 +76,8 @@ type psqlGroup struct {
 
 // psqlGroups returns the cases of TestPsql.
 func psqlGroups() []psqlGroup {
+	// floats holds a float8 with and without an exponent (usql issue 448)
+	floats := `select '1450817.032'::float8 as a, 123456789012345::float8 as b, 1e15::float8 as c, 1e-5::float8 as d, 0.0001::float8 as e, '-0'::float8 as f, '1.5e300'::float8 as g, -1234567.5::float8 as h`
 	// basic queries hold no space or tab, so that csv can run them (D52)
 	basic := []string{
 		`select 1 as a, 'x'::text as b where false`,
@@ -84,6 +86,7 @@ func psqlGroups() []psqlGroup {
 		`select g as n, md5(g::text) as h, (g * 1.5)::float8 as f, (g * 2.5)::numeric as d from generate_series(1, 3) g`,
 		`select 42 as n, E'bb\ncc\nd' as t, null::text as z union all select 7, 'x', 'q'`,
 		`select '\x0102ff'::bytea as b, null::bytea as n, ''::bytea as e, 'text'::text as t`,
+		floats,
 	}
 	// text queries hold spaces, tabs, newlines and the characters that the
 	// template formats escape, and no control character (D54)
@@ -170,11 +173,20 @@ func psqlGroups() []psqlGroup {
 			map[string]string{"format": "csv", "expanded": expanded, "tuples_only": "on"},
 		)
 	}
+	// note: pgx returns a numeric as a string, which the numeric locale does
+	// not change, so only floats run with the numeric locale
+	locale := []map[string]string{
+		{"format": "aligned", "numericlocale": "on"},
+		{"format": "aligned", "numericlocale": "on", "expanded": "on"},
+		{"format": "unaligned", "numericlocale": "on"},
+		{"format": "html", "numericlocale": "on"},
+	}
 	return []psqlGroup{
 		{table, aligned},
 		{templates, text},
 		{unaligned, aligned},
 		{csv, basic},
+		{locale, []string{floats}},
 	}
 }
 

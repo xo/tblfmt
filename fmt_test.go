@@ -393,7 +393,7 @@ func TestEncodeNumericLocale(t *testing.T) {
 		// exact digits, and the numeric locale does not change them.
 		exp := map[string]string{
 			"n": "1234567",
-			"f": "1.23456725e+06",
+			"f": "1234567.25",
 			"b": `"18446744073709551615"`,
 		}
 		if len(v) != 2 {

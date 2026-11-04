@@ -161,22 +161,15 @@ func (f *EscapeFormatter) format(val any, left, right Align, depth int) (*Value,
 		return f.number(s, right, unsignedInt64(v)), nil
 	case float32:
 		s, notNumber := floatString(float64(v))
-		switch {
-		case notNumber:
-		case f.useNumericLocale():
-			s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v, number.MinFractionDigits(1)))
-		default:
-			s = strconv.FormatFloat(float64(v), 'g', -1, 32)
+		if !notNumber {
+			// note: strconv writes an exponent from 1e+06, as float4out does
+			s = f.localize(strconv.FormatFloat(float64(v), 'g', -1, 32))
 		}
 		return f.number(s, right, notNumber), nil
 	case float64:
 		s, notNumber := floatString(v)
-		switch {
-		case notNumber:
-		case f.useNumericLocale():
-			s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v, number.MinFractionDigits(1)))
-		default:
-			s = strconv.FormatFloat(v, 'g', -1, 64)
+		if !notNumber {
+			s = f.localize(float8(v))
 		}
 		return f.number(s, right, notNumber), nil
 	case uintptr:
@@ -214,12 +207,8 @@ func (f *EscapeFormatter) format(val any, left, right Align, depth int) (*Value,
 	case sql.NullFloat64:
 		if v.Valid {
 			s, notNumber := floatString(v.Float64)
-			switch {
-			case notNumber:
-			case f.useNumericLocale():
-				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Float64))
-			default:
-				s = strconv.FormatFloat(v.Float64, 'g', -1, 64)
+			if !notNumber {
+				s = f.localize(float8(v.Float64))
 			}
 			return f.number(s, right, notNumber), nil
 		}
@@ -513,24 +502,65 @@ func (f *EscapeFormatter) decimal(negative bool, coefficient []byte, exponent in
 		}
 		integer, fraction = digits[:len(digits)-n], digits[len(digits)-n:]
 	}
-	point := "."
-	if f.useNumericLocale() {
-		if u, err := strconv.ParseUint(integer, 10, 64); err == nil {
-			integer = f.numericLocalePrinter.Sprintf("%v", number.Decimal(u))
+	if fraction == "" {
+		return f.localize(sign + integer)
+	}
+	return f.localize(sign + integer + "." + fraction)
+}
+
+// float8 returns the text of a finite float64, as psql writes a float8. It
+// writes the shortest digits that read back as v, and it writes an exponent
+// only when the decimal exponent is less than -4 or more than 14.
+//
+// Note: float8out in PostgreSQL writes the same shortest digits as strconv
+// with a precision of -1. strconv 'g' writes an exponent from 1e+06, so only
+// an exponent from 6 to 14 needs 'f'. The other values take one conversion.
+func float8(v float64) string {
+	s := strconv.FormatFloat(v, 'g', -1, 64)
+	if _, e, ok := strings.CutLast(s, "e"); ok {
+		if exp, _ := strconv.Atoi(e); 5 < exp && exp < 15 {
+			return strconv.FormatFloat(v, 'f', -1, 64)
 		}
+	}
+	return s
+}
+
+// localize returns s, the text of a finite number, as psql writes it for
+// \pset numericlocale. It groups the digits before the decimal point, and
+// writes the decimal point of the locale. The rest of s, such as an exponent,
+// does not change. Without the numeric locale, it returns s.
+//
+// Note: the digits are grouped by the locale printer only if they fit a
+// uint64.
+func (f *EscapeFormatter) localize(s string) string {
+	if !f.useNumericLocale() {
+		return s
+	}
+	sign := ""
+	if rest, ok := strings.CutPrefix(s, "-"); ok {
+		sign, s = "-", rest
+	}
+	n := strings.IndexFunc(s, func(r rune) bool { return r < '0' || '9' < r })
+	if n == -1 {
+		n = len(s)
+	}
+	integer, rest := s[:n], s[n:]
+	if u, err := strconv.ParseUint(integer, 10, 64); err == nil {
+		integer = f.numericLocalePrinter.Sprintf("%v", number.Decimal(u))
+	}
+	if fraction, ok := strings.CutPrefix(rest, "."); ok {
 		// note: the locale writes one half as a zero, the decimal point and a
 		// five, and its digits need not be ASCII
-		s := f.numericLocalePrinter.Sprintf("%v", number.Decimal(0.5))
-		_, i := utf8.DecodeRuneInString(s)
-		_, j := utf8.DecodeLastRuneInString(s)
-		if i < len(s)-j {
-			point = s[i : len(s)-j]
+		half := f.numericLocalePrinter.Sprintf("%v", number.Decimal(0.5))
+		_, i := utf8.DecodeRuneInString(half)
+		_, j := utf8.DecodeLastRuneInString(half)
+		point := "."
+		if i < len(half)-j {
+			point = half[i : len(half)-j]
 		}
+		rest = point + fraction
 	}
-	if fraction == "" {
-		return sign + integer
-	}
-	return sign + integer + point + fraction
+	return sign + integer + rest
 }
 
 // unsignedInt64 reports whether v is an unsigned 64 bit integer, such as a
