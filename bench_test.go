@@ -7,9 +7,10 @@ import (
 	"testing"
 )
 
-// BenchmarkEncode measures each format at 10,000 and 1,000,000 rows. Each row
-// holds an integer, 100 bytes of text and a float. The table formats also run
-// with a batch of 1000 rows (WithCount), which keeps fewer rows in memory.
+// BenchmarkEncode measures each format at 10,000 and 1,000,000 rows, so each
+// encoder runs. Each row holds an integer, 100 bytes of text and a float. The
+// table formats, expanded and markdown also run with a batch of 1000 rows
+// (WithCount), which keeps fewer rows in memory.
 // See B34 in docs/BACKLOG.md.
 //
 // Run it with:
@@ -24,12 +25,17 @@ func BenchmarkEncode(b *testing.B) {
 		{"aligned", map[string]string{"format": "aligned"}, true},
 		{"wrapped", map[string]string{"format": "wrapped", "columns": "80"}, true},
 		{"expanded", map[string]string{"format": "aligned", "expanded": "on"}, true},
+		{"table", map[string]string{"format": "table"}, true},
+		{"markdown", map[string]string{"format": "markdown"}, true},
 		{"unaligned", map[string]string{"format": "unaligned"}, false},
 		{"csv", map[string]string{"format": "csv"}, false},
 		{"json", map[string]string{"format": "json"}, false},
 		{"html", map[string]string{"format": "html"}, false},
+		{"asciidoc", map[string]string{"format": "asciidoc"}, false},
 		{"latex", map[string]string{"format": "latex"}, false},
+		{"latex-longtable", map[string]string{"format": "latex-longtable"}, false},
 		{"troff-ms", map[string]string{"format": "troff-ms"}, false},
+		{"vertical", map[string]string{"format": "vertical"}, false},
 	}
 	for _, rows := range []int{10_000, 1_000_000} {
 		for _, test := range tests {

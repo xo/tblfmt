@@ -119,6 +119,9 @@ func TestFromMapFormats(t *testing.T) {
 	}
 }
 
+// TestFromMapTuplesOnly makes sure that tuples_only turns off the footer, and
+// that FromMap does not change the map of the caller (B17). A caller such as
+// a \pset store passes the same map again after tuples_only is off.
 func TestFromMapTuplesOnly(t *testing.T) {
 	tests := []struct {
 		format     string
@@ -129,6 +132,10 @@ func TestFromMapTuplesOnly(t *testing.T) {
 		{"aligned", "off", true},
 		{"unaligned", "on", false},
 		{"unaligned", "off", true},
+		{"table", "on", false},
+		{"table", "off", true},
+		{"html", "on", false},
+		{"html", "off", true},
 	}
 	for i, test := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
@@ -142,6 +149,7 @@ func TestFromMapTuplesOnly(t *testing.T) {
 				"fieldsep":    "|",
 				"footer":      "on",
 			}
+			exp := maps.Clone(params)
 			var buf bytes.Buffer
 			if err := EncodeAll(&buf, rs, params); err != nil {
 				t.Fatalf("expected no error, got: %v", err)
@@ -150,6 +158,9 @@ func TestFromMapTuplesOnly(t *testing.T) {
 			t.Logf("output:\n%s", out)
 			if b := strings.Contains(out, "(1 row)"); b != test.exp {
 				t.Errorf("expected %t, got: %t", test.exp, b)
+			}
+			if !maps.Equal(params, exp) {
+				t.Errorf("expected the map to stay %v, got: %v", exp, params)
 			}
 		})
 	}
@@ -226,11 +237,12 @@ loop:
 		if line == "" {
 			break loop
 		}
-		v := strings.Split(line, ":")
-		if len(v) != 2 {
-			t.Fatalf("missing : in line")
+		// note: a value can hold a colon, such as the time format 15:04
+		k, v, ok := strings.Cut(line, ":")
+		if !ok {
+			t.Fatalf("missing : in line %q of %s", line, in)
 		}
-		opts[strings.TrimSpace(v[0])] = strings.TrimSpace(v[1])
+		opts[strings.TrimSpace(k)] = strings.TrimSpace(v)
 		buf = buf[i+1:]
 	}
 	if opts["format"] == "" {

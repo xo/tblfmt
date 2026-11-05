@@ -82,8 +82,8 @@ func (opt option) apply(o any) error {
 // Note: this func is mainly a helper for parameter names that are like the
 // format option names of psql.
 func FromMap(opts map[string]string) (Builder, []Option) {
-	// unaligned, aligned, wrapped, html, asciidoc, latex, latex-longtable, troff-ms, json, csv,
-	// markdown
+	// unaligned, aligned, wrapped, html, asciidoc, latex, latex-longtable,
+	// troff-ms, vertical, json, csv, table, markdown
 	switch format := opts["format"]; format {
 	case "json":
 		return NewJSONEncoder, []Option{
@@ -132,10 +132,8 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			WithExpanded(opts["expanded"] == "on"),
 			FormatterOptionFromMap(opts),
 		}
-		if opts["tuples_only"] == "on" {
-			opts["footer"] = "off"
-		}
-		if s, ok := opts["footer"]; ok && s == "off" {
+		// note: tuples_only turns off the footer too, as in psql
+		if opts["tuples_only"] == "on" || opts["footer"] == "off" {
 			// an empty summary map turns off the summary
 			tableOpts = append(tableOpts, WithSummary(Summary{}))
 		}
@@ -174,14 +172,14 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			),
 			FormatterOptionFromMap(opts),
 		}
-		if s, ok := opts["tuples_only"]; ok && s == "on" {
+		if opts["tuples_only"] == "on" {
 			tableOpts = append(tableOpts, WithSkipHeader(true))
-			opts["footer"] = "off"
 		}
 		if s, ok := opts["null"]; ok {
 			tableOpts = append(tableOpts, WithEmpty(s))
 		}
-		if s, ok := opts["footer"]; ok && s == "off" {
+		// note: tuples_only turns off the footer too, as in psql
+		if opts["tuples_only"] == "on" || opts["footer"] == "off" {
 			// an empty summary map turns off the summary
 			tableOpts = append(tableOpts, WithSummary(Summary{}))
 		}
@@ -206,9 +204,8 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 			border, _ := strconv.Atoi(s)
 			tableOpts = append(tableOpts, WithBorder(border))
 		}
-		if s, ok := opts["tuples_only"]; ok && s == "on" {
+		if opts["tuples_only"] == "on" {
 			tableOpts = append(tableOpts, WithSkipHeader(true))
-			opts["footer"] = "off"
 		}
 		if s, ok := opts["title"]; ok {
 			tableOpts = append(tableOpts, WithTitle(s))
@@ -216,7 +213,8 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 		if s, ok := opts["null"]; ok {
 			tableOpts = append(tableOpts, WithEmpty(s))
 		}
-		if s, ok := opts["footer"]; ok && s == "off" {
+		// note: tuples_only turns off the footer too, as in psql
+		if opts["tuples_only"] == "on" || opts["footer"] == "off" {
 			// an empty summary map turns off the summary
 			tableOpts = append(tableOpts, WithSummary(Summary{}))
 		}
@@ -558,7 +556,11 @@ func WithQuote(quote rune) Option {
 	}
 }
 
-// WithNewline is an encoder option that sets the newline.
+// WithNewline is an encoder option that sets the newline at the end of each
+// line, in each format. The default is the newline of the platform. The
+// unaligned and csv encoders write it as the record separator, as psql writes
+// recordsep: between two lines, and not after the last line of the unaligned
+// format.
 func WithNewline(newline string) Option {
 	return option{
 		table: func(enc *TableEncoder) error {

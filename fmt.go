@@ -34,9 +34,9 @@ type Formatter interface {
 // EscapeFormatter is a formatter that escapes values. It formats the standard
 // Go types.
 //
-// If a marshal func is set with [WithEncoder], the formatter passes it each
-// map[string]interface{} and []interface{} value. Otherwise, the formatter
-// uses [encoding/json/v2] from the standard library.
+// The formatter marshals each value that it does not format otherwise, such
+// as a map, a slice that is not []byte or a struct. It uses the marshal func
+// set with [WithEncoder], or [encoding/json/v2] from the standard library.
 type EscapeFormatter struct {
 	// mask is the text for a column name in the header that is empty after the
 	// formatter trims its spaces.
@@ -48,8 +48,8 @@ type EscapeFormatter struct {
 	timeFormat string
 	// timeLocation is the location to use for time values.
 	timeLocation *time.Location
-	// encoder is the marshal func for map[string]interface{} and []interface{}
-	// types.
+	// encoder is the marshal func for a value that the formatter does not
+	// format otherwise.
 	//
 	// If it is nil, the formatter uses the standard [encoding/json/v2].
 	encoder func(any) ([]byte, error)
@@ -74,17 +74,18 @@ type EscapeFormatter struct {
 	invalidWidth int
 	// headerAlign is the default alignment of the column names in the header.
 	headerAlign Align
-	// align is the forced alignment for values.
+	// align is the alignment of a number, a bool, a time and a decimal, or -1
+	// for the alignment of the type (D71).
 	align Align
-	// numericLocalePrinter is the numeric locale printer.
-	numericLocalePrinter *message.Printer
+	// locale holds the symbols of the numeric locale, or nil.
+	locale *numericLocale
 }
 
 // NewEscapeFormatter creates an escape formatter for basic Go values, such as
-// []byte, string, time.Time, sql.Null*, and any [database/sql/driver.Valuer].
-// The formatter passes map[string]interface{} and []interface{} values to the
-// marshal func set with [WithEncoder]. Otherwise, it uses the standard
-// [encoding/json/v2] to marshal those values.
+// []byte, string, time.Time, sql.Null*, a decimal with the Decompose method of
+// [database/sql], a [fmt.Stringer] and any [database/sql/driver.Valuer]. The
+// formatter marshals each other value, with the marshal func set with
+// [WithEncoder] or with the standard [encoding/json/v2].
 func NewEscapeFormatter(opts ...EscapeFormatterOption) *EscapeFormatter {
 	f := &EscapeFormatter{
 		mask:       "%d",
@@ -152,13 +153,7 @@ func (f *EscapeFormatter) format(val any, left, right Align, depth int) (*Value,
 		return newValue(strconv.FormatBool(v), left, true), nil
 	case int, int8, int16, int32, int64,
 		uint, uint8, uint16, uint32, uint64:
-		var s string
-		if f.useNumericLocale() {
-			s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v))
-		} else {
-			s = fmt.Sprintf("%d", v)
-		}
-		return f.number(s, right, unsignedInt64(v)), nil
+		return f.number(f.localize(fmt.Sprintf("%d", v)), right, unsignedInt64(v)), nil
 	case float32:
 		s, notNumber := floatString(float64(v))
 		if !notNumber {
@@ -195,13 +190,7 @@ func (f *EscapeFormatter) format(val any, left, right Align, depth int) (*Value,
 		return nil, nil
 	case sql.NullByte:
 		if v.Valid {
-			var s string
-			if f.useNumericLocale() {
-				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Byte))
-			} else {
-				s = strconv.FormatUint(uint64(v.Byte), 10)
-			}
-			return f.number(s, right, false), nil
+			return f.number(f.localize(strconv.FormatUint(uint64(v.Byte), 10)), right, false), nil
 		}
 		return nil, nil
 	case sql.NullFloat64:
@@ -215,35 +204,17 @@ func (f *EscapeFormatter) format(val any, left, right Align, depth int) (*Value,
 		return nil, nil
 	case sql.NullInt16:
 		if v.Valid {
-			var s string
-			if f.useNumericLocale() {
-				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Int16))
-			} else {
-				s = strconv.FormatInt(int64(v.Int16), 10)
-			}
-			return f.number(s, right, false), nil
+			return f.number(f.localize(strconv.FormatInt(int64(v.Int16), 10)), right, false), nil
 		}
 		return nil, nil
 	case sql.NullInt32:
 		if v.Valid {
-			var s string
-			if f.useNumericLocale() {
-				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Int32))
-			} else {
-				s = strconv.FormatInt(int64(v.Int32), 10)
-			}
-			return f.number(s, right, false), nil
+			return f.number(f.localize(strconv.FormatInt(int64(v.Int32), 10)), right, false), nil
 		}
 		return nil, nil
 	case sql.NullInt64:
 		if v.Valid {
-			var s string
-			if f.useNumericLocale() {
-				s = f.numericLocalePrinter.Sprintf("%v", number.Decimal(v.Int64))
-			} else {
-				s = strconv.FormatInt(v.Int64, 10)
-			}
-			return f.number(s, right, false), nil
+			return f.number(f.localize(strconv.FormatInt(v.Int64, 10)), right, false), nil
 		}
 		return nil, nil
 	case sql.NullString:
@@ -415,7 +386,7 @@ func unwrapNull(v any) (any, bool) {
 // formatter ignores the locale, the type does not change. csv has no types at
 // all, and it applies the locale as psql does.
 func (f *EscapeFormatter) useNumericLocale() bool {
-	return f.numericLocalePrinter != nil && !f.isJSON
+	return f.locale != nil && !f.isJSON
 }
 
 // number returns a value for a formatted number. asString marks a number that
@@ -476,10 +447,8 @@ const maxDecimalDigits = 1 << 17
 // decimal returns the text of a finite decimal, as psql writes a numeric. It
 // keeps each digit of the coefficient, so that 1.5 with a scale of 2 is 1.50.
 //
-// Note: PostgreSQL has no negative zero, so a zero has no sign. For the
-// numeric locale, the integer part is grouped by the locale printer if it fits
-// a uint64, and the decimal point is the one of the locale. psql groups the
-// digits of a numeric in the same way.
+// Note: PostgreSQL has no negative zero, so a zero has no sign. The numeric
+// locale writes the number of any length as the locale does (D73).
 func (f *EscapeFormatter) decimal(negative bool, coefficient []byte, exponent int32) string {
 	digits := new(big.Int).SetBytes(coefficient).String()
 	sign := ""
@@ -525,42 +494,18 @@ func float8(v float64) string {
 	return s
 }
 
-// localize returns s, the text of a finite number, as psql writes it for
-// \pset numericlocale. It groups the digits before the decimal point, and
-// writes the decimal point of the locale. The rest of s, such as an exponent,
-// does not change. Without the numeric locale, it returns s.
+// localize returns s, the text of a finite number, in the numeric locale. It
+// writes the digits, the grouping, the decimal point and the minus sign of the
+// locale. An exponent keeps its letter and its sign. Without the numeric
+// locale, it returns s.
 //
-// Note: the digits are grouped by the locale printer only if they fit a
-// uint64.
+// Note: psql writes ASCII digits, and it groups by the first group size of the
+// locale only. tblfmt writes the number as the locale does (D73).
 func (f *EscapeFormatter) localize(s string) string {
 	if !f.useNumericLocale() {
 		return s
 	}
-	sign := ""
-	if rest, ok := strings.CutPrefix(s, "-"); ok {
-		sign, s = "-", rest
-	}
-	n := strings.IndexFunc(s, func(r rune) bool { return r < '0' || '9' < r })
-	if n == -1 {
-		n = len(s)
-	}
-	integer, rest := s[:n], s[n:]
-	if u, err := strconv.ParseUint(integer, 10, 64); err == nil {
-		integer = f.numericLocalePrinter.Sprintf("%v", number.Decimal(u))
-	}
-	if fraction, ok := strings.CutPrefix(rest, "."); ok {
-		// note: the locale writes one half as a zero, the decimal point and a
-		// five, and its digits need not be ASCII
-		half := f.numericLocalePrinter.Sprintf("%v", number.Decimal(0.5))
-		_, i := utf8.DecodeRuneInString(half)
-		_, j := utf8.DecodeLastRuneInString(half)
-		point := "."
-		if i < len(half)-j {
-			point = half[i : len(half)-j]
-		}
-		rest = point + fraction
-	}
-	return sign + integer + rest
+	return f.locale.format(s)
 }
 
 // unsignedInt64 reports whether v is an unsigned 64 bit integer, such as a
@@ -774,8 +719,9 @@ type Value struct {
 	Align Align
 	// Raw is true when the JSON encoder writes Buf exactly, with no quotes.
 	Raw bool
-	// Quoted tracks whether a raw value must be quoted, that is, whether it
-	// contains a space or a non printable character.
+	// Quoted is true when the csv encoder must quote a raw value. The value
+	// holds the separator, the quote, a white space character or an invalid
+	// rune.
 	Quoted bool
 }
 
@@ -936,16 +882,19 @@ func WithHeaderAlign(a Align) EscapeFormatterOption {
 	}
 }
 
-// WithAlign sets the forced alignment for values.
+// WithAlign sets the alignment of a number, a bool, a time and a decimal. A
+// value that the formatter writes as text stays at the left (D71).
 func WithAlign(a Align) EscapeFormatterOption {
 	return func(f *EscapeFormatter) {
 		f.align = a
 	}
 }
 
-// WithNumericLocale sets the numeric locale printer. The printer groups the
-// digits of a number as the locale does, the same as \pset numericlocale in
-// psql.
+// WithNumericLocale sets the numeric locale. The formatter writes a number
+// with the digits, the grouping, the decimal point and the minus sign of the
+// locale, as golang.org/x/text writes them. This is the \pset numericlocale of
+// psql, but psql writes ASCII digits and one group size (D73). If the locale
+// does not parse, the formatter uses English.
 //
 // It has no effect on JSON output. A grouped number is not a JSON number. A
 // JSON string for it makes the JSON type of a column depend on a display
@@ -958,25 +907,154 @@ func WithNumericLocale(enable bool, locale string) EscapeFormatterOption {
 			if t, err := language.Parse(locale); err == nil {
 				tag = t
 			}
-			f.numericLocalePrinter = message.NewPrinter(tag)
+			f.locale = newNumericLocale(tag)
 		}
 	}
 }
 
-// deref dereferences a pointer to an interface.
-func deref(v any) any {
-	switch z := v.(type) {
-	case nil:
-		return nil
-	case *any:
-		return *z
+// numericLocale holds the symbols that a locale uses to write a number.
+//
+// Note: golang.org/x/text formats only a number that fits a uint64 or a
+// float64, so the symbols come from its printer once, and format applies them
+// to a number of any length, such as a decimal.
+type numericLocale struct {
+	// digits holds the digit of the locale for each of 0 to 9.
+	digits [10]string
+	// point is the decimal point, and sep is the grouping separator.
+	point string
+	sep   string
+	// primary is the size of the group next to the decimal point, and
+	// secondary is the size of each other group. primary is 0 for a locale
+	// that does not group.
+	primary   int
+	secondary int
+	// minus and minusEnd are the text before and after a negative number.
+	minus    string
+	minusEnd string
+}
+
+// newNumericLocale reads the symbols of the locale from the printer of
+// golang.org/x/text.
+func newNumericLocale(tag language.Tag) *numericLocale {
+	p := message.NewPrinter(tag)
+	sprint := func(v any) string {
+		return p.Sprintf("%v", number.Decimal(v))
 	}
-	val := reflect.ValueOf(v)
-	if val.Kind() == reflect.Pointer {
+	l := &numericLocale{point: "."}
+	for i := range l.digits {
+		l.digits[i] = sprint(i)
+	}
+	// note: the locale writes one half as a zero, the decimal point and a
+	// five
+	half := sprint(0.5)
+	if zero, five := l.digits[0], l.digits[5]; strings.HasPrefix(half, zero) && strings.HasSuffix(half, five) && len(zero)+len(five) < len(half) {
+		l.point = half[len(zero) : len(half)-len(five)]
+	}
+	// note: 20 digits show the size of each group, and the separator
+	var groups []int
+	n := 0
+	for rest := sprint(uint64(12345678901234567890)); rest != ""; {
+		if d := l.digit(rest); d != "" {
+			n++
+			rest = rest[len(d):]
+			continue
+		}
+		i := 0
+		for i < len(rest) && l.digit(rest[i:]) == "" {
+			_, w := utf8.DecodeRuneInString(rest[i:])
+			i += w
+		}
+		l.sep, rest = rest[:i], rest[i:]
+		groups = append(groups, n)
+		n = 0
+	}
+	// groups holds the size of each group, from the left. The first group can
+	// be shorter than the others
+	groups = append(groups, n)
+	if len(groups) > 1 {
+		l.primary = groups[len(groups)-1]
+		l.secondary = l.primary
+		if len(groups) > 2 {
+			l.secondary = groups[len(groups)-2]
+		}
+	}
+	// note: the minus sign of a locale can hold a direction mark
+	l.minus = "-"
+	if minus, end, ok := strings.Cut(sprint(-1), l.digits[1]); ok {
+		l.minus, l.minusEnd = minus, end
+	}
+	return l
+}
+
+// digit returns the digit of the locale at the start of s, or "".
+func (l *numericLocale) digit(s string) string {
+	for _, d := range l.digits {
+		if d != "" && strings.HasPrefix(s, d) {
+			return d
+		}
+	}
+	return ""
+}
+
+// format returns s, the text of a finite number with ASCII digits, in the
+// locale. s is an optional minus sign, the digits of the integer part, and an
+// optional fraction and exponent.
+func (l *numericLocale) format(s string) string {
+	var b strings.Builder
+	neg := false
+	if rest, ok := strings.CutPrefix(s, "-"); ok {
+		neg, s = true, rest
+		b.WriteString(l.minus)
+	}
+	n := strings.IndexFunc(s, func(r rune) bool { return r < '0' || '9' < r })
+	if n == -1 {
+		n = len(s)
+	}
+	integer, rest := s[:n], s[n:]
+	// a separator comes before a digit when the digits after it, r, make
+	// whole groups
+	group := l.primary != 0 && len(integer) > l.primary
+	for i := range len(integer) {
+		if r := len(integer) - i; group && i != 0 && (r == l.primary || r > l.primary && (r-l.primary)%l.secondary == 0) {
+			b.WriteString(l.sep)
+		}
+		b.WriteString(l.digits[integer[i]-'0'])
+	}
+	if fraction, ok := strings.CutPrefix(rest, "."); ok {
+		b.WriteString(l.point)
+		rest = fraction
+	}
+	for i := range len(rest) {
+		if c := rest[i]; '0' <= c && c <= '9' {
+			b.WriteString(l.digits[c-'0'])
+		} else {
+			b.WriteByte(c)
+		}
+	}
+	if neg {
+		b.WriteString(l.minusEnd)
+	}
+	return b.String()
+}
+
+// deref returns the value that v points to, by one level. It returns nil for
+// a nil pointer, and for a pointer to a nil pointer. A scan of a null value
+// into a destination of type **T leaves such a pointer.
+func deref(v any) any {
+	if z, ok := v.(*any); ok {
+		if z == nil {
+			return nil
+		}
+		v = *z
+	} else if val := reflect.ValueOf(v); val.Kind() == reflect.Pointer {
 		if val.IsNil() {
 			return nil
 		}
-		val = val.Elem()
+		v = val.Elem().Interface()
 	}
-	return val.Interface()
+	// note: a method of a nil pointer, such as Decompose or String, can panic
+	if val := reflect.ValueOf(v); val.Kind() == reflect.Pointer && val.IsNil() {
+		return nil
+	}
+	return v
 }

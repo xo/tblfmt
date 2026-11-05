@@ -166,6 +166,11 @@ func psqlGroups() []psqlGroup {
 			map[string]string{"format": "unaligned", "expanded": expanded, "title": "T"},
 			map[string]string{"format": "unaligned", "expanded": expanded, "tuples_only": "on"},
 			map[string]string{"format": "unaligned", "expanded": expanded, "footer": "off"},
+			map[string]string{"format": "unaligned", "expanded": expanded, "recordsep": "X"},
+			map[string]string{"format": "unaligned", "expanded": expanded, "recordsep": "X", "footer": "off"},
+			map[string]string{"format": "unaligned", "expanded": expanded, "recordsep": "X", "tuples_only": "on"},
+			map[string]string{"format": "unaligned", "expanded": expanded, "recordsep": "X", "title": "T"},
+			map[string]string{"format": "unaligned", "expanded": expanded, "recordsep_zero": "on"},
 		)
 		csv = append(csv,
 			map[string]string{"format": "csv", "expanded": expanded},

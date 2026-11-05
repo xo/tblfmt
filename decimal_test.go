@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"math/big"
+	"net"
 	"testing"
 
 	"github.com/xo/tblfmt/internal"
@@ -87,8 +88,12 @@ func TestFormatDecimal(t *testing.T) {
 		{&ptr, "", "15000000000"},
 		{hdbDecimal{negative: true, coef: 123456725, exp: -2}, "de-DE", "-1.234.567,25"},
 		{hdbDecimal{coef: 123456725, exp: -2}, "fr-FR", "1 234 567,25"},
-		// note: an integer part that does not fit a uint64 is not grouped
-		{hdbDecimal{coef: 1, exp: 20}, "en-US", "100000000000000000000"},
+		// note: an integer part that does not fit a uint64 is grouped too, and
+		// each digit is a digit of the locale (D73)
+		{hdbDecimal{coef: 1, exp: 20}, "en-US", "100,000,000,000,000,000,000"},
+		{hdbDecimal{coef: 1, exp: 20}, "en-IN", "10,00,00,00,00,00,00,00,00,000"},
+		{hdbDecimal{negative: true, coef: 123456725, exp: -2}, "bn", "-১২,৩৪,৫৬৭.২৫"},
+		{hdbDecimal{negative: true, coef: 123456725, exp: -2}, "fa", "\u200e−۱٬۲۳۴٬۵۶۷٫۲۵"},
 	}
 	for i, test := range tests {
 		var opts []EscapeFormatterOption
@@ -130,4 +135,23 @@ type apdDecimal hdbDecimal
 // Decompose satisfies the decimal interface of database/sql.
 func (d *apdDecimal) Decompose(buf []byte) (byte, bool, []byte, int32) {
 	return hdbDecimal(*d).Decompose(buf)
+}
+
+// TestFormatNilPointer makes sure that a pointer to a nil pointer is a null
+// value. A scan of a null value into a destination of type **T leaves such a
+// pointer, and a method of the nil pointer, such as Decompose, can panic.
+func TestFormatNilPointer(t *testing.T) {
+	t.Parallel()
+	var d *apdDecimal
+	var ip *net.IP
+	var v *any
+	vals, err := NewEscapeFormatter().Format([]any{&d, &ip, d, v})
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	for i, val := range vals {
+		if val != nil {
+			t.Errorf("test %d expected nil, got: %q", i, val.String())
+		}
+	}
 }

@@ -192,9 +192,14 @@ cd test && go vet ./... && go test -count=1 ./... && golangci-lint run ./...
 
 `gofmt -l .` must print nothing.
 
-CI runs `go test -v ./...` in the root and in `test`, on `ubuntu-latest` with
-the stable Go release. A second job runs golangci-lint in both modules, and
-`gofmt -l .`.
+CI uses the stable Go release, and it has three jobs:
+
+1. The test job runs `go test -v ./...` in the root on `ubuntu-latest`,
+   `windows-latest` and `macos-latest` (D62). It runs the tests of `test` on
+   `ubuntu-latest` only.
+2. The lint job runs golangci-lint in both modules, and `gofmt -l .`.
+3. The psql job installs `psql` 18, starts `postgres-18` with `dbrun`, and
+   runs `TestPsql`.
 
 ## Writing documentation
 

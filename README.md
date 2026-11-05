@@ -2,8 +2,10 @@
 
 Package `tblfmt` writes result sets as text tables. A result set is the rows
 and columns that a database query returns. `tblfmt` reads a result set one row
-at a time, so it does not keep the whole result in memory. It writes tables
-like this one:
+at a time. The JSON, unaligned and csv formats write each row when they read
+it. The table formats keep the rows of a batch to calculate the column widths.
+By default, a batch is the whole result set, and `WithCount` sets a smaller
+batch. It writes tables like this one:
 
 ```text
  author_id |            name            | z 
@@ -24,8 +26,7 @@ like this one:
 `tblfmt` writes each format that `psql` has: aligned, wrapped, unaligned, csv,
 html, asciidoc, latex, latex-longtable and troff-ms. It also writes JSON, the
 vertical format that the `mysql` client writes for `\G`, a plain table with no
-lines, and a markdown table. [`usql`][usql] uses each of them except the
-markdown table.
+lines, and a markdown table. [`usql`][usql] uses each of them.
 
 [![Unit Tests][tblfmt-ci-status]][tblfmt-ci]
 [![Go Reference][goref-tblfmt-status]][goref-tblfmt]
@@ -95,7 +96,10 @@ func main() {
 		// force minimum column widths
 		tblfmt.WithWidths(20, 20),
 	)
-	if err = enc.EncodeAll(os.Stdout); err != nil {
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := enc.EncodeAll(os.Stdout); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -171,6 +175,22 @@ D39 in [docs/PLAN.md](docs/PLAN.md).
 
 A terminal that draws each code point on its own, such as xterm, does not line
 up such a column.
+
+### Numbers in the numeric locale
+
+With `numericlocale`, `psql` writes ASCII digits, and it groups the digits by
+one group size. `tblfmt` writes a number as the locale does: with the digits
+of the locale, and with its group sizes. For `en-IN`, `psql` writes 1234567 as
+`1,234,567`, and `tblfmt` writes `12,34,567`. For `en-US`, the default locale,
+the output is the same. See D73 in [docs/PLAN.md](docs/PLAN.md).
+
+### A real that the driver returns as a float64
+
+`tblfmt` writes a value by its Go type, and it does not change the type. pgx
+returns a PostgreSQL `real` as a `float64`, so `tblfmt` writes it as `psql`
+writes a `float8`. For `'1450817.032'::real`, `psql` writes `1.450817e+06`,
+and `tblfmt` writes `1450817`. To write a `real` as `psql` does, scan it into
+a `float32`, as [`usql`][usql] does. See D72 in [docs/PLAN.md](docs/PLAN.md).
 
 ## Comparison with other packages
 

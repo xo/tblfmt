@@ -18,6 +18,9 @@ import (
 	"time"
 
 	runewidth "github.com/mattn/go-runewidth"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
+	"golang.org/x/text/number"
 
 	"github.com/xo/tblfmt/internal"
 )
@@ -560,8 +563,6 @@ func TestFormatBytesClusters(t *testing.T) {
 	}
 }
 
-// TestEncodeClusters makes sure that an aligned table pads a column of
-// grapheme clusters to the same width on each line.
 // TestEncodeFormatChars makes sure that a table escapes only a control
 // character, as psql does. A joiner, a tag, a private use rune, a soft hyphen,
 // a zero width space and a direction control are written as they are.
@@ -624,6 +625,8 @@ func TestEncodeFormatChars(t *testing.T) {
 	}
 }
 
+// TestEncodeClusters makes sure that an aligned table pads a column of
+// grapheme clusters to the same width on each line.
 func TestEncodeClusters(t *testing.T) {
 	t.Parallel()
 	buf := new(bytes.Buffer)
@@ -640,5 +643,43 @@ func TestEncodeClusters(t *testing.T) {
 		"(2 rows)\n"
 	if s := buf.String(); s != exp {
 		t.Errorf("expected:\n%s\ngot:\n%s", exp, s)
+	}
+}
+
+// TestNumericLocale makes sure that the formatter writes a number in the
+// numeric locale as golang.org/x/text writes it, for each value that x/text
+// can format: the digits, the grouping, the decimal point and the minus sign
+// of the locale (D73).
+func TestNumericLocale(t *testing.T) {
+	t.Parallel()
+	locales := []string{
+		"en", "en-US", "en-GB", "en-IN", "hi", "bn", "mr", "ne", "ta", "te", "gu",
+		"ur", "fa", "ps", "ar", "ar-EG", "he", "de", "de-CH", "de-AT", "fr",
+		"fr-CH", "it", "es", "es-MX", "pt", "pt-PT", "nl", "sv", "nb", "da", "fi",
+		"pl", "cs", "ru", "uk", "tr", "el", "th", "my", "km", "lo", "ja", "zh",
+		"ko", "id", "vi", "sw",
+	}
+	ints := []int64{0, 7, -7, 12, 123, 1234, -1234, 12345, 123456, 1234567, -1234567, 12345678, 123456789, 1234567890, math.MaxInt64, math.MinInt64 + 1}
+	floats := []float64{0.5, -0.25, 1234.5, 1234567.25, -1234567.25, 98765432.125}
+	for _, locale := range locales {
+		p := message.NewPrinter(language.MustParse(locale))
+		f := NewEscapeFormatter(WithNumericLocale(true, locale))
+		vals := []any{uint64(math.MaxUint64)}
+		for _, v := range ints {
+			vals = append(vals, v)
+		}
+		for _, v := range floats {
+			vals = append(vals, v)
+		}
+		res, err := f.Format(vals)
+		if err != nil {
+			t.Fatalf("%s: expected no error, got: %v", locale, err)
+		}
+		for i, v := range vals {
+			exp := p.Sprintf("%v", number.Decimal(v))
+			if s := res[i].String(); s != exp {
+				t.Errorf("%s: %v expected %q, got: %q", locale, v, exp, s)
+			}
+		}
 	}
 }

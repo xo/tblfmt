@@ -12,7 +12,8 @@ import (
 
 // TestWithColumnAlign makes sure that WithColumnAlign aligns a column by its
 // database type: a number that the driver returns as a string, and the columns
-// of a result set that has no rows (B44). psql right aligns a numeric column:
+// of a result set that has no rows (D63). psql 18.6 right aligns a numeric
+// column:
 //
 //	$ psql -X -P format=latex -c "select 1 as n, 'x'::text as t where false"
 //	\begin{tabular}{r | l}

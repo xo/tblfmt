@@ -256,7 +256,7 @@ func (enc *TableEncoder) Encode(w io.Writer) error {
 		if enc.border >= 2 {
 			enc.hline(enc.lineStyle.End)
 		}
-		err = summarize(enc.w, enc.summary, enc.scanCount)
+		_, err = summarize(enc.w, enc.summary, enc.scanCount, enc.newline)
 	default:
 		exp.scanCount = enc.scanCount
 		err = exp.end(clen)
@@ -521,12 +521,14 @@ func (enc *TableEncoder) delimiter() {
 
 // markdownValue returns the value as one line, for a cell of a markdown
 // table. It writes each newline as <br>, and each pipe as \|, because a pipe
-// ends the cell.
+// ends the cell. It writes each backslash as \\, because a backslash before a
+// punctuation character escapes it, and the reader does not show it (D74).
 func markdownValue(v *Value) *Value {
-	if v == nil || len(v.Newlines) == 0 && !bytes.Contains(v.Buf, []byte("|")) {
+	if v == nil || len(v.Newlines) == 0 && !bytes.ContainsAny(v.Buf, `|\`) {
 		return v
 	}
-	buf := bytes.ReplaceAll(v.Buf, []byte("|"), []byte(`\|`))
+	buf := bytes.ReplaceAll(v.Buf, []byte(`\`), []byte(`\\`))
+	buf = bytes.ReplaceAll(buf, []byte("|"), []byte(`\|`))
 	buf = bytes.ReplaceAll(buf, []byte("\n"), []byte("<br>"))
 	res := FormatBytes(buf, nil, 0, false, false, 0, 0)
 	res.Align, res.Raw, res.Quoted = v.Align, v.Raw, v.Quoted
@@ -942,7 +944,8 @@ func (enc *ExpandedEncoder) encodeVals(vals [][]*Value, n int) error {
 // less than 2.
 func (enc *ExpandedEncoder) end(clen int) error {
 	if enc.scanCount == 0 || clen == 0 {
-		return summarize(enc.w, enc.summary, enc.scanCount)
+		_, err := summarize(enc.w, enc.summary, enc.scanCount, enc.newline)
+		return err
 	}
 	if enc.border >= 2 {
 		enc.recordLine(0, enc.maxWidths[0], enc.lineStyle.End)
@@ -955,7 +958,8 @@ func (enc *ExpandedEncoder) end(clen int) error {
 			return err
 		}
 	}
-	return summarize(enc.w, enc.summary, enc.scanCount)
+	_, err := summarize(enc.w, enc.summary, enc.scanCount, enc.newline)
+	return err
 }
 
 // EncodeAll encodes each result set to the writer with the options of the
@@ -1584,20 +1588,25 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 	if title {
 		ew.write(enc.title.Buf)
 	}
-	// write the header
-	if !enc.expanded && !enc.skipHeader {
-		if title {
+	// note: psql writes the record separator between two lines, and ends the
+	// last line with end. line is true when a line has no separator yet
+	end := enc.end()
+	line := title && !enc.expanded
+	next := func() {
+		if line {
 			ew.write(enc.newline)
 		}
+		line = true
+	}
+	// write the header
+	if !enc.expanded && !enc.skipHeader {
+		next()
 		for i := range clen {
 			if i != 0 {
 				ew.writeRune(enc.sep)
 			}
 			enc.write(ew, headers[i])
 		}
-		ew.write(enc.newline)
-	} else if title && !enc.expanded {
-		ew.write(enc.newline)
 	}
 	// set up the storage for the scanned values
 	r, err := buildColumnTypes(enc.resultSet, clen, enc.columnTypes)
@@ -1617,7 +1626,10 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 			// psql writes no line for a row that has no columns
 			continue
 		}
-		if enc.expanded && !enc.csv && (count > 1 || title) && clen != 0 {
+		switch {
+		case !enc.expanded:
+			next()
+		case !enc.csv && (count > 1 || title):
 			ew.write(enc.newline)
 			ew.write(enc.newline)
 		}
@@ -1641,9 +1653,6 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 				enc.write(ew, v)
 			}
 		}
-		if !enc.expanded {
-			ew.write(enc.newline)
-		}
 		if ew.err != nil {
 			return ew.err
 		}
@@ -1653,8 +1662,17 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 	}
 	switch {
 	case !enc.expanded:
-		if err := summarize(ew, enc.summary, count); err != nil {
+		var buf bytes.Buffer
+		ok, err := summarize(&buf, enc.summary, count, nil)
+		if err != nil {
 			return err
+		}
+		if ok {
+			next()
+			ew.write(buf.Bytes())
+		}
+		if line {
+			ew.write(end)
 		}
 	case enc.csv:
 	default:
@@ -1665,17 +1683,25 @@ func (enc *UnalignedEncoder) Encode(w io.Writer) error {
 		if enc.isCustomSummary && len(enc.summary) != 0 && records {
 			ew.write(enc.newline)
 			ew.write(enc.newline)
-			var buf bytes.Buffer
-			if err := summarize(&buf, enc.summary, count); err != nil {
+			if _, err := summarize(ew, enc.summary, count, nil); err != nil {
 				return err
 			}
-			ew.write(bytes.TrimSuffix(buf.Bytes(), newline))
 		}
 		if records || title {
-			ew.write(enc.newline)
+			ew.write(end)
 		}
 	}
 	return ew.err
+}
+
+// end returns the end of the last line. psql ends it with a newline, and not
+// with the record separator, except for a separator of a zero byte. csv has no
+// record separator, so it ends with its newline.
+func (enc *UnalignedEncoder) end() []byte {
+	if enc.csv || bytes.Equal(enc.newline, []byte{0}) {
+		return enc.newline
+	}
+	return newline
 }
 
 // write writes the value, in quotes when the csv format needs them.
@@ -1869,13 +1895,16 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 	// a custom summary after expanded records
 	var footer bytes.Buffer
 	if !enc.expanded || enc.isCustomSummary {
-		if err := summarize(&footer, enc.summary, len(rows)); err != nil {
+		if _, err := summarize(&footer, enc.summary, len(rows), nil); err != nil {
 			return err
 		}
 	}
 	// a template writer does not check each write, so ew keeps the first
 	// write error
 	ew := &errWriter{w: w}
+	if !bytes.Equal(enc.newline, []byte{'\n'}) {
+		ew.w = newlineWriter{w: w, newline: enc.newline}
+	}
 	if err := enc.executor(ew, &Template{
 		Attributes: enc.attributes,
 		Headers:    headers,
@@ -1885,7 +1914,7 @@ func (enc *TemplateEncoder) Encode(w io.Writer) error {
 		Aligns:     aligns,
 		Border:     enc.border,
 		Expanded:   enc.expanded,
-		Footer:     strings.TrimSuffix(footer.String(), string(newline)),
+		Footer:     footer.String(),
 	}); err != nil {
 		return err
 	}
@@ -1899,6 +1928,24 @@ func templateRows(rows [][]*Value, clen int) [][]*Value {
 		return nil
 	}
 	return rows
+}
+
+// newlineWriter writes each "\n" as its newline. A template writer ends each
+// line with "\n", as psql does, and the newline of WithNewline replaces it.
+//
+// Note: a "\n" in a value is replaced too. psql on Windows writes in text
+// mode, which replaces each "\n" with "\r\n" in the same way.
+type newlineWriter struct {
+	w       io.Writer
+	newline []byte
+}
+
+// Write satisfies the io.Writer interface.
+func (nw newlineWriter) Write(p []byte) (int, error) {
+	if _, err := nw.w.Write(bytes.ReplaceAll(p, []byte{'\n'}, nw.newline)); err != nil {
+		return 0, err
+	}
+	return len(p), nil
 }
 
 // errWriter is a writer that keeps the first error of its writes. After an
@@ -2066,26 +2113,21 @@ func buildColumnTypes(resultSet ResultSet, n int, columnTypes func(ResultSet, []
 	return r, nil
 }
 
-// summarize writes the summary for the count of scanned rows.
-func summarize(w io.Writer, summary Summary, count int) error {
-	// write the summary
-	if summary == nil {
-		return nil
+// summarize writes the summary for the count of scanned rows, and then end.
+// It reports whether the summary has a func for the count.
+func summarize(w io.Writer, summary Summary, count int, end []byte) (bool, error) {
+	f, ok := summary[count]
+	if !ok {
+		f, ok = summary[-1]
 	}
-	var f func(io.Writer, int) (int, error)
-	if z, ok := summary[-1]; ok {
-		f = z
+	if !ok || f == nil {
+		return false, nil
 	}
-	if z, ok := summary[count]; ok {
-		f = z
+	if _, err := f(w, count); err != nil {
+		return true, err
 	}
-	if f != nil {
-		if _, err := f(w, count); err != nil {
-			return err
-		}
-		if _, err := w.Write(newline); err != nil {
-			return err
-		}
+	if _, err := w.Write(end); err != nil {
+		return true, err
 	}
-	return nil
+	return true, nil
 }

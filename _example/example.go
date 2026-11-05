@@ -27,7 +27,10 @@ func main() {
 		// force minimum column widths
 		tblfmt.WithWidths(20, 20),
 	)
-	if err = enc.EncodeAll(os.Stdout); err != nil {
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := enc.EncodeAll(os.Stdout); err != nil {
 		log.Fatal(err)
 	}
 }

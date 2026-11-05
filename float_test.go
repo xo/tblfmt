@@ -35,7 +35,7 @@ import (
 // and format=unaligned. The numeric locale groups only the digits before the
 // decimal point, and it does not change an exponent. JSON writes the same
 // digits as the other formats, as JSON numbers. The expanded encoder keeps the
-// numeric locale too (B6):
+// numeric locale too:
 //
 //	$ psql -X -P numericlocale=on -P expanded=on -c "select
 //	    '1450817.032'::float8 as a, 1e15::float8 as c"
@@ -108,6 +108,8 @@ func TestFormatFloat(t *testing.T) {
 		{float64(2), "de-DE", "2"},
 		{1.5e16, "de-DE", "1,5e+16"},
 		{float32(1.5e16), "de-DE", "1,5e+16"},
+		// note: an exponent has digits of the locale too (D73)
+		{1.5e16, "bn", "১.৫e+১৬"},
 	}
 	for i, test := range tests {
 		var opts []EscapeFormatterOption

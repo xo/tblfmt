@@ -30,6 +30,17 @@ func TestEncodeMarkdown(t *testing.T) {
 				"|    |              |\n",
 		},
 		{
+			// GitHub shows x\|y and C:\x\* as they are only when each
+			// backslash is escaped too (D74)
+			"backslash", map[string]string{"format": "markdown"},
+			[]string{"a"},
+			[][][]any{{{`x\|y`}, {`C:\x\*`}}},
+			"|    a     |\n" +
+				"|:---------|\n" +
+				`| x\\\|y   |` + "\n" +
+				`| C:\\x\\* |` + "\n",
+		},
+		{
 			// a column name that holds a newline is one line too
 			"newline in a name", map[string]string{"format": "markdown", "header_align": "column"},
 			[]string{"long\nname", "b"},

@@ -30,11 +30,11 @@ A line number in D1 to D30 is at `04af38a`.
 | [D4](#d4-frommap-takes-psql-pset-names-decided) | FromMap takes psql `\pset` names | Decided |
 | [D5](#d5-one-option-type-serves-every-encoder-decided) | One Option type serves every encoder | Decided |
 | [D6](#d6-the-module-keeps-a-recent-minimum-go-version-decided) | The module keeps a recent minimum Go version | Decided |
-| [D7](#d7-the-output-is-checked-against-golden-files-decided) | The output is checked against golden files | Decided |
+| [D7](#d7-the-output-is-checked-against-golden-files-decided-amended-by-d40) | The output is checked against golden files | Decided. Amended by D40 |
 | [D8](#d8-output-that-is-too-wide-switches-to-expanded-mode-as-with-psql-expanded-auto-decided-amended-by-d45) | Output that is too wide switches to expanded mode, as with psql `expanded auto` | Decided. Amended by D45 |
 | [D9](#d9-the-random-test-data-uses-a-fixed-seed-decided) | The random test data uses a fixed seed | Decided |
 | [D10](#d10-a-pager-that-quits-early-is-not-an-error-superseded-by-d42) | A pager that quits early is not an error | Superseded by D42 |
-| [D11](#d11-tests-run-in-github-actions-on-linux-and-lint-has-a-config-but-no-ci-job-decided) | Tests run in GitHub Actions on Linux, and lint has a config but no CI job | Decided |
+| [D11](#d11-tests-run-in-github-actions-on-linux-and-lint-has-a-config-but-no-ci-job-decided-amended-by-d49-and-d62) | Tests run in GitHub Actions on Linux, and lint has a config but no CI job | Decided. Amended by D49 and D62 |
 | [D12](#d12-the-crosstab-view-follows-psql-crosstabview-decided) | The crosstab view follows psql `\crosstabview` | Decided |
 | [D13](#d13-a-crosstab-view-covers-one-result-set-decided) | A crosstab view covers one result set | Decided |
 | [D14](#d14-the-last-column-is-not-padded-when-it-is-left-aligned-superseded-by-d44) | The last column is not padded when it is left aligned | Superseded by D44 |
@@ -72,8 +72,8 @@ A line number in D1 to D30 is at `04af38a`.
 | [D46](#d46-escapes-follow-psql-and-unicode-text-is-drawn-as-a-terminal-draws-it-amends-d43) | Escapes follow psql, and Unicode text is drawn as a terminal draws it | Amends D43 |
 | [D47](#d47-the-caller-sets-the-separator-between-result-sets-and-json-is-compact-supersedes-d30) | The caller sets the separator between result sets, and JSON is compact | Supersedes D30 |
 | [D48](#d48-usql-writes-the-blank-line-after-a-table-amends-d17) | usql writes the blank line after a table | Amends D17 |
-| [D49](#d49-the-lint-configuration-follows-the-other-xo-repositories-decided) | The lint configuration follows the other xo repositories | Decided |
-| [D50](#d50-dependabot-stays-off-decided) | Dependabot stays off | Decided |
+| [D49](#d49-the-lint-configuration-follows-the-other-xo-repositories-amends-d11) | The lint configuration follows the other xo repositories | Amends D11 |
+| [D50](#d50-dependabot-stays-off-amends-d32) | Dependabot stays off | Amends D32 |
 | [D51](#d51-tblfmt-has-no-numeric-type-decided-amended-by-d63) | tblfmt has no Numeric type | Decided. Amended by D63 |
 | [D52](#d52-the-csv-encoder-quotes-a-field-that-holds-a-space-or-a-tab-decided) | The csv encoder quotes a field that holds a space or a tab | Decided |
 | [D53](#d53-the-caller-chooses-the-separator-between-unaligned-result-sets-decided) | The caller chooses the separator between unaligned result sets | Decided |
@@ -85,15 +85,20 @@ A line number in D1 to D30 is at `04af38a`.
 | [D59](#d59-tblfmt-has-benchmarks-and-a-module-that-compares-it-with-other-packages-decided) | tblfmt has benchmarks, and a module that compares it with other packages | Decided |
 | [D60](#d60-the-vertical-format-is-the-g-layout-of-the-mysql-client-with-the-rules-of-psql-decided) | The vertical format is the `\G` layout of the mysql client, with the rules of psql | Decided |
 | [D61](#d61-the-options-stay-small-and-a-caller-changes-the-escapes-with-a-formatter-decided) | The options stay small, and a caller changes the escapes with a formatter | Decided |
-| [D62](#d62-the-tests-run-on-linux-windows-and-macos-decided) | The tests run on Linux, Windows and macOS | Decided |
+| [D62](#d62-the-tests-run-on-linux-windows-and-macos-amends-d11) | The tests run on Linux, Windows and macOS | Amends D11 |
 | [D63](#d63-a-caller-sets-the-alignment-of-a-column-by-its-type-decided-amends-d51) | A caller sets the alignment of a column by its type | Decided. Amends D51 |
 | [D64](#d64-the-html-and-asciidoc-formats-follow-psql-and-each-format-has-its-expanded-form-decided) | The html and asciidoc formats follow psql, and each format has its expanded form | Decided |
 | [D65](#d65-testpsql-compares-tblfmt-with-psql-on-a-server-that-dbrun-starts-decided) | TestPsql compares tblfmt with psql, on a server that dbrun starts | Decided |
 | [D66](#d66-a-later-batch-can-be-wider-than-the-header-decided) | A later batch can be wider than the header | Decided |
 | [D67](#d67-a-caller-writes-a-binary-value-as-text-with-withbytesformat-decided) | A caller writes a binary value as text, with WithBytesFormat | Decided |
 | [D68](#d68-a-decimal-value-is-written-as-psql-writes-a-numeric-decided) | A decimal value is written as psql writes a numeric | Decided |
-| [D69](#d69-the-markdown-format-is-a-variant-of-the-table-encoder-decided) | The markdown format is a variant of the table encoder | Decided |
+| [D69](#d69-the-markdown-format-is-a-variant-of-the-table-encoder-decided-amended-by-d74) | The markdown format is a variant of the table encoder | Decided. Amended by D74 |
 | [D70](#d70-header_align-aligns-the-column-names-of-a-table-decided) | header_align aligns the column names of a table | Decided |
+| [D71](#d71-withalign-does-not-align-text-decided) | WithAlign does not align text | Decided |
+| [D72](#d72-tblfmt-writes-a-value-as-the-type-that-it-receives-decided) | tblfmt writes a value as the type that it receives | Decided |
+| [D73](#d73-the-numeric-locale-writes-a-number-as-the-locale-does-decided) | The numeric locale writes a number as the locale does | Decided |
+| [D74](#d74-the-markdown-format-escapes-each-backslash-amends-d69) | The markdown format escapes each backslash | Amends D69 |
+| [D75](#d75-withnewline-sets-the-newline-of-each-line-in-each-format-decided) | WithNewline sets the newline of each line in each format | Decided |
 
 ### D1. psql is the reference for the output. Decided.
 
@@ -208,7 +213,7 @@ Go 1.21 added the builtin. `4c2fd87` (2025-04-18) ran `modernize -fix`.
 
 Reason not recorded. See D23 for 1.27.1.
 
-### D7. The output is checked against golden files. Decided.
+### D7. The output is checked against golden files. Decided. Amended by D40.
 
 Certainty: High.
 
@@ -271,7 +276,7 @@ Commits: `c2858ae` (2021-03-21), `95ec403` (2021-03-22).
 Reason, from the comment in `checkErr`: a broken pipe means that the pager
 quit before it read all of the data, and that can be expected.
 
-### D11. Tests run in GitHub Actions on Linux, and lint has a config but no CI job. Decided.
+### D11. Tests run in GitHub Actions on Linux, and lint has a config but no CI job. Decided. Amended by D49 and D62.
 
 Certainty: Medium.
 
@@ -310,7 +315,7 @@ Certainty: High.
 Commit: `3e603b1` (2021-04-02).
 
 `NextResultSet` on a `CrosstabView` always returns false. The doc comment on
-the type says, under "CAUTION", that "A design decision was made to not
+the type says, under "CAUTION", that "By design, a crosstab view does not
 support multiple result sets". The caller makes a new view for each result
 set.
 
@@ -642,8 +647,7 @@ and tests for zero columns itself.
 `TestEncodeNoColumns` and `TestEncodeAllNoColumnsFirst` hold the psql output.
 
 This decision does not cover a result set that has columns and no rows. psql
-writes its header, and tblfmt does not. That is B1 in
-[BACKLOG.md](BACKLOG.md).
+wrote its header, and tblfmt did not. That was B1, which D44 fixed.
 
 ### D32. A dependency is kept at the version that usql requires, or higher. Decided. Amended by D50.
 
@@ -1039,7 +1043,7 @@ tblfmt makes the table formats of psql, but usql is the client that matches
 psql, so usql writes the line. "Differences from `psql`" in `README.md` lists
 it.
 
-### D49. The lint configuration follows the other xo repositories. Decided.
+### D49. The lint configuration follows the other xo repositories. Amends D11.
 
 Certainty: High.
 
@@ -1058,7 +1062,7 @@ error. The csv encoder built a quoted field with `append`, which could write
 into the buffer of a value, and now uses `slices.Concat`. B31, B35 and B37 are
 fixed.
 
-### D50. Dependabot stays off. Decided.
+### D50. Dependabot stays off. Amends D32.
 
 Certainty: High.
 
@@ -1268,7 +1272,7 @@ A caller that wants other escapes passes a formatter of its own with
 `WithFormatter`. tblfmt adds no option to choose the escaped characters. B24
 is closed.
 
-### D62. The tests run on Linux, Windows and macOS. Decided.
+### D62. The tests run on Linux, Windows and macOS. Amends D11.
 
 Certainty: High.
 
@@ -1410,16 +1414,16 @@ with that method as psql writes a numeric:
 - A finite value has each digit of its coefficient, so 1.5 with a scale of 2
   is `1.50`. It has no exponent, and a zero has no sign.
 - The other forms are `Infinity`, `-Infinity` and `NaN`.
-- The value is right aligned, and the numeric locale groups its integer part.
+- The value is right aligned. The numeric locale writes it as D73 says.
 - JSON writes a finite value as a number, and the others as strings, as
   `to_jsonb` of PostgreSQL does.
 
 The formatter tests for Decompose before `fmt.Stringer` and
 `driver.Valuer`. So a decimal type that also has a String method is a number,
-and not a string that is left aligned. If the exponent puts more than 131072
-digits before or after the decimal point, the value is written with an
-exponent, such as `15e131073`. 131072 is the number of digits before the
-decimal point of the largest PostgreSQL numeric.
+and not a string that is left aligned. If the exponent is more than 131072 or
+less than -131072, the value is written with an exponent, such as
+`15e131073`. 131072 is the number of digits before the decimal point of the
+largest PostgreSQL numeric.
 
 Two types in the module graph of usql have the method. They are the
 `encoding.Decimal` of go-hdb, and the `*apd.Decimal` of
@@ -1436,7 +1440,7 @@ in that graph has the method, so no other value changes.
 `TestFormatDecimal` tests the edge cases. TestPsql cannot test it, because
 pgx returns a numeric as a string.
 
-### D69. The markdown format is a variant of the table encoder. Decided.
+### D69. The markdown format is a variant of the table encoder. Decided. Amended by D74.
 
 Certainty: High.
 
@@ -1498,6 +1502,108 @@ markdown formats. psql has no such variable. Its values are these:
 
 Any other value sets nothing. The default does not change, so the output of
 psql does not change. Each golden set has the cases 41 to 47.
+
+### D71. WithAlign does not align text. Decided.
+
+Certainty: High.
+
+Date: 2026-11-05.
+
+`WithAlign` of the formatter aligns a number, a bool, a time and a decimal.
+It does not align a value that the formatter writes as text: a string, a
+`[]byte`, a `fmt.Stringer` or a value that the formatter marshals. Such a
+value stays at the left.
+
+psql never aligns text at the right. `column_type_alignment` in
+`src/bin/psql/common.c` aligns a column by its type. Only the number types,
+`money`, `oid`, `xid`, `xid8` and `cid` go to the right. psql has no `\pset`
+that changes this. The only caller of `WithAlign` in tblfmt is the table
+format, and it passes `AlignLeft`.
+
+Ken decided on 2026-11-05 that tblfmt does not align text at the right or at
+the center. If a user of the package asks for it, this decision opens again.
+
+### D72. tblfmt writes a value as the type that it receives. Decided.
+
+Certainty: High.
+
+Date: 2026-11-05.
+
+The formatter writes a value by its Go type. It does not change the type of a
+value, and it does not use the type of the column to guess another type.
+
+For example, pgx returns a PostgreSQL `real` as a `float64`. tblfmt writes it
+as a float8, so `'1450817.032'::real` is `1450817` and not `1.450817e+06` as
+in psql. A caller that wants the output of a real passes a `float32`. usql
+does this. Its PostgreSQL drivers scan a `real` into `sql.Null[float32]`.
+
+Ken decided this on 2026-11-05. A caller chooses the type of each value, and
+tblfmt does not.
+
+### D73. The numeric locale writes a number as the locale does. Decided.
+
+Certainty: High.
+
+Date: 2026-11-05.
+
+psql writes a number for `\pset numericlocale` with ASCII digits. It takes
+the decimal point and the grouping separator from the locale, and it groups by
+the first group size of the locale only. Ken decided on 2026-11-05 that psql
+is wrong here, and that tblfmt writes a number as the locale does:
+
+- Each digit is a digit of the locale, in the integer part, the fraction and
+  the exponent. `bn` writes 1234567.25 as `১২,৩৪,৫৬৭.২৫`. Before, the fraction
+  of a float or a decimal kept ASCII digits.
+- The groups have the sizes of the locale. `en-IN` writes 1234567 as
+  `12,34,567`, where psql writes `1,234,567`.
+- A number of any length is grouped, such as a decimal that does not fit a
+  uint64. Before, such a decimal was not grouped.
+- A negative number has the minus sign of the locale, which can hold a
+  direction mark, as in `fa`.
+
+golang.org/x/text formats only a number that fits a uint64 or a float64. So
+`newNumericLocale` in `fmt.go` reads the symbols of the locale from its
+printer once, and the formatter applies them to the text of each number.
+`TestNumericLocale` makes sure that the result is what x/text writes, for 48
+locales. For `en-US`, the default locale, the output is the output of psql,
+and `TestPsql` makes sure of it. JSON still ignores the numeric locale, as
+D24 says.
+
+### D74. The markdown format escapes each backslash. Amends D69.
+
+Certainty: High.
+
+Date: 2026-11-05.
+
+A backslash before a punctuation character escapes it in GitHub markdown, and
+the reader does not show the backslash. GitHub showed the value `C:\x\*` as
+`C:\x*`, and the value `x\|y` as `x|y`. Ken decided on 2026-11-05 that the
+markdown encoder writes each backslash as `\\`. GitHub then shows both values
+as they are. A backslash before any other character shows as one backslash
+too, so the encoder escapes every backslash. It still escapes no other
+character, as D69 says.
+
+### D75. WithNewline sets the newline of each line in each format. Decided.
+
+Certainty: High.
+
+Date: 2026-11-05.
+
+The template formats (html, asciidoc, latex, latex-longtable, troff-ms and
+vertical) wrote `\n` at the end of each line, and `WithNewline` set only the
+separator between two result sets. Ken decided on 2026-11-05 that
+`WithNewline` sets the newline of each line in each format. The template
+writers still write `\n`, as psql does, and `newlineWriter` in `encode.go`
+writes each one as the newline of the encoder. It replaces a `\n` in a value
+too, as psql does on Windows, where it writes in text mode.
+
+The default is the newline of the platform (D62), so on Windows the template
+formats now write `\r\n`. The table and expanded encoders end the summary
+line with the newline too. The unaligned and csv encoders write it as the
+record separator, as psql writes `recordsep`: between two lines, and not after
+the last line of the unaligned format. `TestWithNewlineFormats` makes sure
+that the output with `\r\n` is the output with `\n`, with each newline
+replaced.
 
 ## Open questions for Ken
 
