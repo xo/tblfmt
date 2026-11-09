@@ -283,6 +283,9 @@ const (
 	ErrResultSetReturnedInvalidColumnTypes Error = "result set returned invalid column types"
 	// ErrInvalidFormat is the invalid format error.
 	ErrInvalidFormat Error = "invalid format"
+	// ErrInvalidExpandedHeaderWidth is the error for a value of xheader_width
+	// that is not full, column, page or a number other than 0.
+	ErrInvalidExpandedHeaderWidth Error = "invalid xheader_width: allowed values are full, column, page, or a number for the exact width"
 	// ErrInvalidLineStyle is the invalid line style error.
 	ErrInvalidLineStyle Error = "invalid line style"
 	// ErrFormatterIsNotEscapeFormatter is the formatter is not an escape

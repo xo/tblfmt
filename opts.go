@@ -4,8 +4,10 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"math"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/nathan-fiscaletti/consolesize-go"
@@ -232,7 +234,12 @@ func FromMap(opts map[string]string) (Builder, []Option) {
 				)))
 			}
 		}
+		xheader, err := xheaderWidth(opts)
+		if err != nil {
+			return newErrEncoder, []Option{withError(err)}
+		}
 		tableOpts = append(tableOpts, headerAlign(opts)...)
+		tableOpts = append(tableOpts, xheader...)
 		builder := NewTableEncoder
 		if format == "wrapped" {
 			tableOpts = append(tableOpts, WithWrapWidth(columns(opts)))
@@ -266,6 +273,47 @@ func headerAlign(opts map[string]string) []Option {
 		return []Option{WithHeaderAlignColumn(true)}
 	}
 	return nil
+}
+
+// xheaderWidth returns the options for xheader_width, which psql 16 added. It
+// reads the value as psql does: full, column and page in any case, or else the
+// leading number of the value. A negative number is full. Zero, or a value
+// with no number, is an error.
+func xheaderWidth(opts map[string]string) ([]Option, error) {
+	s, ok := opts["xheader_width"]
+	switch {
+	case !ok, strings.EqualFold(s, "full"):
+		return nil, nil
+	case strings.EqualFold(s, "column"):
+		return []Option{WithExpandedHeaderColumn(true)}, nil
+	case strings.EqualFold(s, "page"):
+		// note: with no columns and no terminal, the width is 0, which is
+		// full, as in psql
+		return []Option{WithExpandedHeaderWidth(columns(opts))}, nil
+	}
+	n := atoi(s)
+	if n == 0 {
+		return nil, ErrInvalidExpandedHeaderWidth
+	}
+	return []Option{WithExpandedHeaderWidth(n)}, nil
+}
+
+// atoi returns the leading number of s, after any white space, or 0, as atoi
+// in C does.
+func atoi(s string) int {
+	s = strings.TrimLeft(s, " \t\n\v\f\r")
+	neg := false
+	if s != "" && (s[0] == '-' || s[0] == '+') {
+		neg, s = s[0] == '-', s[1:]
+	}
+	n := 0
+	for i := 0; i < len(s) && '0' <= s[i] && s[i] <= '9' && n < math.MaxInt32; i++ {
+		n = n*10 + int(s[i]-'0')
+	}
+	if neg {
+		return -n
+	}
+	return n
 }
 
 // columns returns the width that psql wraps and expands to: the columns
@@ -611,6 +659,40 @@ func WithHeaderAlignColumn(enable bool) Option {
 	return option{
 		table: func(enc *TableEncoder) error {
 			enc.headerAlignColumn = enable
+			return nil
+		},
+	}
+}
+
+// WithExpandedHeaderWidth is an encoder option that sets the width of the
+// header line of each expanded record, as the psql variable xheader_width
+// does with a number. The line is not shorter than its label, and not wider
+// than the records. Zero or a negative width writes the full width, which is
+// the default (D76).
+func WithExpandedHeaderWidth(width int) Option {
+	return option{
+		table: func(enc *TableEncoder) error {
+			enc.xheaderWidth = width
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
+			enc.xheaderWidth = width
+			return nil
+		},
+	}
+}
+
+// WithExpandedHeaderColumn is an encoder option that ends the header line of
+// each expanded record at the separator of the first column, as the psql
+// variable xheader_width does with column (D76).
+func WithExpandedHeaderColumn(enable bool) Option {
+	return option{
+		table: func(enc *TableEncoder) error {
+			enc.xheaderColumn = enable
+			return nil
+		},
+		expanded: func(enc *ExpandedEncoder) error {
+			enc.xheaderColumn = enable
 			return nil
 		},
 	}

@@ -88,6 +88,11 @@ type TableEncoder struct {
 	// minExpandWidth is the table width at which the encoder switches to the
 	// ExpandedEncoder. Zero turns off the switch.
 	minExpandWidth int
+	// xheaderWidth is the width of the header line of an expanded record, or
+	// 0 for the full width. xheaderColumn ends the line at the column
+	// separator. They are the psql variable xheader_width (D76).
+	xheaderWidth  int
+	xheaderColumn bool
 	// scanCount is the number of rows that the encoder scanned from the result
 	// set.
 	scanCount int
@@ -1102,9 +1107,12 @@ func (enc *ExpandedEncoder) recordLine(n, hwidth int, rule Rule) {
 	}
 	reclen -= hwidth
 	// each part of the separator is drawn only where the label does not
-	// cover it
+	// cover it. With xheader_width column, the line ends at the separator
 	parts := []string{" "}
-	if enc.border > 0 {
+	switch {
+	case enc.border > 0 && enc.xheaderColumn:
+		parts = []string{rule.Line, rule.Right}
+	case enc.border > 0:
 		parts = []string{rule.Line, rule.Middle, rule.Line}
 	}
 	for _, s := range parts {
@@ -1113,12 +1121,19 @@ func (enc *ExpandedEncoder) recordLine(n, hwidth int, rule Rule) {
 		}
 		reclen--
 	}
-	reclen = max(reclen, 0)
-	for i := reclen; i < max(enc.maxWidths[1], reclen); i++ {
-		_, _ = enc.w.WriteString(fill)
-	}
-	if enc.border >= 2 {
-		_, _ = enc.w.WriteString(rule.Line + rule.Right)
+	if !enc.xheaderColumn {
+		// a width cuts the line to it, but not to less than the label
+		dwidth := enc.maxWidths[1]
+		if enc.xheaderWidth > 0 {
+			dwidth = min(dwidth, max(0, enc.xheaderWidth-hwidth-[]int{0, 3, 7}[min(enc.border, 2)]))
+		}
+		reclen = max(reclen, 0)
+		for i := reclen; i < max(dwidth, reclen); i++ {
+			_, _ = enc.w.WriteString(fill)
+		}
+		if enc.border >= 2 {
+			_, _ = enc.w.WriteString(rule.Line + rule.Right)
+		}
 	}
 	_, _ = enc.w.Write(enc.newline)
 }

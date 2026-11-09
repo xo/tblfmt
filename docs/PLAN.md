@@ -99,6 +99,7 @@ A line number in D1 to D30 is at `04af38a`.
 | [D73](#d73-the-numeric-locale-writes-a-number-as-the-locale-does-decided) | The numeric locale writes a number as the locale does | Decided |
 | [D74](#d74-the-markdown-format-escapes-each-backslash-amends-d69) | The markdown format escapes each backslash | Amends D69 |
 | [D75](#d75-withnewline-sets-the-newline-of-each-line-in-each-format-decided) | WithNewline sets the newline of each line in each format | Decided |
+| [D76](#d76-xheader_width-sets-the-header-line-of-an-expanded-record-decided) | xheader_width sets the header line of an expanded record | Decided |
 
 ### D1. psql is the reference for the output. Decided.
 
@@ -1604,6 +1605,37 @@ record separator, as psql writes `recordsep`: between two lines, and not after
 the last line of the unaligned format. `TestWithNewlineFormats` makes sure
 that the output with `\r\n` is the output with `\n`, with each newline
 replaced.
+
+### D76. xheader_width sets the header line of an expanded record. Decided.
+
+Certainty: High.
+
+Date: 2026-11-09.
+
+psql 16 added `\pset xheader_width`. It sets the width of the line above each
+expanded record, which holds `[ RECORD n ]`. usql asked for it on 2026-11-09,
+for its backlog item W81. tblfmt follows `print_aligned_vertical_line` in
+`src/fe_utils/print.c` of psql 18:
+
+- `full`, the default, draws the line as wide as the records.
+- `column` ends the line at the separator of the first column. With a border
+  of 2, the separator is the right corner, and the line under the last record
+  ends there too.
+- A number cuts the line to that width. The line is not shorter than its
+  label, and not wider than `full`.
+- `page` is the number in `columns`, or else the width of the terminal. With
+  neither, it is `full`.
+
+`FromMap` reads `xheader_width` for the aligned and wrapped formats, as psql
+reads it: the words in any case, or else the leading number of the value, as
+`atoi` in C reads it. A negative number is `full`. Zero, an empty value or a
+value with no number returns `ErrInvalidExpandedHeaderWidth`, where psql
+refuses the value. `WithExpandedHeaderWidth` and `WithExpandedHeaderColumn`
+set it for a caller that does not use `FromMap`.
+
+`TestPsql` compares each value, each border and the wrapped format with psql
+18.6. Each golden set has the cases 48 and 49. `TestGoldenAlignment` skips
+them, because the header line is shorter than the record on purpose.
 
 ## Open questions for Ken
 

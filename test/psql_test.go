@@ -186,12 +186,32 @@ func psqlGroups() []psqlGroup {
 		{"format": "unaligned", "numericlocale": "on"},
 		{"format": "html", "numericlocale": "on"},
 	}
+	// xheader_width cuts or ends the header line of each expanded record
+	var xheader []map[string]string
+	for _, width := range []string{"full", "column", "page", "20", "5", "40", "-3", "COLUMN"} {
+		for _, border := range []string{"0", "1", "2"} {
+			for _, style := range []string{"ascii", "unicode"} {
+				xheader = append(xheader,
+					map[string]string{"format": "aligned", "expanded": "on", "xheader_width": width, "border": border, "linestyle": style, "columns": "30"},
+					map[string]string{"format": "wrapped", "expanded": "on", "xheader_width": width, "border": border, "linestyle": style, "columns": "30"},
+				)
+			}
+		}
+		xheader = append(xheader, map[string]string{"format": "aligned", "expanded": "on", "xheader_width": width, "tuples_only": "on", "border": "2"})
+	}
+	xheaderQueries := []string{
+		`select 1 as a, 'a much longer value that is wide' as b`,
+		`select g as n, repeat('x', g * 7) as v from generate_series(1, 3) g`,
+		`select 1 as a_very_long_column_name, 'x' as b`,
+		`select 1 as a where false`,
+	}
 	return []psqlGroup{
 		{table, aligned},
 		{templates, text},
 		{unaligned, aligned},
 		{csv, basic},
 		{locale, []string{floats}},
+		{xheader, xheaderQueries},
 	}
 }
 

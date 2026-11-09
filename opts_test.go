@@ -272,7 +272,9 @@ func TestGoldenAlignment(t *testing.T) {
 	t.Parallel()
 	for _, typ := range slices.Sorted(maps.Keys(goldenSets)) {
 		for _, test := range loadTests(t, typ) {
-			if test.opts["border"] != "2" || (test.opts["format"] != "aligned" && test.opts["format"] != "wrapped") {
+			// note: xheader_width makes the header line of a record shorter
+			// on purpose, as psql does (D76)
+			if test.opts["border"] != "2" || (test.opts["format"] != "aligned" && test.opts["format"] != "wrapped") || test.opts["xheader_width"] != "" {
 				continue
 			}
 			t.Run(typ+"/"+test.idstr, func(t *testing.T) {
